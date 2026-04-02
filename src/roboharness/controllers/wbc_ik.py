@@ -192,7 +192,8 @@ class WbcIkController:
         self._configuration.q = qpos.copy()
         self._configuration.update()
 
-        # Set target for each end-effector task
+        # Set target for each end-effector task (only include tasks with targets)
+        active_tasks = []
         for frame_name, task in self._tasks.items():
             if frame_name in command:
                 target_matrix = np.asarray(command[frame_name], dtype=np.float64)
@@ -201,12 +202,13 @@ class WbcIkController:
                     target_matrix[:3, 3],
                 )
                 task.set_target(target_se3)
+                active_tasks.append(task)
 
         # Set posture task target
         self._posture_task.set_target(self._q_ref)
 
-        # Collect all tasks
-        all_tasks = list(self._tasks.values()) + [self._posture_task]
+        # Collect active frame tasks + posture regularisation
+        all_tasks = active_tasks + [self._posture_task]
 
         # Iterative QP solve
         dt = self._settings.dt

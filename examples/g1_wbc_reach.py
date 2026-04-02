@@ -1,0 +1,502 @@
+#!/usr/bin/env python3
+"""G1 WBC Reach Example — Humanoid IK-based reaching with Roboharness.
+
+Demonstrates the Controller protocol with a Unitree G1 humanoid robot:
+  1. Load G1 model from MuJoCo Menagerie (via robot_descriptions)
+  2. Use WbcIkController (Pinocchio + Pink) to solve arm IK
+  3. Reach toward target positions with both arms
+  4. Capture multi-view screenshots at each checkpoint
+
+Run:
+    pip install roboharness[mujoco,wbc] robot_descriptions Pillow
+    python examples/g1_wbc_reach.py
+
+Output:
+    ./harness_output/g1_wbc_reach/trial_001/
+        stand/       — initial standing pose
+        reach_left/  — left arm reaching toward target
+        reach_both/  — both arms reaching
+        retract/     — arms retracted to rest
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import os
+from pathlib import Path
+
+import numpy as np
+
+# ---------------------------------------------------------------------------
+# Scene builder: G1 + table + target objects + cameras
+# ---------------------------------------------------------------------------
+
+def build_scene_xml() -> str:
+    """Build MJCF XML for G1 reaching scene.
+
+    Includes the menagerie G1, a ground plane, a table with target
+    objects, and multiple cameras.
+    """
+    from robot_descriptions import g1_mj_description
+
+    g1_xml_path = g1_mj_description.MJCF_PATH
+    g1_dir = os.path.dirname(g1_xml_path)
+
+    return f"""\
+<mujoco model="g1_reach_scene">
+  <include file="{g1_xml_path}"/>
+
+  <option gravity="0 0 -9.81" timestep="0.002"/>
+  <compiler meshdir="{g1_dir}/assets"/>
+
+  <statistic center="0 0 0.8" extent="1.5"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0.5 0.5 0.5"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.6 0.8 1.0" rgb2="0.2 0.3 0.5"
+             width="256" height="256"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.85 0.85 0.85" rgb2="0.65 0.65 0.65"
+             width="256" height="256"/>
+    <material name="grid_mat" texture="grid" texrepeat="8 8" reflectance="0.1"/>
+    <material name="table_mat" rgba="0.55 0.35 0.2 1"/>
+    <material name="target_red" rgba="0.9 0.15 0.15 1"/>
+    <material name="target_green" rgba="0.15 0.8 0.15 1"/>
+  </asset>
+
+  <worldbody>
+    <geom name="floor" type="plane" size="3 3 0.05" material="grid_mat"/>
+    <light pos="1 1 3" dir="-0.3 -0.3 -1" diffuse="0.7 0.7 0.7"/>
+    <light pos="-1 1 3" dir="0.3 -0.3 -1" diffuse="0.4 0.4 0.4"/>
+
+    <!-- Cameras -->
+    <camera name="front" pos="1.8 0 1.0" xyaxes="0 1 0 -0.3 0 1"/>
+    <camera name="side" pos="0 2.0 1.0" xyaxes="-1 0 0 0 -0.3 1"/>
+    <camera name="top" pos="0 0 3.0" xyaxes="1 0 0 0 1 0"/>
+    <camera name="close_up" pos="0.7 0.3 1.1" xyaxes="-0.4 1 0 -0.3 -0.1 1"/>
+
+    <!-- Table in front of robot -->
+    <body name="table" pos="0.45 0 0.35">
+      <geom type="box" size="0.25 0.35 0.02" material="table_mat"/>
+      <geom type="cylinder" size="0.02 0.17" pos=" 0.2  0.3 -0.19"/>
+      <geom type="cylinder" size="0.02 0.17" pos="-0.2  0.3 -0.19"/>
+      <geom type="cylinder" size="0.02 0.17" pos=" 0.2 -0.3 -0.19"/>
+      <geom type="cylinder" size="0.02 0.17" pos="-0.2 -0.3 -0.19"/>
+    </body>
+
+    <!-- Target objects on table -->
+    <body name="target_left" pos="0.4 0.15 0.40">
+      <joint type="free"/>
+      <geom type="sphere" size="0.03" mass="0.05" material="target_red"/>
+    </body>
+    <body name="target_right" pos="0.4 -0.15 0.40">
+      <joint type="free"/>
+      <geom type="sphere" size="0.03" mass="0.05" material="target_green"/>
+    </body>
+  </worldbody>
+</mujoco>
+"""
+
+
+# ---------------------------------------------------------------------------
+# Joint mapping: MuJoCo <-> Pinocchio
+# ---------------------------------------------------------------------------
+
+# Arm joint names (7 per arm)
+LEFT_ARM_JOINTS = [
+    "left_shoulder_pitch_joint",
+    "left_shoulder_roll_joint",
+    "left_shoulder_yaw_joint",
+    "left_elbow_joint",
+    "left_wrist_roll_joint",
+    "left_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+]
+RIGHT_ARM_JOINTS = [
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "right_wrist_roll_joint",
+    "right_wrist_pitch_joint",
+    "right_wrist_yaw_joint",
+]
+
+
+class JointMapper:
+    """Handles joint mapping between MuJoCo and Pinocchio models.
+
+    MuJoCo qpos includes the floating base (7 DOF) plus all joints including
+    free bodies for objects.  Pinocchio URDF has only the 29 robot joints.
+    This class maps by actuator/joint name so the exact qpos layout doesn't
+    matter.
+    """
+
+    def __init__(self, mj_model) -> None:
+        import mujoco
+
+        self._mj = mujoco
+        self._mj_model = mj_model
+
+        # Build MuJoCo joint name → qpos index mapping (for 1-DOF hinge/slide joints)
+        self._mj_joint_qpos: dict[str, int] = {}
+        for i in range(mj_model.njnt):
+            name = mujoco.mj_id2name(mj_model, mujoco.mjtObj.mjOBJ_JOINT, i)
+            if name and mj_model.jnt_type[i] in (2, 3):  # hinge or slide
+                self._mj_joint_qpos[name] = mj_model.jnt_qposadr[i]
+
+        # Build MuJoCo actuator name → ctrl index mapping
+        self._mj_act_ctrl: dict[str, int] = {}
+        for i in range(mj_model.nu):
+            name = mujoco.mj_id2name(mj_model, mujoco.mjtObj.mjOBJ_ACTUATOR, i)
+            if name:
+                self._mj_act_ctrl[name] = i
+
+        # Build Pinocchio joint name → q index mapping
+        import pinocchio as pin
+        from robot_descriptions import g1_description
+
+        pin_model = pin.buildModelFromUrdf(g1_description.URDF_PATH)
+        self._pin_joint_q: dict[str, int] = {}
+        idx = 0
+        for i in range(1, pin_model.njoints):
+            self._pin_joint_q[pin_model.names[i]] = idx
+            idx += pin_model.joints[i].nq
+
+        # Ordered list of actuated joint names (shared between MuJoCo and Pinocchio)
+        self.actuated_joints = [
+            name for name in self._mj_act_ctrl if name in self._pin_joint_q
+        ]
+
+    def mj_qpos_to_pin_q(self, mj_qpos: np.ndarray) -> np.ndarray:
+        """Extract Pinocchio q vector from MuJoCo qpos by joint name matching."""
+        pin_q = np.zeros(len(self._pin_joint_q))
+        for name, pin_idx in self._pin_joint_q.items():
+            mj_addr = self._mj_joint_qpos.get(name)
+            if mj_addr is not None:
+                pin_q[pin_idx] = mj_qpos[mj_addr]
+        return pin_q
+
+    def pin_q_to_ctrl(
+        self,
+        pin_q: np.ndarray,
+        current_ctrl: np.ndarray,
+        joint_names: list[str],
+    ) -> np.ndarray:
+        """Update MuJoCo ctrl with Pinocchio q values for specific joints."""
+        ctrl = current_ctrl.copy()
+        for name in joint_names:
+            pin_idx = self._pin_joint_q.get(name)
+            act_idx = self._mj_act_ctrl.get(name)
+            if pin_idx is not None and act_idx is not None:
+                ctrl[act_idx] = pin_q[pin_idx]
+        return ctrl
+
+    def standing_ctrl(self, mj_qpos: np.ndarray) -> np.ndarray:
+        """Get ctrl array that holds all actuated joints at their current qpos."""
+        ctrl = np.zeros(self._mj_model.nu)
+        for name, act_idx in self._mj_act_ctrl.items():
+            mj_addr = self._mj_joint_qpos.get(name)
+            if mj_addr is not None:
+                ctrl[act_idx] = mj_qpos[mj_addr]
+        return ctrl
+
+
+# ---------------------------------------------------------------------------
+# IK reach targets
+# ---------------------------------------------------------------------------
+
+def make_target_pose(pos: np.ndarray, approach_axis: str = "-z") -> np.ndarray:
+    """Create a 4x4 homogeneous transform for a target end-effector pose.
+
+    The orientation is set so the hand approaches from the given axis.
+    """
+    T = np.eye(4)
+    T[:3, 3] = pos
+    if approach_axis == "-z":
+        # Hand pointing down (palm facing down)
+        T[:3, :3] = np.array([
+            [1, 0, 0],
+            [0, -1, 0],
+            [0, 0, -1],
+        ], dtype=np.float64)
+    elif approach_axis == "-x":
+        # Hand reaching forward
+        T[:3, :3] = np.array([
+            [0, 0, -1],
+            [0, -1, 0],
+            [-1, 0, 0],
+        ], dtype=np.float64)
+    return T
+
+
+# ---------------------------------------------------------------------------
+# Reach motion controller
+# ---------------------------------------------------------------------------
+
+def run_ik_reach(
+    controller,
+    mapper: JointMapper,
+    state: dict,
+    targets: dict[str, np.ndarray],
+    current_ctrl: np.ndarray,
+    arm_joints: list[str],
+) -> np.ndarray:
+    """Run IK controller and return MuJoCo ctrl for the target pose."""
+    pin_q = mapper.mj_qpos_to_pin_q(np.asarray(state["qpos"]))
+    ik_result = controller.compute(
+        command=targets,
+        state={"qpos": pin_q},
+    )
+    return mapper.pin_q_to_ctrl(ik_result, current_ctrl, arm_joints)
+
+
+# ---------------------------------------------------------------------------
+# HTML report generator
+# ---------------------------------------------------------------------------
+
+def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> Path:
+    """Generate a self-contained HTML report for G1 WBC reach demo."""
+    trial_dir = output_dir / task_name / "trial_001"
+    if not trial_dir.exists():
+        return output_dir / f"{task_name}_report.html"
+
+    checkpoints = sorted(
+        [d for d in trial_dir.iterdir() if d.is_dir()],
+        key=lambda p: p.name,
+    )
+
+    rows_html = []
+    for cp_dir in checkpoints:
+        cp_name = cp_dir.name
+        meta_path = cp_dir / "metadata.json"
+        meta = {}
+        if meta_path.exists():
+            with open(meta_path) as f:
+                meta = json.load(f)
+
+        images_html = []
+        for img_file in sorted(cp_dir.glob("*_rgb.png")):
+            cam_name = img_file.stem.replace("_rgb", "")
+            with open(img_file, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode()
+            images_html.append(
+                f'<div class="cam">'
+                f'<img src="data:image/png;base64,{b64}" alt="{cam_name}"/>'
+                f"<p>{cam_name}</p></div>"
+            )
+
+        step = meta.get("step", "?")
+        sim_time = meta.get("sim_time", "?")
+        if isinstance(sim_time, float):
+            sim_time = f"{sim_time:.3f}"
+
+        rows_html.append(
+            f'<div class="checkpoint">'
+            f"<h2>{cp_name}</h2>"
+            f"<p>Step: {step} | Sim time: {sim_time}s</p>"
+            f'<div class="views">{"".join(images_html)}</div>'
+            f"</div>"
+        )
+
+    html = f"""\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Roboharness: G1 WBC Reach</title>
+<style>
+  body {{ font-family: -apple-system, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px;
+         background: #f5f5f5; }}
+  h1 {{ color: #333; border-bottom: 2px solid #d94a4a; padding-bottom: 10px; }}
+  .checkpoint {{ background: white; border-radius: 8px; padding: 20px; margin: 20px 0;
+                 box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+  .checkpoint h2 {{ color: #d94a4a; margin-top: 0; }}
+  .views {{ display: flex; gap: 16px; flex-wrap: wrap; }}
+  .cam {{ text-align: center; }}
+  .cam img {{ max-width: 320px; border: 1px solid #ddd; border-radius: 4px; }}
+  .cam p {{ margin: 4px 0 0; font-size: 14px; color: #666; }}
+  .footer {{ margin-top: 30px; color: #999; font-size: 12px; }}
+</style>
+</head>
+<body>
+<h1>Roboharness: G1 Humanoid WBC Reach</h1>
+<p>Unitree G1 reaching targets using differential IK (Pinocchio + Pink).
+Controller Protocol demo with multi-view checkpoint captures.</p>
+{"".join(rows_html)}
+<div class="footer">
+  Generated by <code>examples/g1_wbc_reach.py --report</code>
+</div>
+</body>
+</html>
+"""
+    report_path = output_dir / f"{task_name}_report.html"
+    report_path.write_text(html)
+    return report_path
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="G1 WBC Reach Example")
+    parser.add_argument("--output-dir", default="./harness_output")
+    parser.add_argument("--report", action="store_true")
+    parser.add_argument("--width", type=int, default=640)
+    parser.add_argument("--height", type=int, default=480)
+    args = parser.parse_args()
+
+    import mujoco
+
+    from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
+    from roboharness.controllers.wbc_ik import WbcIkController, WbcIkSettings
+    from roboharness.core.harness import Harness
+
+    output_dir = Path(args.output_dir)
+    cameras = ["front", "side", "top", "close_up"]
+
+    print("=" * 60)
+    print("  Roboharness: G1 Humanoid WBC Reach Example")
+    print("=" * 60)
+
+    # 1. Load scene
+    print("\n[1/5] Building G1 scene ...")
+    scene_xml = build_scene_xml()
+    backend = MuJoCoMeshcatBackend(
+        xml_string=scene_xml,
+        cameras=cameras,
+        render_width=args.width,
+        render_height=args.height,
+    )
+    mj_model = backend._model
+    mj_data = backend._data
+    print(f"      Model loaded. nq={mj_model.nq}, nu={mj_model.nu}")
+
+    # 2. Set standing keyframe and build joint mapper
+    print("[2/5] Setting standing pose ...")
+    key_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_KEY, "stand")
+    if key_id >= 0:
+        mujoco.mj_resetDataKeyframe(mj_model, mj_data, key_id)
+        mujoco.mj_forward(mj_model, mj_data)
+
+    mapper = JointMapper(mj_model)
+    stand_ctrl = mapper.standing_ctrl(mj_data.qpos)
+    np.copyto(mj_data.ctrl, stand_ctrl)
+    backend._visualizer.sync()
+    print("      Standing keyframe applied.")
+
+    # 3. Create WBC IK controller
+    print("[3/5] Initializing WBC IK controller ...")
+    from robot_descriptions import g1_description
+
+    ee_frames = ["left_rubber_hand", "right_rubber_hand"]
+    settings = WbcIkSettings(
+        dt=0.05,
+        num_iterations=5,
+        position_cost=10.0,
+        orientation_cost=1.0,
+        posture_cost=1e-2,
+        damping=1e-3,
+    )
+
+    stand_q = mapper.mj_qpos_to_pin_q(mj_data.qpos)
+    controller = WbcIkController(
+        urdf_path=g1_description.URDF_PATH,
+        end_effector_frames=ee_frames,
+        settings=settings,
+        reference_configuration=stand_q,
+    )
+    print(f"      IK controller ready. EE frames: {ee_frames}")
+
+    # 4. Set up harness and run reach sequence
+    print("[4/5] Running reach sequence ...")
+    task_name = "g1_wbc_reach"
+    harness = Harness(backend, output_dir=str(output_dir), task_name=task_name)
+
+    phase_names = ["stand", "reach_left", "reach_both", "retract"]
+    for name in phase_names:
+        harness.add_checkpoint(name, cameras=cameras)
+
+    harness.reset()
+    # Re-apply standing keyframe after reset
+    if key_id >= 0:
+        mujoco.mj_resetDataKeyframe(mj_model, mj_data, key_id)
+        mujoco.mj_forward(mj_model, mj_data)
+    np.copyto(mj_data.ctrl, stand_ctrl)
+    backend._visualizer.sync()
+
+    all_arm_joints = LEFT_ARM_JOINTS + RIGHT_ARM_JOINTS
+
+    # -- Phase 1: Stand (capture initial pose)
+    actions_stand = [stand_ctrl.copy() for _ in range(200)]
+    result = harness.run_to_next_checkpoint(actions_stand)
+    _print_checkpoint(result)
+
+    # -- Phase 2: Left arm reach toward target
+    state = harness.get_state()
+    left_target = make_target_pose(np.array([0.35, 0.20, 0.55]), approach_axis="-x")
+    ctrl = run_ik_reach(
+        controller, mapper, state,
+        {"left_rubber_hand": left_target},
+        mj_data.ctrl, all_arm_joints,
+    )
+    actions_reach_left = [ctrl for _ in range(600)]
+    result = harness.run_to_next_checkpoint(actions_reach_left)
+    _print_checkpoint(result)
+
+    # -- Phase 3: Both arms reach
+    state = harness.get_state()
+    right_target = make_target_pose(np.array([0.35, -0.20, 0.55]), approach_axis="-x")
+    ctrl = run_ik_reach(
+        controller, mapper, state,
+        {"left_rubber_hand": left_target, "right_rubber_hand": right_target},
+        mj_data.ctrl, all_arm_joints,
+    )
+    actions_reach_both = [ctrl for _ in range(600)]
+    result = harness.run_to_next_checkpoint(actions_reach_both)
+    _print_checkpoint(result)
+
+    # -- Phase 4: Retract to standing
+    actions_retract = [stand_ctrl.copy() for _ in range(600)]
+    result = harness.run_to_next_checkpoint(actions_retract)
+    _print_checkpoint(result)
+
+    # 5. Summary
+    print("\n[5/5] Done!")
+    trial_dir = output_dir / task_name / "trial_001"
+    total_images = len(list(trial_dir.rglob("*_rgb.png"))) if trial_dir.exists() else 0
+    print(f"      {total_images} images saved to: {trial_dir}")
+
+    if args.report:
+        report_path = generate_html_report(output_dir, task_name)
+        print(f"      HTML report: {report_path}")
+
+    print("\n  Output structure:")
+    if trial_dir.exists():
+        for cp_dir in sorted(trial_dir.iterdir()):
+            if cp_dir.is_dir():
+                files = sorted(f.name for f in cp_dir.iterdir() if f.is_file())
+                print(f"    {cp_dir.name}/")
+                for fname in files:
+                    print(f"      {fname}")
+
+    print("\n" + "=" * 60)
+
+
+def _print_checkpoint(result) -> None:
+    if result:
+        print(
+            f"      Checkpoint '{result.checkpoint_name}': "
+            f"{len(result.views)} views | step={result.step} | "
+            f"sim_time={result.sim_time:.3f}s"
+        )
+
+
+if __name__ == "__main__":
+    main()

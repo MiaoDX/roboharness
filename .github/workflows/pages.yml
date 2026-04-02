@@ -26,31 +26,101 @@ jobs:
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
 
-      - name: Install package with MuJoCo and Meshcat backends
-        run: pip install -e ".[mujoco,meshcat]" Pillow
+      - name: Install package with all backends
+        run: pip install -e ".[mujoco,meshcat,wbc]" robot_descriptions Pillow
 
       - name: Run MuJoCo grasp example
         env:
           MUJOCO_GL: osmesa
         run: python examples/mujoco_grasp.py --report --output-dir ./harness_output
 
+      - name: Run G1 WBC reach example
+        env:
+          MUJOCO_GL: osmesa
+        run: python examples/g1_wbc_reach.py --report --output-dir ./harness_output
+
       - name: Build Pages site
         run: |
           mkdir -p _site
 
-          # Copy the HTML report
-          cp harness_output/report.html _site/index.html
-
-          # Copy all checkpoint images and Meshcat exports (flat structure for easy linking)
+          # --- Demo 1: Simple Grasp (with Meshcat 3D) ---
+          mkdir -p _site/grasp
+          cp harness_output/report.html _site/grasp/index.html
           for cp_dir in harness_output/mujoco_grasp/trial_001/*/; do
             cp_name=$(basename "$cp_dir")
-            mkdir -p "_site/${cp_name}"
-            cp "${cp_dir}"*_rgb.png "_site/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"*_depth_viz.png "_site/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"meshcat_scene.html "_site/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"metadata.json "_site/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"state.json "_site/${cp_name}/" 2>/dev/null || true
+            mkdir -p "_site/grasp/${cp_name}"
+            cp "${cp_dir}"*_rgb.png "_site/grasp/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"*_depth_viz.png "_site/grasp/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"meshcat_scene.html "_site/grasp/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"metadata.json "_site/grasp/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"state.json "_site/grasp/${cp_name}/" 2>/dev/null || true
           done
+
+          # --- Demo 2: G1 WBC Reach ---
+          mkdir -p _site/g1-reach
+          cp harness_output/g1_wbc_reach_report.html _site/g1-reach/index.html
+          for cp_dir in harness_output/g1_wbc_reach/trial_001/*/; do
+            cp_name=$(basename "$cp_dir")
+            mkdir -p "_site/g1-reach/${cp_name}"
+            cp "${cp_dir}"*_rgb.png "_site/g1-reach/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"*_depth_viz.png "_site/g1-reach/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"meshcat_scene.html "_site/g1-reach/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"metadata.json "_site/g1-reach/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"state.json "_site/g1-reach/${cp_name}/" 2>/dev/null || true
+          done
+
+          # --- Landing page ---
+          cat > _site/index.html << 'LANDING'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+          <meta charset="utf-8"/>
+          <title>Roboharness Visual Reports</title>
+          <style>
+            body { font-family: -apple-system, sans-serif; max-width: 900px; margin: 0 auto;
+                   padding: 40px 20px; background: #f5f5f5; }
+            h1 { color: #333; border-bottom: 2px solid #4a90d9; padding-bottom: 10px; }
+            .demos { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 30px; }
+            .demo-card { background: white; border-radius: 12px; padding: 24px;
+                         box-shadow: 0 2px 8px rgba(0,0,0,0.1); flex: 1; min-width: 300px;
+                         text-decoration: none; color: inherit; transition: transform 0.2s; }
+            .demo-card:hover { transform: translateY(-4px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+            .demo-card h2 { color: #4a90d9; margin-top: 0; }
+            .demo-card.g1 h2 { color: #d94a4a; }
+            .tag { display: inline-block; padding: 2px 8px; border-radius: 4px;
+                   font-size: 12px; font-weight: 600; margin-right: 6px; }
+            .tag-cpu { background: #e8f5e9; color: #2e7d32; }
+            .tag-ik { background: #e3f2fd; color: #1565c0; }
+            .tag-humanoid { background: #fce4ec; color: #c62828; }
+            .tag-3d { background: #fff3e0; color: #e65100; }
+            .footer { margin-top: 40px; color: #999; font-size: 12px; }
+          </style>
+          </head>
+          <body>
+          <h1>Roboharness: Visual Reports</h1>
+          <p>Automated visual checkpoint captures from robot simulation demos.</p>
+          <div class="demos">
+            <a class="demo-card" href="grasp/">
+              <h2>Simple Grasp</h2>
+              <p><span class="tag tag-cpu">CPU</span><span class="tag tag-3d">Meshcat 3D</span>
+              Scripted 2-finger gripper grasping a cube.
+              Multi-view captures at 4 checkpoints with interactive 3D scenes.</p>
+              <p style="color:#888; font-size:13px;">MuJoCo inline model &middot; 3 cameras &middot; position control</p>
+            </a>
+            <a class="demo-card g1" href="g1-reach/">
+              <h2>G1 Humanoid WBC Reach</h2>
+              <p><span class="tag tag-humanoid">Humanoid</span><span class="tag tag-ik">IK</span><span class="tag tag-cpu">CPU</span>
+              Unitree G1 reaching targets using differential IK (Pinocchio + Pink).
+              Controller Protocol demo with 4 checkpoints.</p>
+              <p style="color:#888; font-size:13px;">MuJoCo Menagerie &middot; 4 cameras &middot; WbcIkController</p>
+            </a>
+          </div>
+          <div class="footer">
+            Generated by <a href="https://github.com/MiaoDX/roboharness">Roboharness</a> CI/CD pipeline.
+          </div>
+          </body>
+          </html>
+          LANDING
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
