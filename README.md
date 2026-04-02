@@ -64,6 +64,20 @@ This runs a scripted grasp sequence, captures multi-view screenshots at each che
 | ![pre_grasp](assets/example_mujoco_grasp/pre_grasp_front.png) | ![contact](assets/example_mujoco_grasp/contact_front.png) | ![grasp](assets/example_mujoco_grasp/grasp_front.png) | ![lift](assets/example_mujoco_grasp/lift_front.png) |
 | Gripper hovering above cube | Lowered onto cube | Fingers closed | Cube lifted off table |
 
+### G1 Humanoid WBC Reach Example (IK Controller)
+
+Unitree G1 humanoid reaching targets using differential IK (Pinocchio + Pink):
+
+```bash
+pip install roboharness[mujoco,wbc] robot_descriptions Pillow
+python examples/g1_wbc_reach.py --report
+```
+
+| stand | reach_left | reach_both | retract |
+|:-:|:-:|:-:|:-:|
+| ![stand](assets/example_g1_wbc_reach/stand_front.png) | ![reach_left](assets/example_g1_wbc_reach/reach_left_front.png) | ![reach_both](assets/example_g1_wbc_reach/reach_both_front.png) | ![retract](assets/example_g1_wbc_reach/retract_front.png) |
+| Standing pose | Left arm reaching | Both arms reaching | Arms retracted |
+
 ### Option 1: Gymnasium Wrapper (Zero-Change Integration)
 
 Wrap any Gymnasium-compatible environment with one line:
