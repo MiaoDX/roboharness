@@ -148,7 +148,7 @@ class MeshcatVisualizer:
             material = g.MeshPhongMaterial(
                 color=self._rgba_to_hex(rgba),
                 opacity=float(rgba[3]),
-                transparent=rgba[3] < 1.0,
+                transparent=bool(rgba[3] < 1.0),
             )
 
             geometry = self._make_geometry(geom_type, geom_size)
@@ -307,4 +307,4 @@ class MeshcatVisualizer:
     def _rgba_to_hex(rgba: np.ndarray) -> int:
         """Convert RGBA [0,1] float array to hex color integer."""
         r, g, b = (np.clip(rgba[:3] * 255, 0, 255)).astype(int)
-        return (r << 16) | (g << 8) | b
+        return int((r << 16) | (g << 8) | b)

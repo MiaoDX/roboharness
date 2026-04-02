@@ -291,6 +291,19 @@ def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> P
                 f"<p>{cam_name}</p></div>"
             )
 
+        # Check for Meshcat interactive HTML export
+        meshcat_file = cp_dir / "meshcat_scene.html"
+        meshcat_html = ""
+        if meshcat_file.exists():
+            meshcat_rel = f"{cp_name}/meshcat_scene.html"
+            meshcat_html = (
+                f'<div class="meshcat-viewer">'
+                f"<h3>Interactive 3D Scene</h3>"
+                f'<iframe src="{meshcat_rel}" loading="lazy"></iframe>'
+                f"<p>Rotate, pan, and zoom to explore the scene.</p>"
+                f"</div>"
+            )
+
         step = meta.get("step", "?")
         sim_time = meta.get("sim_time", "?")
         if isinstance(sim_time, float):
@@ -300,7 +313,10 @@ def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> P
             f'<div class="checkpoint">'
             f"<h2>{cp_name}</h2>"
             f"<p>Step: {step} | Sim time: {sim_time}s</p>"
+            f'<div class="checkpoint-content">'
             f'<div class="views">{"".join(images_html)}</div>'
+            f"{meshcat_html}"
+            f"</div>"
             f"</div>"
         )
 
@@ -311,16 +327,22 @@ def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> P
 <meta charset="utf-8"/>
 <title>Roboharness: G1 WBC Reach</title>
 <style>
-  body {{ font-family: -apple-system, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px;
+  body {{ font-family: -apple-system, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px;
          background: #f5f5f5; }}
   h1 {{ color: #333; border-bottom: 2px solid #d94a4a; padding-bottom: 10px; }}
   .checkpoint {{ background: white; border-radius: 8px; padding: 20px; margin: 20px 0;
                  box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
   .checkpoint h2 {{ color: #d94a4a; margin-top: 0; }}
-  .views {{ display: flex; gap: 16px; flex-wrap: wrap; }}
+  .checkpoint-content {{ display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }}
+  .views {{ display: flex; gap: 16px; flex-wrap: wrap; flex: 1; min-width: 300px; }}
   .cam {{ text-align: center; }}
   .cam img {{ max-width: 320px; border: 1px solid #ddd; border-radius: 4px; }}
   .cam p {{ margin: 4px 0 0; font-size: 14px; color: #666; }}
+  .meshcat-viewer {{ flex: 0 0 480px; text-align: center; }}
+  .meshcat-viewer h3 {{ color: #d94a4a; margin: 0 0 8px; font-size: 16px; }}
+  .meshcat-viewer iframe {{ width: 480px; height: 400px; border: 1px solid #ddd;
+                            border-radius: 4px; }}
+  .meshcat-viewer p {{ margin: 4px 0 0; font-size: 13px; color: #888; }}
   .footer {{ margin-top: 30px; color: #999; font-size: 12px; }}
 </style>
 </head>
@@ -355,6 +377,7 @@ def main() -> None:
     import mujoco
 
     from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
+    from roboharness.backends.visualizer import MeshcatVisualizer
     from roboharness.controllers.wbc_ik import WbcIkController, WbcIkSettings
     from roboharness.core.harness import Harness
 
@@ -377,6 +400,20 @@ def main() -> None:
     mj_model = backend._model
     mj_data = backend._data
     print(f"      Model loaded. nq={mj_model.nq}, nu={mj_model.nu}")
+
+    # Create Meshcat visualizer for interactive 3D export (if meshcat available)
+    meshcat_viz: MeshcatVisualizer | None = None
+    if args.report:
+        try:
+            meshcat_viz = MeshcatVisualizer(
+                backend._model, backend._data,
+                width=args.width, height=args.height,
+            )
+            print("      Meshcat visualizer ready for 3D scene export.")
+        except ImportError:
+            print("      Meshcat not installed — skipping interactive 3D export.")
+        except Exception as exc:
+            print(f"      Meshcat scene build failed ({exc}) — skipping 3D export.")
 
     # 2. Set standing keyframe and build joint mapper
     print("[2/5] Setting standing pose ...")
@@ -433,10 +470,19 @@ def main() -> None:
 
     all_arm_joints = LEFT_ARM_JOINTS + RIGHT_ARM_JOINTS
 
+    def _run_phase(actions, phase_name):
+        result = harness.run_to_next_checkpoint(actions)
+        _print_checkpoint(result)
+        if meshcat_viz is not None and result is not None:
+            meshcat_viz.sync()
+            trial_dir = output_dir / task_name / "trial_001" / phase_name
+            scene_path = trial_dir / "meshcat_scene.html"
+            meshcat_viz.export_html(scene_path)
+            print(f"        -> Meshcat 3D: {scene_path}")
+        return result
+
     # -- Phase 1: Stand (capture initial pose)
-    actions_stand = [stand_ctrl.copy() for _ in range(200)]
-    result = harness.run_to_next_checkpoint(actions_stand)
-    _print_checkpoint(result)
+    _run_phase([stand_ctrl.copy() for _ in range(200)], "stand")
 
     # -- Phase 2: Left arm reach toward target
     state = harness.get_state()
@@ -446,9 +492,7 @@ def main() -> None:
         {"left_rubber_hand": left_target},
         mj_data.ctrl, all_arm_joints,
     )
-    actions_reach_left = [ctrl for _ in range(600)]
-    result = harness.run_to_next_checkpoint(actions_reach_left)
-    _print_checkpoint(result)
+    _run_phase([ctrl for _ in range(600)], "reach_left")
 
     # -- Phase 3: Both arms reach
     state = harness.get_state()
@@ -458,14 +502,10 @@ def main() -> None:
         {"left_rubber_hand": left_target, "right_rubber_hand": right_target},
         mj_data.ctrl, all_arm_joints,
     )
-    actions_reach_both = [ctrl for _ in range(600)]
-    result = harness.run_to_next_checkpoint(actions_reach_both)
-    _print_checkpoint(result)
+    _run_phase([ctrl for _ in range(600)], "reach_both")
 
     # -- Phase 4: Retract to standing
-    actions_retract = [stand_ctrl.copy() for _ in range(600)]
-    result = harness.run_to_next_checkpoint(actions_retract)
-    _print_checkpoint(result)
+    _run_phase([stand_ctrl.copy() for _ in range(600)], "retract")
 
     # 5. Summary
     print("\n[5/5] Done!")
