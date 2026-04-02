@@ -19,17 +19,14 @@
     <filter id="shadow" x="-5%" y="-5%" width="115%" height="120%">
       <feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.15"/>
     </filter>
-    <marker id="arrowRight" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto-start-reverse">
       <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
-    </marker>
-    <marker id="arrowLeft" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
-      <polygon points="10 0, 0 3.5, 10 7" fill="#64748b"/>
     </marker>
     <marker id="arrowDown" markerWidth="7" markerHeight="10" refX="3.5" refY="9" orient="auto">
       <polygon points="0 0, 7 0, 3.5 10" fill="#64748b"/>
     </marker>
-    <marker id="arrowDownGray" markerWidth="7" markerHeight="10" refX="3.5" refY="9" orient="auto">
-      <polygon points="0 0, 7 0, 3.5 10" fill="#64748b"/>
+    <marker id="arrowDownLight" markerWidth="7" markerHeight="10" refX="3.5" refY="9" orient="auto">
+      <polygon points="0 0, 7 0, 3.5 10" fill="rgba(255,255,255,0.7)"/>
     </marker>
   </defs>
 
@@ -72,9 +69,9 @@
   <text x="440" y="299" text-anchor="middle" font-size="12" font-weight="600" fill="white">Return State + Images</text>
 
   <!-- Small arrows between inner steps -->
-  <line x1="440" y1="163" x2="440" y2="175" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDown)"/>
-  <line x1="440" y1="213" x2="440" y2="225" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDown)"/>
-  <line x1="440" y1="263" x2="440" y2="275" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDown)"/>
+  <line x1="440" y1="163" x2="440" y2="175" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDownLight)"/>
+  <line x1="440" y1="213" x2="440" y2="225" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDownLight)"/>
+  <line x1="440" y1="263" x2="440" y2="275" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDownLight)"/>
 
   <!-- Simulator Box -->
   <rect x="650" y="70" width="220" height="155" rx="12" fill="url(#simGrad)" filter="url(#shadow)" opacity="0.95"/>
@@ -93,30 +90,30 @@
   <text x="760" y="335" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">HTML visual reports</text>
 
   <!-- Arrows: Agent -> Harness -->
-  <line x1="230" y1="170" x2="310" y2="170" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)"/>
+  <line x1="230" y1="170" x2="310" y2="170" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
   <text x="270" y="162" text-anchor="middle" font-size="10" fill="#64748b">code</text>
 
   <!-- Arrows: Harness -> Agent (feedback) -->
-  <line x1="310" y1="260" x2="230" y2="260" stroke="#64748b" stroke-width="2" marker-end="url(#arrowLeft)"/>
+  <line x1="310" y1="260" x2="230" y2="260" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
   <text x="270" y="252" text-anchor="middle" font-size="10" fill="#64748b">images</text>
 
   <!-- Arrows: Harness -> Simulator -->
-  <line x1="570" y1="148" x2="650" y2="148" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)"/>
+  <line x1="570" y1="148" x2="650" y2="148" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
   <text x="610" y="140" text-anchor="middle" font-size="10" fill="#64748b">actions</text>
 
   <!-- Arrows: Simulator -> Harness -->
-  <line x1="650" y1="185" x2="570" y2="185" stroke="#64748b" stroke-width="2" marker-end="url(#arrowLeft)"/>
+  <line x1="650" y1="185" x2="570" y2="185" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
   <text x="610" y="200" text-anchor="middle" font-size="10" fill="#64748b">frames</text>
 
   <!-- Arrows: Harness -> Output -->
-  <line x1="570" y1="295" x2="650" y2="295" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)"/>
+  <line x1="570" y1="295" x2="650" y2="295" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- Loop arrow label -->
   <rect x="100" y="370" width="280" height="32" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
   <text x="240" y="391" text-anchor="middle" font-size="12" font-weight="600" fill="#475569">Loop until task succeeds</text>
 
   <!-- Curved loop arrow from bottom of agent back to top -->
-  <path d="M 130 350 L 130 390 L 20 390 L 20 120 L 30 120" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrowRight)"/>
+  <path d="M 130 350 L 130 390 L 20 390 L 20 120 L 30 120" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow)"/>
 
   <!-- Footer -->
   <text x="450" y="410" text-anchor="middle" font-size="11" fill="#94a3b8">Gymnasium Wrapper (1-line integration) | Core Harness API (full control) | SimulatorBackend protocol (custom)</text>
