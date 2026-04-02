@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-from robot_harness.core.capture import CameraView, CaptureResult
-from robot_harness.core.checkpoint import Checkpoint, CheckpointStore
+from roboharness.core.capture import CameraView, CaptureResult
+from roboharness.core.checkpoint import Checkpoint, CheckpointStore
 
 
 @runtime_checkable

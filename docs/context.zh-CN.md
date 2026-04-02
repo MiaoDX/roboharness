@@ -1,27 +1,27 @@
-# Robot-Harness: Context Document
+# Roboharness: Context Document
 
 > **文档版本**: v0.1-draft | **日期**: 2026-04-02
-> **用途**: 本文件是 robot-harness 项目的完整上下文文档（Context Document），供 Claude Code、Codex 等 AI Agent 在进行代码 Review、架构设计和功能开发时作为背景参考。
+> **用途**: 本文件是 roboharness 项目的完整上下文文档（Context Document），供 Claude Code、Codex 等 AI Agent 在进行代码 Review、架构设计和功能开发时作为背景参考。
 
 ## 第一部分：项目概述与动机
 
-### 1.1 什么是 Robot-Harness
+### 1.1 什么是 Roboharness
 
-Robot-Harness 是一个 **为 AI Coding Agent 设计的机器人仿真视觉测试框架**。它的核心目标是让 Claude Code、OpenAI Codex 等编程 Agent 能够：
+Roboharness 是一个 **为 AI Coding Agent 设计的机器人仿真视觉测试框架**。它的核心目标是让 Claude Code、OpenAI Codex 等编程 Agent 能够：
 
 1. **控制仿真步进**（step-by-step execution）— 在关键时刻暂停仿真
 2. **采集多视角截图** — 在同一仿真时刻从不同相机位置获取 RGB/深度图像
 3. **自主判断任务结果** — Agent 直接观察截图，判断运动是否合理、抓取是否成功
 4. **迭代优化算法** — 基于视觉判断结果，Agent 自主修改控制代码并重跑
 
-**与传统方案的根本区别**：我们不需要单独的 VLM 模型来做视觉评估。Claude Code 和 Codex 本身就是多模态 Agent，它们既能写代码、又能看图片、又能做决策。Robot-Harness 的职责是 **把仿真的视觉信息以 Agent 能直接消费的格式高效地呈现出来**。
+**与传统方案的根本区别**：我们不需要单独的 VLM 模型来做视觉评估。Claude Code 和 Codex 本身就是多模态 Agent，它们既能写代码、又能看图片、又能做决策。Roboharness 的职责是 **把仿真的视觉信息以 Agent 能直接消费的格式高效地呈现出来**。
 
 ### 1.2 核心使用场景
 
 以抓取任务为例，完整的 Agent-in-the-loop 流程是：
 
 1. Agent 编写/修改抓取控制代码
-2. Robot-Harness 运行仿真，在预定义的检查点（plan 开始、plan 结束、接触点、抬升完成）自动暂停
+2. Roboharness 运行仿真，在预定义的检查点（plan 开始、plan 结束、接触点、抬升完成）自动暂停
 3. 在每个检查点，Harness 从多个视角截图并保存为文件
 4. Agent 查看截图 + 结构化状态数据，判断当前阶段是否正常
 5. 如果发现问题，Agent 修改代码并从适当的检查点重跑
@@ -165,7 +165,7 @@ Codex 分析截图 → 判断抓取效果
 - **VLM-RMs**（ICLR 2024）：CLIP 余弦相似度作为零样本奖励信号
 - **RL-VLM-F**（ICML 2024）：VLM 对比图像对学习奖励函数
 - **RoboCLIP**（NeurIPS 2023）：视频-语言模型计算轨迹相似度
-- **StepEval**（2025）：子目标分解 + VLM 逐阶段评估 — 最接近 robot-harness 需要的评估粒度
+- **StepEval**（2025）：子目标分解 + VLM 逐阶段评估 — 最接近 roboharness 需要的评估粒度
 - **Robo2VLM**（2025）：从 176K 真实轨迹生成 684,710 个 VQA 问题
 
 ### 3.4 AI Agent 驱动的仿真迭代框架

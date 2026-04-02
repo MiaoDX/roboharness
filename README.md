@@ -1,6 +1,6 @@
 <div align="center">
 
-# Robot-Harness
+# Roboharness
 
 **A Visual Testing Harness for AI Coding Agents in Robot Simulation**
 
@@ -20,26 +20,26 @@
 
 </div>
 
-## What is Robot-Harness?
+## What is Roboharness?
 
-Robot-Harness is a framework that lets AI Coding Agents (Claude Code, OpenAI Codex, [OpenClaw](https://github.com/openclaw/openclaw), etc.) control robot simulations through a **visual feedback loop**:
+Roboharness is a framework that lets AI Coding Agents (Claude Code, OpenAI Codex, [OpenClaw](https://github.com/openclaw/openclaw), etc.) control robot simulations through a **visual feedback loop**:
 
 <p align="center">
-  <img src="assets/architecture.svg" width="800" alt="Robot-Harness Architecture"/>
+  <img src="assets/architecture.svg" width="800" alt="Roboharness Architecture"/>
 </p>
 
-**Key insight**: Modern coding agents are already multimodal — they can write code AND see images AND make decisions. We don't need a separate VLM. Robot-Harness just needs to present simulation visuals in a format agents can directly consume.
+**Key insight**: Modern coding agents are already multimodal — they can write code AND see images AND make decisions. We don't need a separate VLM. Roboharness just needs to present simulation visuals in a format agents can directly consume.
 
 ## Installation
 
 ```bash
-pip install robot-harness
+pip install roboharness
 
 # With MuJoCo + Meshcat backend
-pip install robot-harness[mujoco]
+pip install roboharness[mujoco]
 
 # Development
-pip install robot-harness[dev]
+pip install roboharness[dev]
 ```
 
 ## Quick Start
@@ -49,7 +49,7 @@ pip install robot-harness[dev]
 Run a complete grasp simulation with zero external dependencies:
 
 ```bash
-pip install robot-harness[mujoco] Pillow
+pip install roboharness[mujoco] Pillow
 python examples/mujoco_grasp.py --report
 ```
 
@@ -73,7 +73,7 @@ Wrap any Gymnasium-compatible environment with one line:
 
 ```python
 import gymnasium as gym
-from robot_harness.wrappers import RobotHarnessWrapper
+from roboharness.wrappers import RobotHarnessWrapper
 
 env = gym.make("CartPole-v1", render_mode="rgb_array")
 env = RobotHarnessWrapper(env,
@@ -102,8 +102,8 @@ For custom simulator integrations:
 <summary><b>Show code example</b></summary>
 
 ```python
-from robot_harness import Harness
-from robot_harness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
+from roboharness import Harness
+from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
 
 backend = MuJoCoMeshcatBackend(
     model_path="robot.xml",
@@ -130,7 +130,7 @@ For tasks with multiple grasp positions, each with multiple agent retry trials:
 <summary><b>Show code example and directory structure</b></summary>
 
 ```python
-from robot_harness.storage import GraspTaskStore
+from roboharness.storage import GraspTaskStore
 
 store = GraspTaskStore(base_dir="./output", task_name="pick_and_place")
 store.add_grasp_position(position_id=1, xyz=(0.5, 0.0, 0.05), object_name="red_cube")
@@ -177,7 +177,7 @@ harness_output/
 <summary><b>Project structure</b></summary>
 
 ```
-robot_harness/
+roboharness/
 ├── core/
 │   ├── harness.py         # Main Harness class + SimulatorBackend protocol
 │   ├── checkpoint.py      # Checkpoint management & state snapshots
@@ -218,7 +218,7 @@ We especially welcome:
 - Real-world usage examples
 - Integration with popular RL libraries (SB3, CleanRL, etc.)
 
-**AI agents are welcome contributors!** We actively encourage contributions from AI coding agents such as [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [OpenClaw](https://github.com/openclaw/openclaw), and other autonomous coding tools. If your agent can improve Robot-Harness, send a PR!
+**AI agents are welcome contributors!** We actively encourage contributions from AI coding agents such as [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [OpenClaw](https://github.com/openclaw/openclaw), and other autonomous coding tools. If your agent can improve Roboharness, send a PR!
 
 ## License
 

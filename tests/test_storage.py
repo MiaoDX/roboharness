@@ -2,7 +2,7 @@
 
 import json
 
-from robot_harness.storage.task_store import GraspTaskStore, TaskStore, TrialResult
+from roboharness.storage.task_store import GraspTaskStore, TaskStore, TrialResult
 
 
 def test_task_store_variant_dirs(tmp_path):

@@ -1,27 +1,27 @@
-# Robot-Harness: Context Document
+# Roboharness: Context Document
 
 > **Document Version**: v0.1-draft | **Date**: 2026-04-02
-> **Purpose**: This is the complete context document for the robot-harness project, intended as a reference for Claude Code, Codex, and other AI Agents during code review, architecture design, and feature development.
+> **Purpose**: This is the complete context document for the roboharness project, intended as a reference for Claude Code, Codex, and other AI Agents during code review, architecture design, and feature development.
 
 ## Part 1: Project Overview and Motivation
 
-### 1.1 What is Robot-Harness
+### 1.1 What is Roboharness
 
-Robot-Harness is a **visual testing framework for AI Coding Agents in robot simulation**. Its core goal is to enable Claude Code, OpenAI Codex, and similar coding agents to:
+Roboharness is a **visual testing framework for AI Coding Agents in robot simulation**. Its core goal is to enable Claude Code, OpenAI Codex, and similar coding agents to:
 
 1. **Control simulation stepping** (step-by-step execution) — pause simulation at critical moments
 2. **Capture multi-view screenshots** — acquire RGB/depth images from different camera positions at the same simulation moment
 3. **Autonomously judge task results** — agent directly observes screenshots to determine whether motion is reasonable, grasps are successful, etc.
 4. **Iteratively optimize algorithms** — based on visual judgment results, the agent autonomously modifies control code and reruns
 
-**Fundamental difference from traditional approaches**: We don't need a separate VLM model for visual evaluation. Claude Code and Codex themselves are multimodal agents — they can write code, see images, and make decisions. Robot-Harness's responsibility is to **efficiently present simulation visual information in a format that agents can directly consume**.
+**Fundamental difference from traditional approaches**: We don't need a separate VLM model for visual evaluation. Claude Code and Codex themselves are multimodal agents — they can write code, see images, and make decisions. Roboharness's responsibility is to **efficiently present simulation visual information in a format that agents can directly consume**.
 
 ### 1.2 Core Use Case
 
 Taking a grasping task as an example, the complete Agent-in-the-loop workflow is:
 
 1. Agent writes/modifies grasp control code
-2. Robot-Harness runs the simulation, automatically pausing at predefined checkpoints (plan start, plan end, contact point, lift complete)
+2. Roboharness runs the simulation, automatically pausing at predefined checkpoints (plan start, plan end, contact point, lift complete)
 3. At each checkpoint, the Harness captures screenshots from multiple viewpoints and saves them as files
 4. Agent examines screenshots + structured state data, judging whether the current phase is normal
 5. If problems are found, the agent modifies code and reruns from the appropriate checkpoint
@@ -165,7 +165,7 @@ This workflow is running and producing real results, but is currently a custom i
 - **VLM-RMs** (ICLR 2024): CLIP cosine similarity as zero-shot reward signal
 - **RL-VLM-F** (ICML 2024): VLM compares image pairs to learn reward functions
 - **RoboCLIP** (NeurIPS 2023): Video-language model computes trajectory similarity
-- **StepEval** (2025): Sub-goal decomposition + VLM stage-by-stage evaluation — closest to the evaluation granularity needed by robot-harness
+- **StepEval** (2025): Sub-goal decomposition + VLM stage-by-stage evaluation — closest to the evaluation granularity needed by roboharness
 - **Robo2VLM** (2025): Generates 684,710 VQA questions from 176K real trajectories
 
 ### 3.4 AI Agent-Driven Simulation Iteration Frameworks

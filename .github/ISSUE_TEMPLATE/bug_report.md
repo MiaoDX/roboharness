@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug in Robot-Harness
+about: Report a bug in Roboharness
 title: "[Bug] "
 labels: bug
 assignees: ''
@@ -14,7 +14,7 @@ A clear description of the bug.
 
 - OS:
 - Python version:
-- Robot-Harness version:
+- Roboharness version:
 - Simulator (MuJoCo/Isaac Lab/ManiSkill/etc.):
 - Simulator version:
 

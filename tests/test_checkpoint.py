@@ -2,7 +2,7 @@
 
 import pytest
 
-from robot_harness.core.checkpoint import Checkpoint, CheckpointStore
+from roboharness.core.checkpoint import Checkpoint, CheckpointStore
 
 
 def test_checkpoint_creation():

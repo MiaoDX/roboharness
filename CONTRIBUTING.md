@@ -1,6 +1,6 @@
-# Contributing to Robot-Harness
+# Contributing to Roboharness
 
-Thank you for your interest in contributing! Robot-Harness is in early development and we welcome contributions of all kinds.
+Thank you for your interest in contributing! Roboharness is in early development and we welcome contributions of all kinds.
 
 ## How to Contribute
 
@@ -34,7 +34,7 @@ Thank you for your interest in contributing! Robot-Harness is in early developme
 
 We especially welcome new simulator backends! To add one:
 
-1. Create a new file in `src/robot_harness/backends/`
+1. Create a new file in `src/roboharness/backends/`
 2. Implement the `SimulatorBackend` protocol (see `core/harness.py`)
 3. Add an example in `examples/`
 4. Add the simulator's dependencies to `pyproject.toml` as an optional dependency group

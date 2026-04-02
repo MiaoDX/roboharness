@@ -1,6 +1,6 @@
 # CI Strategy: CPU + GPU Testing
 
-> 讨论背景：随着 Robot-Harness 集成 cuRobo 规划、WBC 运控、Policy 推理等 GPU 依赖组件，
+> 讨论背景：随着 Roboharness 集成 cuRobo 规划、WBC 运控、Policy 推理等 GPU 依赖组件，
 > CI 需要从纯 CPU 扩展到 GPU 测试。本文档记录分层方案和平台选型。
 
 ## 当前状态

@@ -1,16 +1,16 @@
 """Quick Start: Using RobotHarnessWrapper with any Gymnasium environment.
 
 This example shows how to wrap a standard Gymnasium environment
-with Robot-Harness to add checkpoint-based visual capture.
+with Roboharness to add checkpoint-based visual capture.
 
 Run:
-    pip install robot-harness gymnasium
+    pip install roboharness gymnasium
     python examples/quickstart_gymnasium.py
 """
 
 import gymnasium as gym
 
-from robot_harness.wrappers import RobotHarnessWrapper
+from roboharness.wrappers import RobotHarnessWrapper
 
 
 def main() -> None:

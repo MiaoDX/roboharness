@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MuJoCo Grasp Example — End-to-end demo of Robot-Harness.
+"""MuJoCo Grasp Example — End-to-end demo of Roboharness.
 
 A minimal, self-contained example that demonstrates the full harness workflow:
   1. Load a MuJoCo model (inline XML, no external files needed)
@@ -8,7 +8,7 @@ A minimal, self-contained example that demonstrates the full harness workflow:
   4. Save everything to disk
 
 Run:
-    pip install robot-harness[mujoco] Pillow
+    pip install roboharness[mujoco] Pillow
     python examples/mujoco_grasp.py
 
 Output:
@@ -26,8 +26,8 @@ from pathlib import Path
 
 import numpy as np
 
-from robot_harness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
-from robot_harness.core.harness import Harness
+from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
+from roboharness.core.harness import Harness
 
 # ---------------------------------------------------------------------------
 # Inline MJCF model: table + cube + 2-finger gripper + 3 cameras
@@ -216,7 +216,7 @@ def generate_html_report(output_dir: Path) -> Path:
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Robot-Harness MuJoCo Grasp Report</title>
+<title>Roboharness MuJoCo Grasp Report</title>
 <style>
   body {{ font-family: -apple-system, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px;
          background: #f5f5f5; }}
@@ -232,7 +232,7 @@ def generate_html_report(output_dir: Path) -> Path:
 </style>
 </head>
 <body>
-<h1>Robot-Harness: MuJoCo Grasp Example</h1>
+<h1>Roboharness: MuJoCo Grasp Example</h1>
 <p>Visual checkpoint captures from the scripted grasp sequence.</p>
 {"".join(rows_html)}
 <div class="footer">
@@ -252,7 +252,7 @@ def generate_html_report(output_dir: Path) -> Path:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Robot-Harness MuJoCo Grasp Example")
+    parser = argparse.ArgumentParser(description="Roboharness MuJoCo Grasp Example")
     parser.add_argument(
         "--output-dir",
         default="./harness_output",
@@ -275,7 +275,7 @@ def main() -> None:
     cameras = ["front", "side", "top"]
 
     print("=" * 60)
-    print("  Robot-Harness: MuJoCo Grasp Example")
+    print("  Roboharness: MuJoCo Grasp Example")
     print("=" * 60)
 
     # 1. Create backend from inline XML

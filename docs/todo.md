@@ -1,4 +1,4 @@
-# Robot-Harness TODO
+# Roboharness TODO
 
 > 按优先级排序，每个任务独立可交付。通过 [GitHub Issues](https://github.com/MiaoDX/RobotHarness/issues) 跟踪进度。
 
@@ -13,14 +13,14 @@
 ### 2. MuJoCo + Meshcat 端到端可运行 Example — [#2](https://github.com/MiaoDX/RobotHarness/issues/2)
 
 - 基于本地已有的抓取项目，提取一个最小可复现的 example
-- 目标：`pip install robot-harness[mujoco] && python examples/mujoco_grasp.py` 直接跑通
+- 目标：`pip install roboharness[mujoco] && python examples/mujoco_grasp.py` 直接跑通
 - 包含：加载模型 → 运行仿真 → 在检查点截图 → 保存到磁盘
 
 ### 3. PyPI 发布配置 — [#3](https://github.com/MiaoDX/RobotHarness/issues/3)
 
 - 添加 GitHub Actions workflow 做自动发布
 - 配置 `pypi` trusted publisher
-- 让 `pip install robot-harness` 真正可用
+- 让 `pip install roboharness` 真正可用
 
 ## P1 — 生态集成（扩大用户覆盖面）
 
@@ -56,8 +56,8 @@
 
 ### 9. CLI 工具 — [#9](https://github.com/MiaoDX/RobotHarness/issues/9)
 
-- `robot-harness inspect ./harness_output/` — 浏览截图和状态
-- `robot-harness report ./harness_output/` — 生成汇总报告
+- `roboharness inspect ./harness_output/` — 浏览截图和状态
+- `roboharness report ./harness_output/` — 生成汇总报告
 - 方便 Agent 和人类快速查看结果
 
 ## P3 — 社区推广（提升 Star 和 Reputation）
@@ -70,7 +70,7 @@
 
 ### 11. 给上游项目贡献 Example — [#11](https://github.com/MiaoDX/RobotHarness/issues/11)
 
-- 给 Rerun 仓库提交一个 Robot-Harness 集成 example
+- 给 Rerun 仓库提交一个 Roboharness 集成 example
 - 给 ManiSkill 仓库提交一个 visual harness example
 - 借助上游项目的流量获得曝光
 

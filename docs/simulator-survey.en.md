@@ -1,4 +1,4 @@
-# Technical Survey of Open-Source Robot Control Projects and Robot-Harness Integration Analysis
+# Technical Survey of Open-Source Robot Control Projects and Roboharness Integration Analysis
 
 > The Gymnasium Wrapper approach can cover 60% of mainstream projects, but two major ecosystems (legged_gym family and JAX/Brax family) require dedicated adapters.
 
@@ -45,7 +45,7 @@ Video recording is supported via `gymnasium.wrappers.RecordVideo` (requires `--e
 
 Known issues: headless mode rendering hangs (#324), camera-enabled environments not rendering (#3250), recordings missing debug markers (#2233), WebRTC errors in Docker (#3192).
 
-### Robot-Harness Integration Feasibility: Very High
+### Roboharness Integration Feasibility: Very High
 
 The standard Gymnasium Wrapper approach is directly applicable:
 
@@ -77,7 +77,7 @@ The configuration system uses nested Python classes (neither dataclasses nor YAM
 
 **No automated tests, no CI/CD** — this is a notable weakness of the project.
 
-### Robot-Harness Integration Feasibility: Moderately Difficult
+### Roboharness Integration Feasibility: Moderately Difficult
 
 Five fundamental incompatibilities exist:
 1. **Vectorized vs. single-instance**: Isaac Gym runs 4096+ parallel environments simultaneously; Gymnasium expects a single instance
@@ -102,7 +102,7 @@ Entirely based on JAX functional programming. Environments are pure functions: `
 
 Batch parallelism is achieved via `jax.vmap()`, and training loops complete full rollouts on-device using `jax.lax.scan`. Single-threaded MJX on GPU is 10x slower than CPU MuJoCo — its advantage comes entirely from massive parallelism (batch sizes of 1024–8192+).
 
-### Robot-Harness Integration Feasibility: Difficult
+### Roboharness Integration Feasibility: Difficult
 
 The standard Gymnasium Wrapper cannot be used directly because:
 1. **Explicit state passing vs. internal state**: The Wrapper must maintain `self._state` internally
@@ -137,13 +137,13 @@ env = ManiSkillVectorEnv(env, auto_reset=True)
 env = gym.make("PickCube-v1", num_envs=N)
 ```
 
-### Robot-Harness Integration Feasibility: Very High
+### Roboharness Integration Feasibility: Very High
 
 The CPUGymWrapper mode is directly compatible with the standard Gymnasium Wrapper. The ManiSkillVectorEnv mode requires handling batched GPU data, similar to Isaac Lab. The RecordEpisode wrapper provides built-in recording functionality.
 
 ---
 
-## Robot-Harness Integration Summary
+## Roboharness Integration Summary
 
 | Project | Integration Feasibility | Integration Method | Estimated Effort |
 |---------|------------------------|-------------------|-----------------|

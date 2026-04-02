@@ -4,8 +4,8 @@ from typing import Any
 
 import numpy as np
 
-from robot_harness.core.capture import CameraView
-from robot_harness.core.harness import Harness, SimulatorBackend
+from roboharness.core.capture import CameraView
+from roboharness.core.harness import Harness, SimulatorBackend
 
 
 class MockBackend:

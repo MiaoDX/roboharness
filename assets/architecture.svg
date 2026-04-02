@@ -37,7 +37,7 @@
   <rect width="900" height="420" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
 
   <!-- Title -->
-  <text x="450" y="38" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">Robot-Harness: Visual Feedback Loop</text>
+  <text x="450" y="38" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">Roboharness: Visual Feedback Loop</text>
 
   <!-- Agent Box -->
   <rect x="30" y="70" width="200" height="280" rx="12" fill="url(#agentGrad)" filter="url(#shadow)" opacity="0.95"/>
@@ -55,7 +55,7 @@
 
   <!-- Harness Box -->
   <rect x="310" y="70" width="260" height="280" rx="12" fill="url(#harnessGrad)" filter="url(#shadow)" opacity="0.95"/>
-  <text x="440" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="white">Robot-Harness</text>
+  <text x="440" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="white">Roboharness</text>
   <line x1="335" y1="112" x2="545" y2="112" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
 
   <!-- Inner steps -->

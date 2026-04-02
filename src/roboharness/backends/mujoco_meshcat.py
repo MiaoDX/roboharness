@@ -1,10 +1,10 @@
 """MuJoCo + Meshcat backend adapter.
 
 This is the reference implementation for the SimulatorBackend protocol.
-Requires: pip install robot-harness[mujoco]
+Requires: pip install roboharness[mujoco]
 
 Usage:
-    from robot_harness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
+    from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
 
     backend = MuJoCoMeshcatBackend(
         model_path="robot.xml",
@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from robot_harness.core.capture import CameraView
+from roboharness.core.capture import CameraView
 
 
 class MuJoCoMeshcatBackend:
@@ -43,7 +43,7 @@ class MuJoCoMeshcatBackend:
         except ImportError:
             raise ImportError(
                 "MuJoCo is required for this backend. "
-                "Install with: pip install robot-harness[mujoco]"
+                "Install with: pip install roboharness[mujoco]"
             )
 
         if xml_string is None and model_path is None:
@@ -141,6 +141,6 @@ class MuJoCoMeshcatBackend:
         except ImportError:
             raise ImportError(
                 "Meshcat is required for visualization. "
-                "Install with: pip install robot-harness[mujoco]"
+                "Install with: pip install roboharness[mujoco]"
             )
         self._meshcat_vis = meshcat.Visualizer()

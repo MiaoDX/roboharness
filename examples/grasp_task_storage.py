@@ -7,7 +7,7 @@ Run:
     python examples/grasp_task_storage.py
 """
 
-from robot_harness.storage import GraspTaskStore
+from roboharness.storage import GraspTaskStore
 
 
 def main() -> None:

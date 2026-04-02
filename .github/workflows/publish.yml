@@ -20,7 +20,7 @@ jobs:
       - name: Verify package
         run: |
           pip install dist/*.whl
-          python -c "import robot_harness; print('Install OK')"
+          python -c "import roboharness; print('Install OK')"
       - uses: actions/upload-artifact@v4
         with:
           name: dist

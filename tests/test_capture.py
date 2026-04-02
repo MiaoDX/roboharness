@@ -4,7 +4,7 @@ import json
 
 import numpy as np
 
-from robot_harness.core.capture import CameraView, CaptureResult
+from roboharness.core.capture import CameraView, CaptureResult
 
 
 def test_camera_view_save_rgb(tmp_path):
