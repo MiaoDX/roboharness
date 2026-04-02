@@ -1,10 +1,13 @@
 name: Release
 
 on:
+  push:
+    branches:
+      - release
   workflow_dispatch:
     inputs:
       bump:
-        description: "Version bump type (ignored if custom_tag is set)"
+        description: "Version bump type"
         required: true
         default: "patch"
         type: choice
@@ -31,58 +34,61 @@ jobs:
       - name: Determine new version
         id: version
         run: |
+          # Read version from pyproject.toml as source of truth
+          CURRENT=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "Current version in pyproject.toml: ${CURRENT}"
+
           # Get latest semver tag
           LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
           echo "Latest tag: ${LATEST:-none}"
 
+          # For workflow_dispatch with custom_tag
           if [ -n "${{ inputs.custom_tag }}" ]; then
             NEW_TAG="${{ inputs.custom_tag }}"
-            # Strip leading 'v' for version number
             NEW_VERSION="${NEW_TAG#v}"
-          else
+          # For workflow_dispatch with bump
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ -z "$LATEST" ]; then
               LATEST="v0.0.0"
             fi
-
-            # Parse version
             VERSION="${LATEST#v}"
             IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
 
             case "${{ inputs.bump }}" in
-              major)
-                MAJOR=$((MAJOR + 1))
-                MINOR=0
-                PATCH=0
-                ;;
-              minor)
-                MINOR=$((MINOR + 1))
-                PATCH=0
-                ;;
-              patch)
-                PATCH=$((PATCH + 1))
-                ;;
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              patch) PATCH=$((PATCH + 1)) ;;
             esac
 
             NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
             NEW_TAG="v${NEW_VERSION}"
+          # For push to release branch: use pyproject.toml version directly
+          else
+            NEW_VERSION="${CURRENT}"
+            NEW_TAG="v${NEW_VERSION}"
+          fi
+
+          # Check if tag already exists
+          if git rev-parse "refs/tags/${NEW_TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag ${NEW_TAG} already exists. Update the version in pyproject.toml before releasing."
+            exit 1
           fi
 
           echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
           echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "New version: ${NEW_TAG}"
+          echo "New release: ${NEW_TAG}"
 
-      - name: Update pyproject.toml version
+      - name: Update pyproject.toml version if needed
         run: |
           sed -i "s/^version = \".*\"/version = \"${{ steps.version.outputs.new_version }}\"/" pyproject.toml
-          echo "Updated pyproject.toml:"
+          echo "pyproject.toml version:"
           grep '^version' pyproject.toml
 
-      - name: Commit version bump
+      - name: Commit version bump if needed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pyproject.toml
-          # Only commit if there are changes
           if git diff --cached --quiet; then
             echo "No version change needed"
           else
