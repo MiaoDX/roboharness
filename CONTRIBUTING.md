@@ -42,7 +42,7 @@ We especially welcome new simulator backends! To add one:
 ### Code Style
 
 - We use [ruff](https://docs.astral.sh/ruff/) for linting and formatting
-- Type hints are encouraged (Python 3.9+ style)
+- Type hints are encouraged (Python 3.10+ style)
 - Keep it simple — avoid unnecessary abstractions
 
 ## Development Setup
@@ -52,6 +52,10 @@ git clone https://github.com/MiaoDX/RobotHarness.git
 cd RobotHarness
 pip install -e ".[dev]"
 ```
+
+## AI Agent Contributions
+
+We actively welcome contributions from AI coding agents! If you're using [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [OpenCode](https://github.com/nicepkg/OpenCode), or other autonomous coding tools to contribute, go for it — just make sure the tests pass.
 
 ## License
 

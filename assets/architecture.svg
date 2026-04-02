@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 420" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="agentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="harnessGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="simGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ef4444;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="outputGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="115%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrowRight" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrowDown" markerWidth="7" markerHeight="10" refX="3.5" refY="9" orient="auto">
+      <polygon points="0 0, 7 0, 3.5 10" fill="#64748b"/>
+    </marker>
+    <marker id="arrowUp" markerWidth="7" markerHeight="10" refX="3.5" refY="1" orient="auto">
+      <polygon points="0 10, 3.5 0, 7 10" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="420" rx="16" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">Robot-Harness: Visual Feedback Loop</text>
+
+  <!-- Agent Box -->
+  <rect x="30" y="70" width="200" height="280" rx="12" fill="url(#agentGrad)" filter="url(#shadow)" opacity="0.95"/>
+  <text x="130" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="white">AI Coding Agent</text>
+  <line x1="55" y1="112" x2="205" y2="112" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <text x="130" y="138" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">Claude Code</text>
+  <text x="130" y="158" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">OpenAI Codex</text>
+  <text x="130" y="178" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">OpenCode</text>
+  <text x="130" y="198" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">Any multimodal agent</text>
+  <line x1="55" y1="215" x2="205" y2="215" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <text x="130" y="242" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">1. Writes control code</text>
+  <text x="130" y="264" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">2. Observes screenshots</text>
+  <text x="130" y="286" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">3. Judges success/failure</text>
+  <text x="130" y="308" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.85)">4. Iterates until done</text>
+
+  <!-- Harness Box -->
+  <rect x="310" y="70" width="260" height="280" rx="12" fill="url(#harnessGrad)" filter="url(#shadow)" opacity="0.95"/>
+  <text x="440" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="white">Robot-Harness</text>
+  <line x1="335" y1="112" x2="545" y2="112" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+
+  <!-- Inner steps -->
+  <rect x="330" y="125" width="220" height="38" rx="8" fill="rgba(255,255,255,0.2)"/>
+  <text x="440" y="149" text-anchor="middle" font-size="12" font-weight="600" fill="white">Run Simulation</text>
+
+  <rect x="330" y="175" width="220" height="38" rx="8" fill="rgba(255,255,255,0.2)"/>
+  <text x="440" y="199" text-anchor="middle" font-size="12" font-weight="600" fill="white">Pause at Checkpoints</text>
+
+  <rect x="330" y="225" width="220" height="38" rx="8" fill="rgba(255,255,255,0.2)"/>
+  <text x="440" y="249" text-anchor="middle" font-size="12" font-weight="600" fill="white">Capture Multi-View Screenshots</text>
+
+  <rect x="330" y="275" width="220" height="38" rx="8" fill="rgba(255,255,255,0.2)"/>
+  <text x="440" y="299" text-anchor="middle" font-size="12" font-weight="600" fill="white">Return State + Images</text>
+
+  <!-- Small arrows between inner steps -->
+  <line x1="440" y1="163" x2="440" y2="175" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDown)"/>
+  <line x1="440" y1="213" x2="440" y2="225" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDown)"/>
+  <line x1="440" y1="263" x2="440" y2="275" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" marker-end="url(#arrowDown)"/>
+
+  <!-- Simulator Box -->
+  <rect x="650" y="70" width="220" height="155" rx="12" fill="url(#simGrad)" filter="url(#shadow)" opacity="0.95"/>
+  <text x="760" y="100" text-anchor="middle" font-size="15" font-weight="700" fill="white">Simulators</text>
+  <line x1="675" y1="112" x2="845" y2="112" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <text x="760" y="137" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">MuJoCo + Meshcat</text>
+  <text x="760" y="157" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">Isaac Lab</text>
+  <text x="760" y="177" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">ManiSkill</text>
+  <text x="760" y="197" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">Any Gymnasium env</text>
+
+  <!-- Output Box -->
+  <rect x="650" y="250" width="220" height="100" rx="12" fill="url(#outputGrad)" filter="url(#shadow)" opacity="0.95"/>
+  <text x="760" y="280" text-anchor="middle" font-size="15" font-weight="700" fill="white">Output</text>
+  <line x1="675" y1="292" x2="845" y2="292" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <text x="760" y="315" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">PNG screenshots + JSON state</text>
+  <text x="760" y="335" text-anchor="middle" font-size="12" fill="rgba(255,255,255,0.9)">HTML visual reports</text>
+
+  <!-- Arrows: Agent -> Harness -->
+  <line x1="230" y1="170" x2="310" y2="170" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)"/>
+  <text x="270" y="162" text-anchor="middle" font-size="10" fill="#64748b">code</text>
+
+  <!-- Arrows: Harness -> Agent (feedback) -->
+  <line x1="310" y1="260" x2="230" y2="260" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)" transform="rotate(180, 270, 260)"/>
+  <text x="270" y="252" text-anchor="middle" font-size="10" fill="#64748b">images</text>
+
+  <!-- Arrows: Harness -> Simulator -->
+  <line x1="570" y1="148" x2="650" y2="148" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)"/>
+  <text x="610" y="140" text-anchor="middle" font-size="10" fill="#64748b">actions</text>
+
+  <!-- Arrows: Simulator -> Harness -->
+  <line x1="650" y1="185" x2="570" y2="185" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)" transform="rotate(180, 610, 185)"/>
+  <text x="610" y="200" text-anchor="middle" font-size="10" fill="#64748b">frames</text>
+
+  <!-- Arrows: Harness -> Output -->
+  <line x1="570" y1="295" x2="650" y2="295" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)"/>
+
+  <!-- Loop arrow label -->
+  <rect x="100" y="370" width="280" height="32" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="240" y="391" text-anchor="middle" font-size="12" font-weight="600" fill="#475569">Loop until task succeeds</text>
+
+  <!-- Curved loop arrow from bottom of agent back to top -->
+  <path d="M 130 350 L 130 390 L 20 390 L 20 120 L 30 120" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,3"/>
+
+  <!-- Footer -->
+  <text x="450" y="410" text-anchor="middle" font-size="11" fill="#94a3b8">Gymnasium Wrapper (1-line integration) | Core Harness API (full control) | SimulatorBackend protocol (custom)</text>
+</svg>
