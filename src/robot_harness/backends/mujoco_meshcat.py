@@ -32,10 +32,11 @@ class MuJoCoMeshcatBackend:
 
     def __init__(
         self,
-        model_path: str | Path,
+        model_path: str | Path | None = None,
         cameras: list[str] | None = None,
         render_width: int = 640,
         render_height: int = 480,
+        xml_string: str | None = None,
     ):
         try:
             import mujoco
@@ -45,13 +46,19 @@ class MuJoCoMeshcatBackend:
                 "Install with: pip install robot-harness[mujoco]"
             )
 
-        self._model_path = Path(model_path)
+        if xml_string is None and model_path is None:
+            raise ValueError("Either model_path or xml_string must be provided.")
+
         self._camera_names = cameras or ["front"]
         self._render_width = render_width
         self._render_height = render_height
 
         # Load MuJoCo model
-        self._model = mujoco.MjModel.from_xml_path(str(self._model_path))
+        if xml_string is not None:
+            self._model = mujoco.MjModel.from_xml_string(xml_string)
+        else:
+            self._model_path = Path(model_path)  # type: ignore[arg-type]
+            self._model = mujoco.MjModel.from_xml_path(str(self._model_path))
         self._data = mujoco.MjData(self._model)
         self._renderer = mujoco.Renderer(
             self._model, height=self._render_height, width=self._render_width

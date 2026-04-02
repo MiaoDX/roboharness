@@ -33,3 +33,57 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Run tests
         run: pytest
+
+  mujoco-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+
+      - name: Install package with MuJoCo backend
+        run: pip install -e ".[mujoco]" Pillow
+
+      - name: Run MuJoCo grasp example
+        env:
+          MUJOCO_GL: osmesa
+        run: python examples/mujoco_grasp.py --report --output-dir ./harness_output
+
+      - name: Upload visual artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mujoco-grasp-output
+          path: |
+            harness_output/report.html
+            harness_output/mujoco_grasp/trial_001/**/*_rgb.png
+            harness_output/mujoco_grasp/trial_001/**/metadata.json
+          retention-days: 30
+
+      - name: Post summary with checkpoint images
+        run: |
+          echo "## MuJoCo Grasp Example Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Checkpoint captures from the scripted grasp sequence:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for cp in harness_output/mujoco_grasp/trial_001/*/; do
+            name=$(basename "$cp")
+            echo "### ${name}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            # Embed front view as base64 in summary
+            if [ -f "${cp}front_rgb.png" ]; then
+              echo "![${name} front view](data:image/png;base64,$(base64 -w0 "${cp}front_rgb.png"))" >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ -f "${cp}metadata.json" ]; then
+              step=$(python3 -c "import json; print(json.load(open('${cp}metadata.json'))['step'])")
+              sim_time=$(python3 -c "import json; print(f\"{json.load(open('${cp}metadata.json'))['sim_time']:.3f}\")")
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Step: ${step} | Sim time: ${sim_time}s" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "Download the full artifact (including HTML report) from the Actions tab." >> $GITHUB_STEP_SUMMARY

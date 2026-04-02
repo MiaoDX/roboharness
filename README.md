@@ -54,6 +54,17 @@ pip install robot-harness[dev]
 
 ## Quick Start
 
+### MuJoCo Grasp Example (End-to-End)
+
+Run a complete grasp simulation with zero external dependencies:
+
+```bash
+pip install robot-harness[mujoco] Pillow
+python examples/mujoco_grasp.py --report
+```
+
+This runs a scripted grasp sequence (hover → lower → grip → lift), captures multi-view screenshots at each checkpoint, and generates an HTML report. See [`examples/mujoco_grasp.py`](examples/mujoco_grasp.py) for the full source.
+
 ### Option 1: Gymnasium Wrapper (Zero-Change Integration)
 
 Wrap any Gymnasium-compatible environment with one line:
