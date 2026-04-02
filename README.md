@@ -65,6 +65,8 @@ python examples/mujoco_grasp.py --report
 
 This runs a scripted grasp sequence, captures multi-view screenshots at each checkpoint, and generates an HTML report. See [`examples/mujoco_grasp.py`](examples/mujoco_grasp.py) for the full source.
 
+> **[View the interactive visual report online](https://miaodx.github.io/RobotHarness/)** — auto-generated from CI on every push to main.
+
 **Checkpoint captures (front view):**
 
 | pre_grasp | contact | grasp | lift |
