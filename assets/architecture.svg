@@ -22,11 +22,14 @@
     <marker id="arrowRight" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
       <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
     </marker>
+    <marker id="arrowLeft" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+      <polygon points="10 0, 0 3.5, 10 7" fill="#64748b"/>
+    </marker>
     <marker id="arrowDown" markerWidth="7" markerHeight="10" refX="3.5" refY="9" orient="auto">
       <polygon points="0 0, 7 0, 3.5 10" fill="#64748b"/>
     </marker>
-    <marker id="arrowUp" markerWidth="7" markerHeight="10" refX="3.5" refY="1" orient="auto">
-      <polygon points="0 10, 3.5 0, 7 10" fill="#64748b"/>
+    <marker id="arrowDownGray" markerWidth="7" markerHeight="10" refX="3.5" refY="9" orient="auto">
+      <polygon points="0 0, 7 0, 3.5 10" fill="#64748b"/>
     </marker>
   </defs>
 
@@ -94,7 +97,7 @@
   <text x="270" y="162" text-anchor="middle" font-size="10" fill="#64748b">code</text>
 
   <!-- Arrows: Harness -> Agent (feedback) -->
-  <line x1="310" y1="260" x2="230" y2="260" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)" transform="rotate(180, 270, 260)"/>
+  <line x1="310" y1="260" x2="230" y2="260" stroke="#64748b" stroke-width="2" marker-end="url(#arrowLeft)"/>
   <text x="270" y="252" text-anchor="middle" font-size="10" fill="#64748b">images</text>
 
   <!-- Arrows: Harness -> Simulator -->
@@ -102,7 +105,7 @@
   <text x="610" y="140" text-anchor="middle" font-size="10" fill="#64748b">actions</text>
 
   <!-- Arrows: Simulator -> Harness -->
-  <line x1="650" y1="185" x2="570" y2="185" stroke="#64748b" stroke-width="2" marker-end="url(#arrowRight)" transform="rotate(180, 610, 185)"/>
+  <line x1="650" y1="185" x2="570" y2="185" stroke="#64748b" stroke-width="2" marker-end="url(#arrowLeft)"/>
   <text x="610" y="200" text-anchor="middle" font-size="10" fill="#64748b">frames</text>
 
   <!-- Arrows: Harness -> Output -->
@@ -113,7 +116,7 @@
   <text x="240" y="391" text-anchor="middle" font-size="12" font-weight="600" fill="#475569">Loop until task succeeds</text>
 
   <!-- Curved loop arrow from bottom of agent back to top -->
-  <path d="M 130 350 L 130 390 L 20 390 L 20 120 L 30 120" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <path d="M 130 350 L 130 390 L 20 390 L 20 120 L 30 120" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrowRight)"/>
 
   <!-- Footer -->
   <text x="450" y="410" text-anchor="middle" font-size="11" fill="#94a3b8">Gymnasium Wrapper (1-line integration) | Core Harness API (full control) | SimulatorBackend protocol (custom)</text>
