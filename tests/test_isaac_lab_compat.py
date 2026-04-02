@@ -17,19 +17,12 @@ from typing import Any
 import numpy as np
 import pytest
 
-try:
-    import torch
+torch = pytest.importorskip("torch", reason="PyTorch not installed")
+gym = pytest.importorskip("gymnasium", reason="gymnasium not installed")
 
-    HAS_TORCH = True
-except ImportError:
-    HAS_TORCH = False
+from gymnasium import spaces  # noqa: E402
 
-import gymnasium as gym
-from gymnasium import spaces
-
-from roboharness.wrappers import RobotHarnessWrapper
-
-pytestmark = pytest.mark.skipif(not HAS_TORCH, reason="PyTorch not installed")
+from roboharness.wrappers import RobotHarnessWrapper  # noqa: E402
 
 
 class MockIsaacLabEnv(gym.Env):

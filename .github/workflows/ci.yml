@@ -31,7 +31,25 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install package with dev dependencies
         run: pip install -e ".[dev]"
+      - name: Verify test collection (catch missing imports early)
+        run: pytest --collect-only -q
       - name: Run tests
+        run: pytest
+
+  test-mujoco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+      - name: Install package with MuJoCo backend and dev dependencies
+        run: pip install -e ".[mujoco,dev]" Pillow
+      - name: Run tests (including MuJoCo-dependent tests)
+        env:
+          MUJOCO_GL: osmesa
         run: pytest
 
   mujoco-example:
