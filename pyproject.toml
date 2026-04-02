@@ -44,13 +44,18 @@ maniskill = [
 rerun = [
     "rerun-sdk>=0.18",
 ]
+wbc = [
+    "pin>=3.0",
+    "pin-pink>=0.11",
+    "qpsolvers[quadprog]",
+]
 dev = [
     "pytest>=7.0",
     "ruff>=0.4",
     "mypy>=1.0",
 ]
 all = [
-    "roboharness[mujoco,meshcat,rerun,dev]",
+    "roboharness[mujoco,meshcat,rerun,wbc,dev]",
 ]
 
 [project.urls]
