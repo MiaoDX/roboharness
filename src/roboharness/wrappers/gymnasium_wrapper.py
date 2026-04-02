@@ -126,7 +126,7 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         # Save state info
         state = {
             "step": self._step_count,
-            "reward": float(reward) if isinstance(reward, (int, float, np.number)) else 0.0,
+            "reward": _to_float(reward),
             "timestamp": time.time(),
             "checkpoint": name,
             "trial": self._trial_count,
@@ -134,6 +134,10 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
 
         # Include observation summary (avoid dumping huge arrays)
         if isinstance(obs, np.ndarray):
+            state["obs_shape"] = list(obs.shape)
+            state["obs_dtype"] = str(obs.dtype)
+        elif hasattr(obs, "shape") and hasattr(obs, "dtype"):
+            # Torch tensors and similar array-like objects
             state["obs_shape"] = list(obs.shape)
             state["obs_dtype"] = str(obs.dtype)
         elif isinstance(obs, dict):
@@ -162,6 +166,26 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
             "capture_dir": str(capture_dir),
             "files": saved_files,
         }
+
+
+def _to_float(value: Any) -> float:
+    """Convert a scalar value to float, handling torch tensors and numpy types."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, np.number):
+        return float(value)
+    # Handle torch tensors and similar array-like objects
+    if hasattr(value, "item"):
+        # Multi-element tensors (e.g. vectorized envs): take the mean
+        if hasattr(value, "numel") and value.numel() > 1:
+            return float(value.float().mean().item())
+        if hasattr(value, "size") and isinstance(value.size, int) and value.size > 1:
+            return float(value.mean())
+        return float(value.item())
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _save_image(arr: np.ndarray, path: Path) -> None:
