@@ -26,8 +26,8 @@ jobs:
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
 
-      - name: Install package with MuJoCo backend
-        run: pip install -e ".[mujoco]" Pillow
+      - name: Install package with MuJoCo and Meshcat backends
+        run: pip install -e ".[mujoco,meshcat]" Pillow
 
       - name: Run MuJoCo grasp example
         env:
@@ -41,12 +41,13 @@ jobs:
           # Copy the HTML report
           cp harness_output/report.html _site/index.html
 
-          # Copy all checkpoint images (flat structure for easy linking)
+          # Copy all checkpoint images and Meshcat exports (flat structure for easy linking)
           for cp_dir in harness_output/mujoco_grasp/trial_001/*/; do
             cp_name=$(basename "$cp_dir")
             mkdir -p "_site/${cp_name}"
             cp "${cp_dir}"*_rgb.png "_site/${cp_name}/" 2>/dev/null || true
             cp "${cp_dir}"*_depth_viz.png "_site/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"meshcat_scene.html "_site/${cp_name}/" 2>/dev/null || true
             cp "${cp_dir}"metadata.json "_site/${cp_name}/" 2>/dev/null || true
             cp "${cp_dir}"state.json "_site/${cp_name}/" 2>/dev/null || true
           done

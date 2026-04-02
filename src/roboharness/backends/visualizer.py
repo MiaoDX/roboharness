@@ -20,7 +20,7 @@ import numpy as np
 from roboharness.core.capture import CameraView
 
 if TYPE_CHECKING:
-    pass
+    from pathlib import Path
 
 
 @runtime_checkable
@@ -260,6 +260,30 @@ class MeshcatVisualizer:
         img[h // 4 : 3 * h // 4, w // 2 - 1 : w // 2 + 1] = [100, 100, 200]
 
         return img
+
+    def export_html(self, path: str | Path) -> Path:
+        """Export the current Meshcat scene as a self-contained HTML file.
+
+        Uses Meshcat's ``static_html()`` to produce a standalone Three.js
+        viewer that can be opened in any browser without a running server.
+
+        Parameters
+        ----------
+        path : str | Path
+            Destination file path (should end with ``.html``).
+
+        Returns
+        -------
+        Path
+            The path to the written HTML file.
+        """
+        from pathlib import Path as _Path
+
+        out = _Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        html = self._vis.static_html()
+        out.write_text(html)
+        return out
 
     @property
     def url(self) -> str:
