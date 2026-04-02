@@ -1,15 +1,22 @@
-"""MuJoCo + Meshcat backend adapter.
+"""MuJoCo backend adapter.
 
 This is the reference implementation for the SimulatorBackend protocol.
 Requires: pip install roboharness[mujoco]
 
 Usage:
     from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
+    from roboharness.backends.visualizer import MeshcatVisualizer
 
+    # Default: off-screen MuJoCo renderer
+    backend = MuJoCoMeshcatBackend(model_path="robot.xml", cameras=["front"])
+
+    # With Meshcat interactive viewer
     backend = MuJoCoMeshcatBackend(
         model_path="robot.xml",
-        cameras=["front", "side", "top"],
+        cameras=["front"],
+        visualizer="meshcat",
     )
+
     harness = Harness(backend, output_dir="./output")
 """
 
@@ -20,14 +27,35 @@ from typing import Any
 
 import numpy as np
 
+from roboharness.backends.visualizer import (
+    MeshcatVisualizer,
+    MuJoCoNativeVisualizer,
+    Visualizer,
+)
 from roboharness.core.capture import CameraView
 
 
 class MuJoCoMeshcatBackend:
-    """Backend adapter for MuJoCo physics + Meshcat visualization.
+    """Backend adapter for MuJoCo physics with pluggable visualization.
 
-    Implements the SimulatorBackend protocol for the most common
-    robotics simulation setup.
+    Implements the SimulatorBackend protocol. Visualization is delegated
+    to a ``Visualizer`` instance, which can be swapped without touching
+    the physics code.
+
+    Parameters
+    ----------
+    model_path : str | Path | None
+        Path to an MJCF/URDF file.
+    xml_string : str | None
+        Inline MJCF XML (alternative to model_path).
+    cameras : list[str] | None
+        Camera names to use (default: ``["front"]``).
+    render_width, render_height : int
+        Resolution for off-screen rendering.
+    visualizer : Visualizer | str | None
+        A ``Visualizer`` instance, or one of the shorthand strings
+        ``"native"`` / ``"meshcat"``.  Defaults to ``"native"``
+        (MuJoCo off-screen renderer).
     """
 
     def __init__(
@@ -37,6 +65,7 @@ class MuJoCoMeshcatBackend:
         render_width: int = 640,
         render_height: int = 480,
         xml_string: str | None = None,
+        visualizer: Visualizer | str | None = None,
     ):
         try:
             import mujoco
@@ -60,12 +89,46 @@ class MuJoCoMeshcatBackend:
             self._model_path = Path(model_path)  # type: ignore[arg-type]
             self._model = mujoco.MjModel.from_xml_path(str(self._model_path))
         self._data = mujoco.MjData(self._model)
-        self._renderer = mujoco.Renderer(
-            self._model, height=self._render_height, width=self._render_width
-        )
 
-        # Meshcat visualizer (optional, for interactive debugging)
-        self._meshcat_vis = None
+        # Initialize visualizer
+        self._visualizer = self._resolve_visualizer(visualizer)
+
+    # ------------------------------------------------------------------
+    # Visualizer resolution
+    # ------------------------------------------------------------------
+
+    def _resolve_visualizer(self, viz: Visualizer | str | None) -> Visualizer:
+        """Resolve a visualizer from a shorthand string or instance."""
+        if viz is None or viz == "native":
+            return MuJoCoNativeVisualizer(
+                self._model,
+                self._data,
+                width=self._render_width,
+                height=self._render_height,
+            )
+        if viz == "meshcat":
+            return MeshcatVisualizer(
+                self._model,
+                self._data,
+                width=self._render_width,
+                height=self._render_height,
+            )
+        if isinstance(viz, str):
+            raise ValueError(
+                f"Unknown visualizer shorthand '{viz}'. "
+                "Use 'native', 'meshcat', or pass a Visualizer instance."
+            )
+        # Already a Visualizer instance
+        return viz
+
+    @property
+    def visualizer(self) -> Visualizer:
+        """Return the active visualizer."""
+        return self._visualizer
+
+    # ------------------------------------------------------------------
+    # SimulatorBackend protocol
+    # ------------------------------------------------------------------
 
     def step(self, action: Any) -> dict[str, Any]:
         """Advance simulation by one step."""
@@ -75,6 +138,7 @@ class MuJoCoMeshcatBackend:
             np.copyto(self._data.ctrl, np.asarray(action, dtype=np.float64))
 
         mujoco.mj_step(self._model, self._data)
+        self._visualizer.sync()
 
         return self.get_state()
 
@@ -106,21 +170,11 @@ class MuJoCoMeshcatBackend:
             state["mujoco_state"],
             mujoco.mjtState.mjSTATE_FULLPHYSICS,
         )
+        self._visualizer.sync()
 
     def capture_camera(self, camera_name: str) -> CameraView:
-        """Capture RGB and depth from a named camera."""
-
-        self._renderer.update_scene(self._data, camera=camera_name)
-
-        # RGB
-        rgb = self._renderer.render().copy()
-
-        # Depth
-        self._renderer.enable_depth_rendering()
-        depth = self._renderer.render().copy()
-        self._renderer.disable_depth_rendering()
-
-        return CameraView(name=camera_name, rgb=rgb, depth=depth)
+        """Capture RGB and depth from a named camera via the active visualizer."""
+        return self._visualizer.capture_camera(camera_name)
 
     def get_sim_time(self) -> float:
         """Get current simulation time."""
@@ -132,15 +186,5 @@ class MuJoCoMeshcatBackend:
 
         mujoco.mj_resetData(self._model, self._data)
         mujoco.mj_forward(self._model, self._data)
+        self._visualizer.sync()
         return self.get_state()
-
-    def setup_meshcat(self) -> None:
-        """Initialize Meshcat visualizer for interactive debugging."""
-        try:
-            import meshcat
-        except ImportError:
-            raise ImportError(
-                "Meshcat is required for visualization. "
-                "Install with: pip install roboharness[mujoco]"
-            )
-        self._meshcat_vis = meshcat.Visualizer()
