@@ -18,11 +18,23 @@ Usage:
         if "checkpoint" in info:
             # Agent can inspect info["checkpoint"]["capture_dir"]
             print(f"Checkpoint: {info['checkpoint']['name']}")
+
+Multi-camera support:
+    The wrapper automatically detects multi-camera environments and captures
+    from all configured cameras at each checkpoint. Detection checks for:
+
+    1. ``render_camera(camera_name)`` method on the environment
+    2. Isaac Lab ``TiledCamera`` sensors via ``env.unwrapped.scene``
+    3. Falls back to ``env.render()`` for the default camera
+
+    If cameras=["front", "wrist"] is passed but the environment only supports
+    single-view rendering, the wrapper captures one frame labeled "default".
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any
@@ -36,6 +48,104 @@ except ImportError:
     import gym  # type: ignore[no-redef]
     from gym import Wrapper  # type: ignore[no-redef,assignment]
 
+logger = logging.getLogger(__name__)
+
+
+class MultiCameraCapability:
+    """Detected multi-camera capability of an environment."""
+
+    NONE = "none"  # Only env.render() — single view
+    RENDER_CAMERA = "render_camera"  # env.render_camera(name) method
+    ISAAC_TILED = "isaac_tiled"  # Isaac Lab TiledCamera via scene
+
+
+def _detect_camera_capability(env: gym.Env) -> str:  # type: ignore[type-arg]
+    """Detect how the environment supports camera rendering.
+
+    Checks (in priority order):
+    1. ``render_camera(camera_name)`` method on env or env.unwrapped
+    2. Isaac Lab scene with camera sensors (TiledCamera)
+    3. Falls back to NONE (single env.render())
+    """
+    # Check for render_camera method on the env or unwrapped env
+    for target in (env, getattr(env, "unwrapped", None)):
+        if target is not None and callable(getattr(target, "render_camera", None)):
+            return MultiCameraCapability.RENDER_CAMERA
+
+    # Check for Isaac Lab TiledCamera via scene attribute
+    unwrapped = getattr(env, "unwrapped", env)
+    scene = getattr(unwrapped, "scene", None)
+    if scene is not None:
+        # Isaac Lab scenes expose sensors as dict-like or attribute access
+        if callable(getattr(scene, "keys", None)):
+            for key in scene.keys():
+                sensor = scene[key]
+                type_name = type(sensor).__name__
+                if "Camera" in type_name:
+                    return MultiCameraCapability.ISAAC_TILED
+        elif callable(getattr(scene, "__iter__", None)):
+            for sensor in scene:
+                type_name = type(sensor).__name__
+                if "Camera" in type_name:
+                    return MultiCameraCapability.ISAAC_TILED
+
+    return MultiCameraCapability.NONE
+
+
+def _capture_frame_from_env(
+    env: gym.Env,  # type: ignore[type-arg]
+    camera_name: str,
+    capability: str,
+) -> np.ndarray | None:
+    """Capture a single frame from the environment for the given camera.
+
+    Returns an RGB numpy array (H, W, 3) or None if capture failed.
+    """
+    try:
+        if capability == MultiCameraCapability.RENDER_CAMERA:
+            # Try env first, then unwrapped
+            for target in (env, getattr(env, "unwrapped", None)):
+                if target is not None and callable(getattr(target, "render_camera", None)):
+                    frame = target.render_camera(camera_name)
+                    return _to_numpy_rgb(frame)
+
+        if capability == MultiCameraCapability.ISAAC_TILED:
+            unwrapped = getattr(env, "unwrapped", env)
+            scene = getattr(unwrapped, "scene", None)
+            if scene is not None and camera_name in scene:
+                sensor = scene[camera_name]
+                # Isaac Lab cameras expose .data.output["rgb"] or similar
+                data = getattr(sensor, "data", None)
+                if data is not None:
+                    output = getattr(data, "output", None)
+                    if isinstance(output, dict) and "rgb" in output:
+                        return _to_numpy_rgb(output["rgb"])
+
+        # Fallback: use env.render() for the default camera
+        frame = env.render()
+        return _to_numpy_rgb(frame)
+
+    except Exception:
+        logger.debug("Failed to capture frame for camera '%s'", camera_name, exc_info=True)
+        return None
+
+
+def _to_numpy_rgb(frame: Any) -> np.ndarray | None:
+    """Convert a frame to a numpy RGB array, handling torch tensors."""
+    if frame is None:
+        return None
+    if isinstance(frame, np.ndarray):
+        return frame
+    # Handle torch tensors and similar array-like objects
+    if hasattr(frame, "cpu") and hasattr(frame, "numpy"):
+        arr = frame.detach().cpu().numpy()
+        if arr.dtype != np.uint8:
+            arr = np.clip(arr * 255, 0, 255).astype(np.uint8) if arr.max() <= 1.0 else arr.astype(
+                np.uint8
+            )
+        return arr
+    return None
+
 
 class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
     """Gymnasium wrapper that adds checkpoint-based visual capture.
@@ -48,6 +158,17 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
 
     The wrapper is transparent — it does not modify observations, rewards,
     or done signals. It only adds checkpoint info to the `info` dict.
+
+    Multi-camera detection:
+        The wrapper automatically detects whether the wrapped environment
+        supports named cameras. It checks for:
+
+        1. A ``render_camera(camera_name)`` method on the env
+        2. Isaac Lab ``TiledCamera`` sensors via ``env.unwrapped.scene``
+        3. Falls back to ``env.render()`` for single-view capture
+
+        The detected capability is available via the ``camera_capability``
+        attribute.
     """
 
     def __init__(
@@ -64,6 +185,15 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         self.task_name = task_name
         self._step_count = 0
         self._trial_count = 0
+
+        # Detect multi-camera capability
+        self.camera_capability = _detect_camera_capability(env)
+        if self.camera_capability != MultiCameraCapability.NONE:
+            logger.info(
+                "Multi-camera support detected: %s (cameras: %s)",
+                self.camera_capability,
+                self.cameras,
+            )
 
         # Parse checkpoint definitions
         self._checkpoints: dict[int, str] = {}
@@ -99,10 +229,20 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
 
         return obs, reward, terminated, truncated, info
 
+    @property
+    def has_multi_camera(self) -> bool:
+        """Whether the environment supports named multi-camera rendering."""
+        return self.camera_capability != MultiCameraCapability.NONE
+
     def _capture_checkpoint(
         self, name: str, obs: Any, reward: float, info: dict[str, Any]
     ) -> dict[str, Any]:
-        """Capture screenshots and state at a checkpoint."""
+        """Capture screenshots and state at a checkpoint.
+
+        Iterates over all configured cameras and captures a frame from each.
+        For environments without multi-camera support, captures a single frame
+        from ``env.render()`` labeled as ``"default"``.
+        """
         capture_dir = (
             self.output_dir
             / self.task_name
@@ -112,16 +252,27 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         capture_dir.mkdir(parents=True, exist_ok=True)
 
         saved_files: dict[str, str] = {}
+        captured_cameras: list[str] = []
 
-        # Capture render output
-        try:
-            frame = self.env.render()
-            if isinstance(frame, np.ndarray):
+        if self.camera_capability == MultiCameraCapability.NONE:
+            # Single-view fallback: one call to env.render()
+            frame = _capture_frame_from_env(self.env, "default", MultiCameraCapability.NONE)
+            if frame is not None:
                 path = capture_dir / "default_rgb.png"
                 _save_image(frame, path)
                 saved_files["default_rgb"] = str(path)
-        except Exception:
-            pass
+                captured_cameras.append("default")
+        else:
+            # Multi-camera: capture from each configured camera
+            for camera_name in self.cameras:
+                frame = _capture_frame_from_env(
+                    self.env, camera_name, self.camera_capability
+                )
+                if frame is not None:
+                    path = capture_dir / f"{camera_name}_rgb.png"
+                    _save_image(frame, path)
+                    saved_files[f"{camera_name}_rgb"] = str(path)
+                    captured_cameras.append(camera_name)
 
         # Save state info
         state = {
@@ -154,7 +305,8 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
             "step": self._step_count,
             "trial": self._trial_count,
             "task": self.task_name,
-            "cameras": self.cameras,
+            "cameras": captured_cameras,
+            "camera_capability": self.camera_capability,
             "files": saved_files,
         }
         with open(metadata_path, "w") as f:

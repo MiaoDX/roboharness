@@ -91,6 +91,10 @@ def main() -> None:
     )
 
     # 2. Wrap with RobotHarnessWrapper — zero changes to environment code
+    #    Multi-camera: The wrapper auto-detects whether the environment supports
+    #    named cameras (e.g. Isaac Lab's TiledCamera). If it does, each camera
+    #    listed below is captured independently at every checkpoint. If not, a
+    #    single frame from env.render() is saved as "default".
     print("[2/3] Wrapping with RobotHarnessWrapper ...")
     env = RobotHarnessWrapper(
         env,
@@ -100,10 +104,12 @@ def main() -> None:
             {"name": "mid", "step": args.max_steps // 2},
             {"name": "end", "step": args.max_steps},
         ],
-        cameras=["default"],
+        cameras=["tiled_camera"],  # Isaac Lab TiledCamera sensor name
         output_dir=args.output_dir,
         task_name=args.task.lower().replace("-", "_"),
     )
+    print(f"  Camera capability: {env.camera_capability}")
+    print(f"  Configured cameras: {env.cameras}")
 
     # 3. Run the standard Gymnasium loop
     print(f"[3/3] Running for up to {args.max_steps} steps ...")
