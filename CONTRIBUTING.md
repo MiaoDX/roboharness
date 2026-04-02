@@ -55,7 +55,7 @@ pip install -e ".[dev]"
 
 ## AI Agent Contributions
 
-We actively welcome contributions from AI coding agents! If you're using [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [OpenCode](https://github.com/nicepkg/OpenCode), or other autonomous coding tools to contribute, go for it — just make sure the tests pass.
+We actively welcome contributions from AI coding agents! If you're using [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [OpenClaw](https://github.com/openclaw/openclaw), or other autonomous coding tools to contribute, go for it — just make sure the tests pass.
 
 ## License
 

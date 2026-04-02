@@ -22,7 +22,7 @@
 
 ## What is Robot-Harness?
 
-Robot-Harness is a framework that lets AI Coding Agents (Claude Code, OpenAI Codex, OpenCode, etc.) control robot simulations through a **visual feedback loop**:
+Robot-Harness is a framework that lets AI Coding Agents (Claude Code, OpenAI Codex, [OpenClaw](https://github.com/openclaw/openclaw), etc.) control robot simulations through a **visual feedback loop**:
 
 <p align="center">
   <img src="assets/architecture.svg" width="800" alt="Robot-Harness Architecture"/>
@@ -218,7 +218,7 @@ We especially welcome:
 - Real-world usage examples
 - Integration with popular RL libraries (SB3, CleanRL, etc.)
 
-**AI agents are welcome contributors!** We actively encourage contributions from AI coding agents such as [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [OpenCode](https://github.com/nicepkg/OpenCode), and other autonomous coding tools. If your agent can improve Robot-Harness, send a PR!
+**AI agents are welcome contributors!** We actively encourage contributions from AI coding agents such as [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenAI Codex](https://github.com/openai/codex), [OpenClaw](https://github.com/openclaw/openclaw), and other autonomous coding tools. If your agent can improve Robot-Harness, send a PR!
 
 ## License
 
