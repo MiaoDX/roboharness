@@ -2,6 +2,7 @@
 
 **A Visual Testing Harness for AI Coding Agents in Robot Simulation**
 
+[![CI](https://github.com/MiaoDX/RobotHarness/actions/workflows/ci.yml/badge.svg)](https://github.com/MiaoDX/RobotHarness/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![GitHub stars](https://img.shields.io/github/stars/MiaoDX/RobotHarness)](https://github.com/MiaoDX/RobotHarness/stargazers)
