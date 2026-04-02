@@ -27,6 +27,7 @@ from pathlib import Path
 import numpy as np
 
 from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
+from roboharness.backends.visualizer import MeshcatVisualizer
 from roboharness.core.harness import Harness
 
 # ---------------------------------------------------------------------------
@@ -162,7 +163,9 @@ def build_grasp_phases() -> dict[str, list[np.ndarray]]:
 def generate_html_report(output_dir: Path) -> Path:
     """Generate a self-contained HTML report showing all checkpoint captures.
 
-    Embeds images as base64 so the HTML file works standalone (no server needed).
+    Each checkpoint shows static PNG screenshots on the left and an interactive
+    Meshcat 3D viewer (via ``<iframe>``) on the right when available.
+    Images are embedded as base64 so the HTML file works standalone.
     """
     import base64
 
@@ -198,6 +201,20 @@ def generate_html_report(output_dir: Path) -> Path:
                 f"<p>{cam_name}</p></div>"
             )
 
+        # Check for Meshcat interactive HTML export
+        meshcat_file = cp_dir / "meshcat_scene.html"
+        meshcat_html = ""
+        if meshcat_file.exists():
+            # Use a relative path for the iframe src so it works on GitHub Pages
+            meshcat_rel = f"{cp_name}/meshcat_scene.html"
+            meshcat_html = (
+                f'<div class="meshcat-viewer">'
+                f"<h3>Interactive 3D Scene</h3>"
+                f'<iframe src="{meshcat_rel}" loading="lazy"></iframe>'
+                f"<p>Rotate, pan, and zoom to explore the scene.</p>"
+                f"</div>"
+            )
+
         step = meta.get("step", "?")
         sim_time = meta.get("sim_time", "?")
         if isinstance(sim_time, float):
@@ -207,7 +224,10 @@ def generate_html_report(output_dir: Path) -> Path:
             f'<div class="checkpoint">'
             f"<h2>{cp_name}</h2>"
             f"<p>Step: {step} | Sim time: {sim_time}s</p>"
+            f'<div class="checkpoint-content">'
             f'<div class="views">{"".join(images_html)}</div>'
+            f"{meshcat_html}"
+            f"</div>"
             f"</div>"
         )
 
@@ -218,16 +238,22 @@ def generate_html_report(output_dir: Path) -> Path:
 <meta charset="utf-8"/>
 <title>Roboharness MuJoCo Grasp Report</title>
 <style>
-  body {{ font-family: -apple-system, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px;
+  body {{ font-family: -apple-system, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px;
          background: #f5f5f5; }}
   h1 {{ color: #333; border-bottom: 2px solid #4a90d9; padding-bottom: 10px; }}
   .checkpoint {{ background: white; border-radius: 8px; padding: 20px; margin: 20px 0;
                  box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
   .checkpoint h2 {{ color: #4a90d9; margin-top: 0; }}
-  .views {{ display: flex; gap: 16px; flex-wrap: wrap; }}
+  .checkpoint-content {{ display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }}
+  .views {{ display: flex; gap: 16px; flex-wrap: wrap; flex: 1; min-width: 300px; }}
   .cam {{ text-align: center; }}
   .cam img {{ max-width: 320px; border: 1px solid #ddd; border-radius: 4px; }}
   .cam p {{ margin: 4px 0 0; font-size: 14px; color: #666; }}
+  .meshcat-viewer {{ flex: 0 0 480px; text-align: center; }}
+  .meshcat-viewer h3 {{ color: #4a90d9; margin: 0 0 8px; font-size: 16px; }}
+  .meshcat-viewer iframe {{ width: 480px; height: 400px; border: 1px solid #ddd;
+                            border-radius: 4px; }}
+  .meshcat-viewer p {{ margin: 4px 0 0; font-size: 13px; color: #888; }}
   .footer {{ margin-top: 30px; color: #999; font-size: 12px; }}
 </style>
 </head>
@@ -288,6 +314,20 @@ def main() -> None:
     )
     print("      Model loaded. Actuators: 3 (z-slide, left-finger, right-finger)")
 
+    # Create Meshcat visualizer for interactive 3D export (if meshcat available)
+    meshcat_viz: MeshcatVisualizer | None = None
+    if args.report:
+        try:
+            import mujoco as _mj  # noqa: F401
+
+            meshcat_viz = MeshcatVisualizer(
+                backend._model, backend._data,
+                width=args.width, height=args.height,
+            )
+            print("      Meshcat visualizer ready for 3D scene export.")
+        except ImportError:
+            print("      Meshcat not installed — skipping interactive 3D export.")
+
     # 2. Set up harness with checkpoints
     print("[2/4] Setting up harness with checkpoints ...")
     harness = Harness(backend, output_dir=str(output_dir), task_name="mujoco_grasp")
@@ -313,6 +353,13 @@ def main() -> None:
             f" | step={result.step} | sim_time={result.sim_time:.3f}s"
         )
         print(f"        -> {trial_dir}")
+
+        # Export Meshcat interactive scene for this checkpoint
+        if meshcat_viz is not None:
+            meshcat_viz.sync()
+            scene_path = trial_dir / "meshcat_scene.html"
+            meshcat_viz.export_html(scene_path)
+            print(f"        -> Meshcat 3D: {scene_path}")
 
     # 4. Summary
     print("\n[4/4] Done!")
