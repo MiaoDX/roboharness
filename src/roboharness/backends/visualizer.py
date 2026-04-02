@@ -151,26 +151,24 @@ class MeshcatVisualizer:
                 transparent=bool(rgba[3] < 1.0),
             )
 
-            geometry = self._make_geometry(geom_type, geom_size)
+            geometry = self._make_geometry(geom_type, geom_size, geom_id=i)
             if geometry is not None:
                 self._vis[path].set_object(geometry, material)
 
         # Initial transform sync
         self.sync()
 
-    def _make_geometry(self, geom_type: int, size: np.ndarray) -> Any:
+    def _make_geometry(self, geom_type: int, size: np.ndarray, geom_id: int = -1) -> Any:
         """Create a Meshcat geometry object matching a MuJoCo geom type."""
         import meshcat.geometry as g
 
         # MuJoCo geom type constants (mjtGeom enum)
         _PLANE = 0
-        _HFIELD = 1  # noqa: F841
         _SPHERE = 2
         _CAPSULE = 3
-        _ELLIPSOID = 4  # noqa: F841
         _CYLINDER = 5
         _BOX = 6
-        _MESH = 7  # noqa: F841
+        _MESH = 7
 
         if geom_type == _PLANE:
             return g.Box([2.0, 2.0, 0.001])
@@ -186,9 +184,29 @@ class MeshcatVisualizer:
             return g.Cylinder(2 * half_length, radius)
         elif geom_type == _BOX:
             return g.Box([2 * float(size[0]), 2 * float(size[1]), 2 * float(size[2])])
+        elif geom_type == _MESH and geom_id >= 0:
+            return self._make_mesh_geometry(geom_id)
         else:
-            # Unsupported geom type — skip
             return None
+
+    def _make_mesh_geometry(self, geom_id: int) -> Any:
+        """Extract mesh vertices/faces from MuJoCo model for a mesh geom."""
+        import meshcat.geometry as g
+
+        model = self._model
+        mesh_id = model.geom_dataid[geom_id]
+        if mesh_id < 0:
+            return None
+
+        vert_start = model.mesh_vertadr[mesh_id]
+        vert_count = model.mesh_vertnum[mesh_id]
+        face_start = model.mesh_faceadr[mesh_id]
+        face_count = model.mesh_facenum[mesh_id]
+
+        vertices = model.mesh_vert[vert_start : vert_start + vert_count].copy()
+        faces = model.mesh_face[face_start : face_start + face_count].copy()
+
+        return g.TriangularMeshGeometry(vertices=vertices, faces=faces)
 
     # ------------------------------------------------------------------
     # State synchronization
