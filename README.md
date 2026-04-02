@@ -63,7 +63,14 @@ pip install robot-harness[mujoco] Pillow
 python examples/mujoco_grasp.py --report
 ```
 
-This runs a scripted grasp sequence (hover → lower → grip → lift), captures multi-view screenshots at each checkpoint, and generates an HTML report. See [`examples/mujoco_grasp.py`](examples/mujoco_grasp.py) for the full source.
+This runs a scripted grasp sequence, captures multi-view screenshots at each checkpoint, and generates an HTML report. See [`examples/mujoco_grasp.py`](examples/mujoco_grasp.py) for the full source.
+
+**Checkpoint captures (front view):**
+
+| pre_grasp | contact | grasp | lift |
+|:-:|:-:|:-:|:-:|
+| ![pre_grasp](assets/example_mujoco_grasp/pre_grasp_front.png) | ![contact](assets/example_mujoco_grasp/contact_front.png) | ![grasp](assets/example_mujoco_grasp/grasp_front.png) | ![lift](assets/example_mujoco_grasp/lift_front.png) |
+| Gripper hovering above cube | Lowered onto cube | Fingers closed | Cube lifted off table |
 
 ### Option 1: Gymnasium Wrapper (Zero-Change Integration)
 
