@@ -89,50 +89,84 @@ CPU CI 跑 `pytest`（自动跳过 gpu marked 测试），GPU CI 跑 `pytest -m 
 
 | 平台 | 原理 | GPU 类型 | 大致价格 | 优点 | 缺点 |
 |------|------|----------|----------|------|------|
-| **GitHub GPU Runners** | GitHub 原生 larger runner | T4, A10G | ~$0.07–0.15/min | 零运维，改一行 `runs-on` | 需 Team/Enterprise plan |
-| **BuildJet** | 托管 GitHub Actions runner | T4 | ~$0.07/min | 一行改动 | GPU 型号有限 |
-| **Cirun.io** | 在你的云账户启 GPU 实例 | 任意 (AWS/GCP) | 云实例费 (g4dn.xlarge ~$0.53/hr) + Cirun 开源免费 | 灵活，按需启停 | 需绑定云账户 |
-| **RunsOn** | AWS 上自动启停 EC2 runner | 任意 EC2 GPU | EC2 费用 | 开源免费 | 仅 AWS |
+| **Cirun.io** | 在你的云账户启 GPU 实例 | 任意 (AWS/GCP/Azure) | 云实例费 (g4dn.xlarge ~$0.53/hr)；**开源免费** | 灵活，按需启停，开源零平台费 | 需绑定云账户 |
+| **RunsOn** | AWS 上自动启停 EC2 runner | 任意 EC2 GPU | T4 on-demand ~$0.009/min, spot ~$0.004/min；**非商业免费** | 最便宜，比 GitHub GPU Runner 便宜 85-94% | 仅 AWS，需申请 GPU quota |
+| **GitHub GPU Runners** | GitHub 原生 larger runner | T4 (16GB) | $0.07/min (~$4.20/hr) | 零运维，改一行 `runs-on` | **需 Team/Enterprise plan**，个人账户不可用 |
+| **Cirrus Runners** | 固定月费无限分钟 | Linux GPU | $150/mo (OSS 50% off → $75/mo) | 无限使用，成本可预测 | 偶尔跑不划算 |
 | **Self-hosted Runner** | 自己的 GPU 机器 | 自有硬件 | 电费 | 完全控制 | 需维护硬件 |
-| **Modal** | GPU serverless（非 GHA 生态） | T4, A10G, A100, H100 | 按秒计费 | 极致灵活 | 需额外脚本集成 |
+| **Modal** | GPU serverless（非 GHA 生态） | T4–H100 | 按秒计费 | 极致灵活 | 需额外脚本集成到 CI |
+
+> **注意**：BuildJet、Namespace.so、WarpBuild 目前**不提供 GPU runner**，仅有 CPU。
+> AWS CodeBuild GPU 很贵（~$0.30/min），不推荐。
+
+### 10 分钟 GPU 测试的单次成本对比
+
+| 平台 | 单次成本 (10min) | 月成本 (50 次/月) |
+|------|-------------------|-------------------|
+| RunsOn (T4 spot) | $0.04 | ~$5 |
+| Cirun + AWS T4 on-demand | $0.09 | ~$5 |
+| RunsOn (T4 on-demand) | $0.09 | ~$8 |
+| GitHub GPU Runner | $0.70 | ~$35 + Team plan 费用 |
+| Cirrus Runners | N/A (月费) | $75–150 |
+| AWS CodeBuild | $3.00 | $150 |
 
 ### 推荐路径
 
 **阶段一（现在）**：先加 pytest markers，把 GPU 测试标记出来，CPU CI 不受影响。
 
 **阶段二（有 GPU 测试时）**：
-- 首选 **GitHub GPU Runners**（如果有 Team plan）或 **BuildJet** — 最小改动
-- 预算敏感则用 **Cirun.io** + AWS spot instance — 成本最低
+- **首选 Cirun.io + AWS**（开源免费，只付云实例费 ~$5/月）
+- 或 **RunsOn + AWS spot**（最便宜，~$5/月）
+- 有 Team plan 则可用 **GitHub GPU Runners**（最简单但最贵）
 
 **阶段三（测试变多时）**：
 - Docker 镜像固化 GPU 环境（CUDA + PyTorch + cuRobo）
 - 考虑 nightly 全量 GPU 测试 + PR 只跑关键路径
+- 如果 GPU 测试频率很高，考虑 Cirrus Runners 的无限分钟方案
 
-## 成本估算
+### Cirun.io 配置示例（推荐方案）
 
-假设：
-- GPU 测试跑 10 分钟
-- 每周触发 5 次（合并到 main + 偶尔 PR label 触发）
-- 使用 GitHub GPU Runner 或 BuildJet
+```yaml
+# .cirun.yml
+runners:
+  - name: gpu-runner
+    cloud: aws
+    instance_type: g4dn.xlarge  # T4 GPU, 4 vCPU, 16GB
+    machine_image: ami-xxxxx    # Deep Learning AMI
+    preemptible: true           # spot instance, 更便宜
+    labels:
+      - gpu
+```
 
-**月成本 ≈ 10min × 5次/周 × 4周 × $0.10/min = $20/月**
-
-对于开源项目完全可接受。用 Cirun + AWS spot 可以更便宜（约 $5–10/月）。
+```yaml
+# .github/workflows/ci.yml 中新增 GPU job
+gpu-test:
+  runs-on: [self-hosted, gpu]
+  if: github.ref == 'refs/heads/main'
+  steps:
+    - uses: actions/checkout@v4
+    - name: Run GPU tests
+      run: |
+        pip install -e ".[all]"
+        pytest -m gpu
+```
 
 ## 社区参考
 
 - **ManiSkill**: self-hosted GPU runner
 - **Isaac Lab**: NVIDIA 内部 GPU CI 集群
-- **cuRobo**: NVIDIA 内部 CI
+- **cuRobo**: NVIDIA 内部 CI，社区贡献者本地测试
 - **PyTorch**: 大规模 self-hosted GPU 集群
 - **Hugging Face Transformers**: 混合方案（CPU 在 GitHub-hosted，GPU 在 self-hosted）
+- **cloud_gpu_build_agent**: 开源项目，用 Terraform 在 AWS/GCP/Azure 创建临时 GPU VM 跑 CI
 
-大多数中小型机器人开源项目采用 self-hosted 单机方案或 GitHub GPU runner。
+大多数中小型机器人开源项目采用 self-hosted 单机方案或云端按需 GPU runner。
 
 ## 参考链接
 
-- [GitHub larger runners](https://docs.github.com/en/actions/using-github-hosted-runners/using-larger-runners)
-- [BuildJet GPU runners](https://buildjet.com/for-github-actions)
-- [Cirun.io](https://cirun.io/)
-- [RunsOn](https://runs-on.com/)
+- [GitHub GPU Runners (larger runners)](https://docs.github.com/en/actions/using-github-hosted-runners/using-larger-runners)
+- [Cirun.io](https://cirun.io/) — 开源项目免费
+- [RunsOn GPU Runners](https://runs-on.com/runners/gpu/) — 非商业免费
+- [Cirrus Runners](https://cirrus-runners.app/pricing/)
 - [Modal](https://modal.com/)
+- [cloud_gpu_build_agent (Terraform GPU CI)](https://github.com/jfpanisset/cloud_gpu_build_agent)
