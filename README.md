@@ -17,11 +17,11 @@
 
 *Agent-in-the-loop: Plan → Pregrasp → Approach → Close → Lift → Holding*
 
-**Grasp Task: X26_Y22_Z13 (Front View)**
+**Grasp Task: X26_Y22_Z13 (Top-Down View)**
 
-![Demo X26](assets/X26_Y22_Z13_front_view.gif)
+![Demo X26](assets/X26_Y22_Z13_topdown_view.gif)
 
-*Multi-checkpoint visual verification — each frame is a checkpoint where the AI Agent observes and judges*
+*Top-down perspective showing object alignment and grasp closure*
 
 ## What is Robot-Harness?
 
