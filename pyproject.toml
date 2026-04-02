@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "robot-harness"
+version = "0.1.0"
+description = "A Visual Testing Harness for AI Coding Agents in Robot Simulation"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "MiaoDX", email = "miaodx@hotmail.com" },
+    { name = "WLB", email = "wlb@floatinglife.ai" },
+]
+keywords = ["robotics", "simulation", "testing", "harness", "ai-agent", "mujoco", "visual-feedback"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+
+dependencies = [
+    "numpy>=1.21",
+]
+
+[project.optional-dependencies]
+mujoco = [
+    "mujoco>=3.0",
+    "meshcat>=0.3.0",
+]
+maniskill = [
+    "mani_skill>=3.0",
+]
+rerun = [
+    "rerun-sdk>=0.18",
+]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.4",
+    "mypy>=1.0",
+]
+all = [
+    "robot-harness[mujoco,rerun,dev]",
+]
+
+[project.urls]
+Homepage = "https://github.com/MiaoDX/RobotHarness"
+Repository = "https://github.com/MiaoDX/RobotHarness"
+Issues = "https://github.com/MiaoDX/RobotHarness/issues"
+Documentation = "https://github.com/MiaoDX/RobotHarness/tree/main/docs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/robot_harness"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
