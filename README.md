@@ -8,8 +8,19 @@
 
 > Let Claude Code and Codex **see** what the robot is doing, **judge** if it's working, and **iterate** autonomously.
 
-<!-- TODO: Add demo GIF here -->
-<!-- ![Demo](docs/assets/demo.gif) -->
+## Demo
+
+**Grasp Task: X32_Y28_Z13 (Front View)**
+
+![Demo X32](assets/X32_Y28_Z13_front_view.gif)
+
+*Agent-in-the-loop: Plan → Pregrasp → Approach → Close → Lift → Holding*
+
+**Grasp Task: X26_Y22_Z13 (Front View)**
+
+![Demo X26](assets/X26_Y22_Z13_front_view.gif)
+
+*Multi-checkpoint visual verification — each frame is a checkpoint where the AI Agent observes and judges*
 
 ## What is Robot-Harness?
 
