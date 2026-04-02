@@ -75,10 +75,10 @@ def build_scene_xml() -> str:
     <light pos="-1 1 3" dir="0.3 -0.3 -1" diffuse="0.4 0.4 0.4"/>
 
     <!-- Cameras -->
-    <camera name="front" pos="1.8 0 1.0" xyaxes="0 1 0 -0.3 0 1"/>
-    <camera name="side" pos="0 2.0 1.0" xyaxes="-1 0 0 0 -0.3 1"/>
-    <camera name="top" pos="0 0 3.0" xyaxes="1 0 0 0 1 0"/>
-    <camera name="close_up" pos="0.7 0.3 1.1" xyaxes="-0.4 1 0 -0.3 -0.1 1"/>
+    <camera name="front" pos="2.8 0 1.0" xyaxes="0 1 0 -0.2 0 1"/>
+    <camera name="side" pos="0 3.0 1.0" xyaxes="-1 0 0 0 -0.2 1"/>
+    <camera name="top" pos="0 0 4.5" xyaxes="1 0 0 0 1 0"/>
+    <camera name="close_up" pos="1.2 0.5 1.2" xyaxes="-0.4 1 0 -0.2 -0.1 1"/>
 
     <!-- Table in front of robot -->
     <body name="table" pos="0.45 0 0.35">
