@@ -37,7 +37,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -78,7 +78,7 @@ def _detect_camera_capability(env: gym.Env) -> str:  # type: ignore[type-arg]
     if scene is not None:
         # Isaac Lab scenes expose sensors as dict-like or attribute access
         if callable(getattr(scene, "keys", None)):
-            for key in scene.keys():
+            for key in scene:
                 sensor = scene[key]
                 type_name = type(sensor).__name__
                 if "Camera" in type_name:
@@ -138,10 +138,12 @@ def _to_numpy_rgb(frame: Any) -> np.ndarray | None:
         return frame
     # Handle torch tensors and similar array-like objects
     if hasattr(frame, "cpu") and hasattr(frame, "numpy"):
-        arr = frame.detach().cpu().numpy()
+        arr = cast("np.ndarray", frame.detach().cpu().numpy())
         if arr.dtype != np.uint8:
-            arr = np.clip(arr * 255, 0, 255).astype(np.uint8) if arr.max() <= 1.0 else arr.astype(
-                np.uint8
+            arr = (
+                np.clip(arr * 255, 0, 255).astype(np.uint8)
+                if arr.max() <= 1.0
+                else arr.astype(np.uint8)
             )
         return arr
     return None
@@ -243,12 +245,7 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         For environments without multi-camera support, captures a single frame
         from ``env.render()`` labeled as ``"default"``.
         """
-        capture_dir = (
-            self.output_dir
-            / self.task_name
-            / f"trial_{self._trial_count:03d}"
-            / name
-        )
+        capture_dir = self.output_dir / self.task_name / f"trial_{self._trial_count:03d}" / name
         capture_dir.mkdir(parents=True, exist_ok=True)
 
         saved_files: dict[str, str] = {}
@@ -265,9 +262,7 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         else:
             # Multi-camera: capture from each configured camera
             for camera_name in self.cameras:
-                frame = _capture_frame_from_env(
-                    self.env, camera_name, self.camera_capability
-                )
+                frame = _capture_frame_from_env(self.env, camera_name, self.camera_capability)
                 if frame is not None:
                     path = capture_dir / f"{camera_name}_rgb.png"
                     _save_image(frame, path)
@@ -295,7 +290,7 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
             state["obs_keys"] = list(obs.keys())
 
         state_path = capture_dir / "state.json"
-        with open(state_path, "w") as f:
+        with state_path.open("w") as f:
             json.dump(state, f, indent=2, default=str)
         saved_files["state"] = str(state_path)
 
@@ -309,7 +304,7 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
             "camera_capability": self.camera_capability,
             "files": saved_files,
         }
-        with open(metadata_path, "w") as f:
+        with metadata_path.open("w") as f:
             json.dump(meta, f, indent=2)
 
         return {

@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import os
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +31,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 # Scene builder: G1 + table + target objects + cameras
 # ---------------------------------------------------------------------------
+
 
 def build_scene_xml() -> str:
     """Build MJCF XML for G1 reaching scene.
@@ -42,7 +42,7 @@ def build_scene_xml() -> str:
     from robot_descriptions import g1_mj_description
 
     g1_xml_path = g1_mj_description.MJCF_PATH
-    g1_dir = os.path.dirname(g1_xml_path)
+    g1_dir = str(Path(g1_xml_path).parent)
 
     return f"""\
 <mujoco model="g1_reach_scene">
@@ -169,9 +169,7 @@ class JointMapper:
             idx += pin_model.joints[i].nq
 
         # Ordered list of actuated joint names (shared between MuJoCo and Pinocchio)
-        self.actuated_joints = [
-            name for name in self._mj_act_ctrl if name in self._pin_joint_q
-        ]
+        self.actuated_joints = [name for name in self._mj_act_ctrl if name in self._pin_joint_q]
 
     def mj_qpos_to_pin_q(self, mj_qpos: np.ndarray) -> np.ndarray:
         """Extract Pinocchio q vector from MuJoCo qpos by joint name matching."""
@@ -211,6 +209,7 @@ class JointMapper:
 # IK reach targets
 # ---------------------------------------------------------------------------
 
+
 def make_target_pose(pos: np.ndarray, approach_axis: str = "-z") -> np.ndarray:
     """Create a 4x4 homogeneous transform for a target end-effector pose.
 
@@ -220,24 +219,31 @@ def make_target_pose(pos: np.ndarray, approach_axis: str = "-z") -> np.ndarray:
     T[:3, 3] = pos
     if approach_axis == "-z":
         # Hand pointing down (palm facing down)
-        T[:3, :3] = np.array([
-            [1, 0, 0],
-            [0, -1, 0],
-            [0, 0, -1],
-        ], dtype=np.float64)
+        T[:3, :3] = np.array(
+            [
+                [1, 0, 0],
+                [0, -1, 0],
+                [0, 0, -1],
+            ],
+            dtype=np.float64,
+        )
     elif approach_axis == "-x":
         # Hand reaching forward
-        T[:3, :3] = np.array([
-            [0, 0, -1],
-            [0, -1, 0],
-            [-1, 0, 0],
-        ], dtype=np.float64)
+        T[:3, :3] = np.array(
+            [
+                [0, 0, -1],
+                [0, -1, 0],
+                [-1, 0, 0],
+            ],
+            dtype=np.float64,
+        )
     return T
 
 
 # ---------------------------------------------------------------------------
 # Reach motion controller
 # ---------------------------------------------------------------------------
+
 
 def run_ik_reach(
     controller,
@@ -260,6 +266,7 @@ def run_ik_reach(
 # HTML report generator
 # ---------------------------------------------------------------------------
 
+
 def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> Path:
     """Generate a self-contained HTML report for G1 WBC reach demo."""
     trial_dir = output_dir / task_name / "trial_001"
@@ -277,13 +284,13 @@ def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> P
         meta_path = cp_dir / "metadata.json"
         meta = {}
         if meta_path.exists():
-            with open(meta_path) as f:
+            with meta_path.open() as f:
                 meta = json.load(f)
 
         images_html = []
         for img_file in sorted(cp_dir.glob("*_rgb.png")):
             cam_name = img_file.stem.replace("_rgb", "")
-            with open(img_file, "rb") as f:
+            with img_file.open("rb") as f:
                 b64 = base64.b64encode(f.read()).decode()
             images_html.append(
                 f'<div class="cam">'
@@ -366,6 +373,7 @@ Controller Protocol demo with multi-view checkpoint captures.</p>
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="G1 WBC Reach Example")
     parser.add_argument("--output-dir", default="./harness_output")
@@ -406,8 +414,10 @@ def main() -> None:
     if args.report:
         try:
             meshcat_viz = MeshcatVisualizer(
-                backend._model, backend._data,
-                width=args.width, height=args.height,
+                backend._model,
+                backend._data,
+                width=args.width,
+                height=args.height,
             )
             print("      Meshcat visualizer ready for 3D scene export.")
         except ImportError:
@@ -488,9 +498,12 @@ def main() -> None:
     state = harness.get_state()
     left_target = make_target_pose(np.array([0.35, 0.20, 0.55]), approach_axis="-x")
     ctrl = run_ik_reach(
-        controller, mapper, state,
+        controller,
+        mapper,
+        state,
         {"left_rubber_hand": left_target},
-        mj_data.ctrl, all_arm_joints,
+        mj_data.ctrl,
+        all_arm_joints,
     )
     _run_phase([ctrl for _ in range(600)], "reach_left")
 
@@ -498,9 +511,12 @@ def main() -> None:
     state = harness.get_state()
     right_target = make_target_pose(np.array([0.35, -0.20, 0.55]), approach_axis="-x")
     ctrl = run_ik_reach(
-        controller, mapper, state,
+        controller,
+        mapper,
+        state,
         {"left_rubber_hand": left_target, "right_rubber_hand": right_target},
-        mj_data.ctrl, all_arm_joints,
+        mj_data.ctrl,
+        all_arm_joints,
     )
     _run_phase([ctrl for _ in range(600)], "reach_both")
 

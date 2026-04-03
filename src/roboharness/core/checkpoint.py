@@ -45,8 +45,7 @@ class CheckpointStore:
         """Restore a simulation state snapshot."""
         if name not in self._snapshots:
             raise KeyError(
-                f"Checkpoint '{name}' not found. "
-                f"Available: {list(self._snapshots.keys())}"
+                f"Checkpoint '{name}' not found. Available: {list(self._snapshots.keys())}"
             )
         return self._snapshots[name]
 

@@ -31,12 +31,12 @@ def main() -> None:
     )
 
     # 3. Run the standard Gymnasium loop
-    obs, info = env.reset()
+    _obs, info = env.reset()
     total_reward = 0.0
 
     for step in range(200):
         action = env.action_space.sample()  # Replace with agent's action
-        obs, reward, terminated, truncated, info = env.step(action)
+        _obs, reward, terminated, truncated, info = env.step(action)
         total_reward += reward
 
         # Check if a checkpoint was hit

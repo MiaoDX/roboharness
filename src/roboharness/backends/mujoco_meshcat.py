@@ -69,11 +69,10 @@ class MuJoCoMeshcatBackend:
     ):
         try:
             import mujoco
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
-                "MuJoCo is required for this backend. "
-                "Install with: pip install roboharness[mujoco]"
-            )
+                "MuJoCo is required for this backend. Install with: pip install roboharness[mujoco]"
+            ) from exc
 
         if xml_string is None and model_path is None:
             raise ValueError("Either model_path or xml_string must be provided.")

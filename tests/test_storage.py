@@ -30,7 +30,7 @@ def test_task_store_save_config(tmp_path):
     store = TaskStore(tmp_path, "test_task")
     path = store.save_task_config({"robot": "franka", "task": "pick"})
     assert path.exists()
-    with open(path) as f:
+    with path.open() as f:
         config = json.load(f)
     assert config["robot"] == "franka"
 
@@ -40,7 +40,7 @@ def test_task_store_save_trial_result(tmp_path):
     result = TrialResult(trial_id=1, success=True, reason="grasped successfully")
     path = store.save_trial_result("variant_1", result)
     assert path.exists()
-    with open(path) as f:
+    with path.open() as f:
         data = json.load(f)
     assert data["success"] is True
 
@@ -55,7 +55,7 @@ def test_grasp_task_store_add_position(tmp_path):
     )
     pos_path = tmp_path / "grasp" / "grasp_position_001" / "position.json"
     assert pos_path.exists()
-    with open(pos_path) as f:
+    with pos_path.open() as f:
         data = json.load(f)
     assert data["xyz"] == [0.5, 0.0, 0.05]
     assert data["object_name"] == "cube"
@@ -63,9 +63,7 @@ def test_grasp_task_store_add_position(tmp_path):
 
 def test_grasp_task_store_checkpoint_dir(tmp_path):
     store = GraspTaskStore(tmp_path)
-    d = store.get_grasp_checkpoint_dir(
-        position_id=2, trial_id=1, checkpoint="contact"
-    )
+    d = store.get_grasp_checkpoint_dir(position_id=2, trial_id=1, checkpoint="contact")
     assert d.exists()
     assert "grasp_position_002" in str(d)
     assert "trial_001" in str(d)

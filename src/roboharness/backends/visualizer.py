@@ -13,7 +13,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 import numpy as np
 
@@ -80,7 +80,6 @@ class MuJoCoNativeVisualizer:
 
     def sync(self) -> None:
         """No-op — MuJoCo renderer reads state directly from MjData."""
-        pass
 
 
 class MeshcatVisualizer:
@@ -107,11 +106,10 @@ class MeshcatVisualizer:
         try:
             import meshcat
             import meshcat.geometry as g  # noqa: F401
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
-                "Meshcat is required for MeshcatVisualizer. "
-                "Install with: pip install meshcat"
-            )
+                "Meshcat is required for MeshcatVisualizer. Install with: pip install meshcat"
+            ) from exc
 
         self._model = model
         self._data = data
@@ -174,11 +172,7 @@ class MeshcatVisualizer:
             return g.Box([2.0, 2.0, 0.001])
         elif geom_type == _SPHERE:
             return g.Sphere(float(size[0]))
-        elif geom_type == _CAPSULE:
-            radius = float(size[0])
-            half_length = float(size[1])
-            return g.Cylinder(2 * half_length, radius)
-        elif geom_type == _CYLINDER:
+        elif geom_type in (_CAPSULE, _CYLINDER):
             radius = float(size[0])
             half_length = float(size[1])
             return g.Cylinder(2 * half_length, radius)
@@ -306,7 +300,7 @@ class MeshcatVisualizer:
     @property
     def url(self) -> str:
         """Return the URL of the Meshcat viewer for browser access."""
-        return self._vis.url()
+        return cast("str", self._vis.url())
 
     # ------------------------------------------------------------------
     # Helpers
@@ -318,7 +312,7 @@ class MeshcatVisualizer:
 
         name = mujoco.mj_id2name(self._model, mujoco.mjtObj.mjOBJ_GEOM, geom_id)
         if name:
-            return name
+            return cast("str", name)
         return f"geom_{geom_id}"
 
     @staticmethod

@@ -7,7 +7,7 @@ from roboharness.backends.visualizer import (
 )
 
 __all__ = [
-    "Visualizer",
-    "MuJoCoNativeVisualizer",
     "MeshcatVisualizer",
+    "MuJoCoNativeVisualizer",
+    "Visualizer",
 ]

@@ -51,7 +51,7 @@ def test_capture_result_save(tmp_path):
     # Check metadata was saved
     meta_path = save_dir / "metadata.json"
     assert meta_path.exists()
-    with open(meta_path) as f:
+    with meta_path.open() as f:
         meta = json.load(f)
     assert meta["checkpoint"] == "test_cp"
     assert meta["step"] == 42
@@ -61,6 +61,6 @@ def test_capture_result_save(tmp_path):
     # Check state was saved
     state_path = save_dir / "state.json"
     assert state_path.exists()
-    with open(state_path) as f:
+    with state_path.open() as f:
         state = json.load(f)
     assert state["qpos"] == [1.0, 2.0]
