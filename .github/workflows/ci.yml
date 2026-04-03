@@ -73,7 +73,7 @@ jobs:
       - name: Run MuJoCo grasp example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/mujoco_grasp.py --report --output-dir ./harness_output
+        run: python examples/mujoco_grasp.py --report --assert-success --output-dir ./harness_output
 
       - name: Upload visual artifacts
         uses: actions/upload-artifact@v4
