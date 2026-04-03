@@ -58,6 +58,9 @@ all = [
     "roboharness[mujoco,meshcat,rerun,wbc,dev]",
 ]
 
+[project.scripts]
+roboharness = "roboharness.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/MiaoDX/RobotHarness"
 Repository = "https://github.com/MiaoDX/RobotHarness"
