@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -299,6 +300,11 @@ def main() -> None:
     )
     parser.add_argument("--width", type=int, default=640, help="Render width (default: 640)")
     parser.add_argument("--height", type=int, default=480, help="Render height (default: 480)")
+    parser.add_argument(
+        "--assert-success",
+        action="store_true",
+        help="Validate grasp success and exit non-zero on failure",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -346,12 +352,14 @@ def main() -> None:
     print("[3/4] Running grasp simulation ...")
     harness.reset()
 
+    checkpoint_results: dict[str, object] = {}
     for phase_name, actions in phases.items():
         result = harness.run_to_next_checkpoint(actions)
         if result is None:
             print(f"      WARNING: No checkpoint for phase '{phase_name}'")
             continue
 
+        checkpoint_results[phase_name] = result
         n_views = len(result.views)
         trial_dir = output_dir / "mujoco_grasp" / "trial_001" / phase_name
         print(
@@ -388,7 +396,110 @@ def main() -> None:
                     print(f"      {fname}")
 
     print("\n" + "=" * 60)
+
+    # 5. Assert success (optional CI gate)
+    if args.assert_success:
+        failures = assert_grasp_success(checkpoint_results, backend)
+        if failures:
+            print("\n" + "=" * 60)
+            print("  ASSERT-SUCCESS: FAILED")
+            print("=" * 60)
+            for msg in failures:
+                print(f"  FAIL: {msg}")
+            sys.exit(1)
+        else:
+            print("\n" + "=" * 60)
+            print("  ASSERT-SUCCESS: PASSED")
+            print("=" * 60)
+
     return
+
+
+# ---------------------------------------------------------------------------
+# Success assertion helpers
+# ---------------------------------------------------------------------------
+
+# Table top z = table body z (0.2) + table half-height (0.02) = 0.22
+# Cube half-size = 0.025, so cube center at rest on table = 0.245
+TABLE_SURFACE_Z = 0.22
+CUBE_LIFT_THRESHOLD = 0.005  # cube center must be >5mm above table surface
+QVEL_MAX = 50.0  # maximum acceptable qvel magnitude (stability check)
+
+
+def _get_cube_z(state: dict[str, object]) -> float:
+    """Extract cube center z-position from simulator state.
+
+    The cube is the first free body, its qpos starts at index 0 of the
+    free joint DOFs. In this model: qpos layout is [gripper_z, finger_left,
+    finger_right, cube_x, cube_y, cube_z, cube_qw, cube_qx, cube_qy, cube_qz].
+    The cube free joint contributes 7 DOFs (3 pos + 4 quat), and the 3 slide
+    joints come first. So cube z = qpos[5].
+    """
+    qpos = state["qpos"]
+    return float(qpos[5])
+
+
+def assert_grasp_success(
+    checkpoint_results: dict[str, object],
+    backend: MuJoCoMeshcatBackend,
+) -> list[str]:
+    """Validate physical task success. Returns a list of failure messages (empty = pass)."""
+    failures: list[str] = []
+
+    # --- Check 1: Cube lifted above table at "lift" checkpoint ---
+    lift_result = checkpoint_results.get("lift")
+    if lift_result is None:
+        failures.append("'lift' checkpoint not reached")
+    else:
+        cube_z = _get_cube_z(lift_result.state)
+        min_z = TABLE_SURFACE_Z + CUBE_LIFT_THRESHOLD
+        if cube_z <= min_z:
+            failures.append(
+                f"cube z={cube_z:.4f}m at lift, expected >{min_z:.4f}m "
+                f"(>{CUBE_LIFT_THRESHOLD * 1000:.0f}mm above table)"
+            )
+        else:
+            height_above = cube_z - TABLE_SURFACE_Z
+            print(f"  CHECK: cube z={cube_z:.4f}m ({height_above * 1000:.1f}mm above table) — OK")
+
+    # --- Check 2: Gripper has contact with cube at "lift" checkpoint ---
+    if lift_result is not None:
+        import mujoco
+
+        model = backend._model
+        data = backend._data
+        cube_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "cube")
+        finger_left_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "finger_left")
+        finger_right_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "finger_right")
+
+        # Map geom ids to their parent body ids
+        has_contact = False
+        for i in range(data.ncon):
+            c = data.contact[i]
+            body1 = model.geom_bodyid[c.geom1]
+            body2 = model.geom_bodyid[c.geom2]
+            bodies = {int(body1), int(body2)}
+            if cube_body_id in bodies and (finger_left_id in bodies or finger_right_id in bodies):
+                has_contact = True
+                break
+
+        if not has_contact:
+            failures.append("no gripper-cube contact detected at lift checkpoint")
+        else:
+            print("  CHECK: gripper-cube contact at lift — OK")
+
+    # --- Check 3: Simulation stability (qvel within bounds) ---
+    for phase_name, result in checkpoint_results.items():
+        qvel = np.array(result.state["qvel"])
+        max_vel = float(np.max(np.abs(qvel)))
+        if max_vel > QVEL_MAX:
+            failures.append(
+                f"unstable simulation at '{phase_name}': max |qvel|={max_vel:.2f}, limit={QVEL_MAX}"
+            )
+        else:
+            print(f"  CHECK: stability at '{phase_name}' (max |qvel|={max_vel:.2f}) — OK")
+
+    return failures
 
 
 if __name__ == "__main__":
