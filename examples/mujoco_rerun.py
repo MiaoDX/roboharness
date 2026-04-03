@@ -132,9 +132,7 @@ def build_grasp_phases() -> dict[str, list[np.ndarray]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Roboharness MuJoCo + Rerun Example")
-    parser.add_argument(
-        "--output-dir", default="./harness_output", help="Output directory"
-    )
+    parser.add_argument("--output-dir", default="./harness_output", help="Output directory")
     parser.add_argument("--width", type=int, default=640, help="Render width")
     parser.add_argument("--height", type=int, default=480, help="Render height")
     args = parser.parse_args()

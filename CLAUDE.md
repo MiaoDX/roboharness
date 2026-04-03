@@ -6,9 +6,11 @@ Visual testing harness for AI coding agents in robot simulation. Python 3.10+, n
 
 ```bash
 pip install -e ".[dev]"          # install with dev deps
-ruff check .                     # lint (E, F, I, W, UP rules, line-length 100)
-pytest                           # run all tests (testpaths: tests/)
+ruff check .                     # lint (line-length 100)
+ruff format --check .            # format check
+pytest                           # run all tests with coverage (testpaths: tests/)
 pytest tests/test_harness.py -k test_name  # run single test
+pytest --no-cov                  # run tests without coverage
 mypy src/                        # type check (Python 3.10 target)
 ```
 
@@ -38,7 +40,7 @@ Key pattern: `SimulatorBackend` is a Protocol (structural typing). New backends 
 
 - Branch from `main`
 - Commit messages: `type: description` (feat, fix, ci, docs, refactor)
-- CI runs on all PRs: lint (ruff) + test (pytest, Python 3.10/3.11/3.12) + MuJoCo example
+- CI runs on all PRs: lint (ruff check + format + mypy) + test (pytest, Python 3.10–3.13) + MuJoCo example
 
 ### PR review strategy
 
@@ -61,7 +63,7 @@ Do NOT create a new branch or a new PR for review fixes.
 ## Tools & environment
 
 - IMPORTANT: GitHub MCP tools are available (prefixed `mcp__github__`). Use them for all GitHub interactions (issues, PRs, comments). Do NOT assume `gh` CLI is available.
-- No pre-commit hooks configured — run `ruff check .` manually before committing.
+- Pre-commit hooks are configured (`.pre-commit-config.yaml`). Run `pre-commit install` to enable, or run `ruff check . && ruff format --check .` manually.
 - Optional deps are grouped: `[mujoco]`, `[meshcat]`, `[maniskill]`, `[rerun]`, `[dev]`, `[all]`.
 
 ## Subagent strategy

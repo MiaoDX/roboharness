@@ -88,9 +88,7 @@ def test_backend_with_custom_visualizer():
     from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
 
     viz = FakeVisualizer()
-    backend = MuJoCoMeshcatBackend(
-        xml_string=MINIMAL_MJCF, cameras=["front"], visualizer=viz
-    )
+    backend = MuJoCoMeshcatBackend(xml_string=MINIMAL_MJCF, cameras=["front"], visualizer=viz)
     assert isinstance(backend, SimulatorBackend)
 
     backend.reset()
@@ -110,9 +108,7 @@ def test_backend_visualizer_string_native():
     from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
     from roboharness.backends.visualizer import MuJoCoNativeVisualizer
 
-    backend = MuJoCoMeshcatBackend(
-        xml_string=MINIMAL_MJCF, cameras=["front"], visualizer="native"
-    )
+    backend = MuJoCoMeshcatBackend(xml_string=MINIMAL_MJCF, cameras=["front"], visualizer="native")
     assert isinstance(backend.visualizer, MuJoCoNativeVisualizer)
 
 
@@ -122,6 +118,4 @@ def test_backend_visualizer_string_unknown():
     from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
 
     with pytest.raises(ValueError, match="Unknown visualizer"):
-        MuJoCoMeshcatBackend(
-            xml_string=MINIMAL_MJCF, cameras=["front"], visualizer="unknown"
-        )
+        MuJoCoMeshcatBackend(xml_string=MINIMAL_MJCF, cameras=["front"], visualizer="unknown")

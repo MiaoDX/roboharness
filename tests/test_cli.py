@@ -21,41 +21,57 @@ def harness_output(tmp_path: Path) -> Path:
     cp1.mkdir(parents=True)
     (cp1 / "front_rgb.png").write_bytes(b"fake-png")
     (cp1 / "side_rgb.png").write_bytes(b"fake-png")
-    (cp1 / "state.json").write_text(json.dumps({
-        "qpos": [0.1, 0.2, 0.3],
-        "qvel": [0.0, 0.0, 0.0],
-        "time": 0.5,
-    }))
-    (cp1 / "metadata.json").write_text(json.dumps({
-        "checkpoint": "pre_grasp",
-        "step": 50,
-        "sim_time": 0.5,
-        "timestamp": 1000000.0,
-        "cameras": ["front", "side"],
-        "files": {"front": {"rgb": "front_rgb.png"}, "side": {"rgb": "side_rgb.png"}},
-        "trial": 1,
-        "task": "pick_and_place",
-    }))
+    (cp1 / "state.json").write_text(
+        json.dumps(
+            {
+                "qpos": [0.1, 0.2, 0.3],
+                "qvel": [0.0, 0.0, 0.0],
+                "time": 0.5,
+            }
+        )
+    )
+    (cp1 / "metadata.json").write_text(
+        json.dumps(
+            {
+                "checkpoint": "pre_grasp",
+                "step": 50,
+                "sim_time": 0.5,
+                "timestamp": 1000000.0,
+                "cameras": ["front", "side"],
+                "files": {"front": {"rgb": "front_rgb.png"}, "side": {"rgb": "side_rgb.png"}},
+                "trial": 1,
+                "task": "pick_and_place",
+            }
+        )
+    )
 
     # Checkpoint: lift
     cp2 = trial_dir / "lift"
     cp2.mkdir(parents=True)
     (cp2 / "front_rgb.png").write_bytes(b"fake-png")
-    (cp2 / "state.json").write_text(json.dumps({
-        "qpos": [0.5, 0.6, 0.7],
-        "qvel": [0.1, 0.0, 0.0],
-        "time": 1.2,
-    }))
-    (cp2 / "metadata.json").write_text(json.dumps({
-        "checkpoint": "lift",
-        "step": 120,
-        "sim_time": 1.2,
-        "timestamp": 1000001.0,
-        "cameras": ["front"],
-        "files": {"front": {"rgb": "front_rgb.png"}},
-        "trial": 1,
-        "task": "pick_and_place",
-    }))
+    (cp2 / "state.json").write_text(
+        json.dumps(
+            {
+                "qpos": [0.5, 0.6, 0.7],
+                "qvel": [0.1, 0.0, 0.0],
+                "time": 1.2,
+            }
+        )
+    )
+    (cp2 / "metadata.json").write_text(
+        json.dumps(
+            {
+                "checkpoint": "lift",
+                "step": 120,
+                "sim_time": 1.2,
+                "timestamp": 1000001.0,
+                "cameras": ["front"],
+                "files": {"front": {"rgb": "front_rgb.png"}},
+                "trial": 1,
+                "task": "pick_and_place",
+            }
+        )
+    )
 
     return tmp_path
 
@@ -64,15 +80,19 @@ def harness_output(tmp_path: Path) -> Path:
 def harness_output_with_results(harness_output: Path) -> Path:
     """Extend harness output with trial result files."""
     trial_dir = harness_output / "pick_and_place" / "trial_001"
-    (trial_dir / "result.json").write_text(json.dumps({
-        "trial_id": 1,
-        "success": True,
-        "reason": "object lifted above threshold",
-        "metrics": {"lift_height": 0.15, "grasp_force": 2.3},
-        "duration": 1.2,
-        "checkpoints_reached": ["pre_grasp", "lift"],
-        "timestamp": 1000001.0,
-    }))
+    (trial_dir / "result.json").write_text(
+        json.dumps(
+            {
+                "trial_id": 1,
+                "success": True,
+                "reason": "object lifted above threshold",
+                "metrics": {"lift_height": 0.15, "grasp_force": 2.3},
+                "duration": 1.2,
+                "checkpoints_reached": ["pre_grasp", "lift"],
+                "timestamp": 1000001.0,
+            }
+        )
+    )
 
     # Add a second failed trial
     trial2 = harness_output / "pick_and_place" / "trial_002"
@@ -80,25 +100,33 @@ def harness_output_with_results(harness_output: Path) -> Path:
     cp.mkdir(parents=True)
     (cp / "front_rgb.png").write_bytes(b"fake-png")
     (cp / "state.json").write_text(json.dumps({"qpos": [0.0], "time": 0.3}))
-    (cp / "metadata.json").write_text(json.dumps({
-        "checkpoint": "pre_grasp",
-        "step": 30,
-        "sim_time": 0.3,
-        "timestamp": 1000002.0,
-        "cameras": ["front"],
-        "files": {},
-        "trial": 2,
-        "task": "pick_and_place",
-    }))
-    (trial2 / "result.json").write_text(json.dumps({
-        "trial_id": 2,
-        "success": False,
-        "reason": "gripper missed object",
-        "metrics": {"lift_height": 0.0},
-        "duration": 0.3,
-        "checkpoints_reached": ["pre_grasp"],
-        "timestamp": 1000002.0,
-    }))
+    (cp / "metadata.json").write_text(
+        json.dumps(
+            {
+                "checkpoint": "pre_grasp",
+                "step": 30,
+                "sim_time": 0.3,
+                "timestamp": 1000002.0,
+                "cameras": ["front"],
+                "files": {},
+                "trial": 2,
+                "task": "pick_and_place",
+            }
+        )
+    )
+    (trial2 / "result.json").write_text(
+        json.dumps(
+            {
+                "trial_id": 2,
+                "success": False,
+                "reason": "gripper missed object",
+                "metrics": {"lift_height": 0.0},
+                "duration": 0.3,
+                "checkpoints_reached": ["pre_grasp"],
+                "timestamp": 1000002.0,
+            }
+        )
+    )
 
     return harness_output
 
@@ -197,23 +225,31 @@ class TestVariantLayout:
         variant_dir.mkdir(parents=True)
         (variant_dir / "front_rgb.png").write_bytes(b"fake-png")
         (variant_dir / "state.json").write_text(json.dumps({"qpos": [0.0], "time": 0.8}))
-        (variant_dir / "metadata.json").write_text(json.dumps({
-            "checkpoint": "contact",
-            "step": 80,
-            "sim_time": 0.8,
-            "cameras": ["front"],
-            "files": {},
-        }))
+        (variant_dir / "metadata.json").write_text(
+            json.dumps(
+                {
+                    "checkpoint": "contact",
+                    "step": 80,
+                    "sim_time": 0.8,
+                    "cameras": ["front"],
+                    "files": {},
+                }
+            )
+        )
 
         result_dir = tmp_path / "grasp" / "grasp_position_001" / "trial_001"
-        (result_dir / "result.json").write_text(json.dumps({
-            "trial_id": 1,
-            "success": True,
-            "reason": "contact detected",
-            "metrics": {"force": 5.0},
-            "duration": 0.8,
-            "checkpoints_reached": ["contact"],
-        }))
+        (result_dir / "result.json").write_text(
+            json.dumps(
+                {
+                    "trial_id": 1,
+                    "success": True,
+                    "reason": "contact detected",
+                    "metrics": {"force": 5.0},
+                    "duration": 0.8,
+                    "checkpoints_reached": ["contact"],
+                }
+            )
+        )
         return tmp_path
 
     def test_inspect_variant(self, variant_output: Path) -> None:

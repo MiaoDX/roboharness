@@ -12,7 +12,7 @@ handles these edge cases correctly, without requiring a GPU or Isaac Lab.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import pytest
@@ -32,7 +32,7 @@ class MockIsaacLabEnv(gym.Env):
     instead of numpy arrays, and the first dimension is num_envs.
     """
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 60}
+    metadata: ClassVar[dict] = {"render_modes": ["rgb_array"], "render_fps": 60}
 
     def __init__(self, num_envs: int = 1, render_mode: str = "rgb_array"):
         super().__init__()
@@ -46,9 +46,7 @@ class MockIsaacLabEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float32
         )
-        self.action_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(act_dim,), dtype=np.float32
-        )
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(act_dim,), dtype=np.float32)
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
@@ -78,9 +76,7 @@ class MockIsaacLabEnvDictObs(MockIsaacLabEnv):
         super().__init__(num_envs=num_envs, render_mode=render_mode)
         self.observation_space = spaces.Dict(
             {
-                "policy": spaces.Box(
-                    low=-np.inf, high=np.inf, shape=(12,), dtype=np.float32
-                ),
+                "policy": spaces.Box(low=-np.inf, high=np.inf, shape=(12,), dtype=np.float32),
             }
         )
 
@@ -114,11 +110,11 @@ def test_wrapper_with_torch_tensor_obs(tmp_path):
         checkpoints=[{"name": "cp1", "step": 5}],
         output_dir=tmp_path,
     )
-    obs, info = wrapped.reset()
+    obs, _info = wrapped.reset()
     assert isinstance(obs, torch.Tensor)
 
     for _ in range(5):
-        obs, reward, terminated, truncated, info = wrapped.step(
+        obs, _reward, _terminated, _truncated, _info = wrapped.step(
             torch.zeros(1, *env.action_space.shape)
         )
     assert isinstance(obs, torch.Tensor)
@@ -134,7 +130,7 @@ def test_wrapper_checkpoint_with_torch_reward(tmp_path):
     )
     wrapped.reset()
     for _ in range(3):
-        obs, reward, terminated, truncated, info = wrapped.step(
+        _obs, _reward, _terminated, _truncated, info = wrapped.step(
             torch.zeros(1, *env.action_space.shape)
         )
 
@@ -164,7 +160,7 @@ def test_wrapper_with_dict_observations(tmp_path):
     assert "policy" in obs
 
     for _ in range(2):
-        obs, reward, terminated, truncated, info = wrapped.step(
+        obs, _reward, _terminated, _truncated, info = wrapped.step(
             torch.zeros(1, *env.action_space.shape)
         )
     assert isinstance(obs, dict)
@@ -191,7 +187,7 @@ def test_wrapper_with_multi_env(tmp_path):
     obs, _ = wrapped.reset()
     assert obs.shape[0] == 4
 
-    obs, reward, terminated, truncated, info = wrapped.step(
+    obs, _reward, _terminated, _truncated, info = wrapped.step(
         torch.zeros(4, *env.action_space.shape)
     )
     assert obs.shape[0] == 4
@@ -208,7 +204,7 @@ def test_wrapper_render_capture_saved(tmp_path):
         task_name="test_isaac",
     )
     wrapped.reset()
-    obs, reward, terminated, truncated, info = wrapped.step(
+    _obs, _reward, _terminated, _truncated, info = wrapped.step(
         torch.zeros(1, *env.action_space.shape)
     )
     assert "checkpoint" in info
@@ -335,12 +331,8 @@ def test_multi_camera_capture_render_camera(tmp_path):
     assert "wrist_rgb" in files
 
     capture_dir = tmp_path / "multi_cam" / "trial_001" / "grasp"
-    assert (capture_dir / "front_rgb.png").exists() or (
-        capture_dir / "front_rgb.npy"
-    ).exists()
-    assert (capture_dir / "wrist_rgb.png").exists() or (
-        capture_dir / "wrist_rgb.npy"
-    ).exists()
+    assert (capture_dir / "front_rgb.png").exists() or (capture_dir / "front_rgb.npy").exists()
+    assert (capture_dir / "wrist_rgb.png").exists() or (capture_dir / "wrist_rgb.npy").exists()
 
     # Metadata should list captured cameras
     import json

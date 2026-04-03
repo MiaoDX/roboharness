@@ -15,13 +15,15 @@ def main() -> None:
     store = GraspTaskStore(base_dir="./harness_output", task_name="pick_and_place")
 
     # 2. Save task-level config
-    store.save_task_config({
-        "object": "red_cube",
-        "robot": "franka_panda",
-        "simulator": "mujoco",
-        "cameras": ["front", "side", "top", "wrist"],
-        "checkpoints": ["plan_start", "pre_grasp", "contact", "lift"],
-    })
+    store.save_task_config(
+        {
+            "object": "red_cube",
+            "robot": "franka_panda",
+            "simulator": "mujoco",
+            "cameras": ["front", "side", "top", "wrist"],
+            "checkpoints": ["plan_start", "pre_grasp", "contact", "lift"],
+        }
+    )
 
     # 3. Register grasp positions (each position is a different place to grasp)
     positions = [

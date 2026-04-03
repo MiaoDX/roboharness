@@ -31,11 +31,12 @@ Storage layout for a grasp task with multiple grasp positions:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass
@@ -73,9 +74,7 @@ class TaskStore:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def get_checkpoint_dir(
-        self, variant_name: str, trial_id: int, checkpoint_name: str
-    ) -> Path:
+    def get_checkpoint_dir(self, variant_name: str, trial_id: int, checkpoint_name: str) -> Path:
         """Get directory for a specific checkpoint within a trial."""
         d = self.get_trial_dir(variant_name, trial_id) / checkpoint_name
         d.mkdir(parents=True, exist_ok=True)
@@ -87,26 +86,25 @@ class TaskStore:
         _write_json(path, config)
         return path
 
-    def save_trial_result(
-        self, variant_name: str, result: TrialResult
-    ) -> Path:
+    def save_trial_result(self, variant_name: str, result: TrialResult) -> Path:
         """Save the result of a trial."""
         trial_dir = self.get_trial_dir(variant_name, result.trial_id)
         path = trial_dir / "result.json"
-        _write_json(path, {
-            "trial_id": result.trial_id,
-            "success": result.success,
-            "reason": result.reason,
-            "metrics": result.metrics,
-            "duration": result.duration,
-            "checkpoints_reached": result.checkpoints_reached,
-            "timestamp": time.time(),
-        })
+        _write_json(
+            path,
+            {
+                "trial_id": result.trial_id,
+                "success": result.success,
+                "reason": result.reason,
+                "metrics": result.metrics,
+                "duration": result.duration,
+                "checkpoints_reached": result.checkpoints_reached,
+                "timestamp": time.time(),
+            },
+        )
         return path
 
-    def save_variant_summary(
-        self, variant_name: str, summary: dict[str, Any]
-    ) -> Path:
+    def save_variant_summary(self, variant_name: str, summary: dict[str, Any]) -> Path:
         """Save summary for a variant (e.g., best trial, success rate)."""
         path = self.get_variant_dir(variant_name) / "summary.json"
         _write_json(path, summary)
@@ -120,11 +118,7 @@ class TaskStore:
 
     def list_variants(self) -> list[str]:
         """List all variants (e.g., grasp positions) for this task."""
-        return [
-            d.name
-            for d in sorted(self.base_dir.iterdir())
-            if d.is_dir()
-        ]
+        return [d.name for d in sorted(self.base_dir.iterdir()) if d.is_dir()]
 
     def list_trials(self, variant_name: str) -> list[int]:
         """List all trial IDs for a variant."""
@@ -132,10 +126,8 @@ class TaskStore:
         trials = []
         for d in sorted(variant_dir.iterdir()):
             if d.is_dir() and d.name.startswith("trial_"):
-                try:
+                with contextlib.suppress(ValueError, IndexError):
                     trials.append(int(d.name.split("_")[1]))
-                except (ValueError, IndexError):
-                    pass
         return trials
 
 
@@ -148,7 +140,7 @@ class GraspTaskStore(TaskStore):
     - Per-checkpoint captures (plan_start, pre_grasp, contact, lift)
     """
 
-    CHECKPOINTS = ["plan_start", "pre_grasp", "contact", "lift"]
+    CHECKPOINTS: ClassVar[list[str]] = ["plan_start", "pre_grasp", "contact", "lift"]
 
     def __init__(self, base_dir: Path | str, task_name: str = "grasp"):
         super().__init__(base_dir, task_name)
@@ -197,7 +189,7 @@ class GraspTaskStore(TaskStore):
         for variant in variants:
             summary_path = self.get_variant_dir(variant) / "summary.json"
             if summary_path.exists():
-                with open(summary_path) as f:
+                with summary_path.open() as f:
                     report["positions"][variant] = json.load(f)
 
         self.save_report(report)
@@ -205,5 +197,5 @@ class GraspTaskStore(TaskStore):
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
-    with open(path, "w") as f:
+    with path.open("w") as f:
         json.dump(data, f, indent=2, default=str)

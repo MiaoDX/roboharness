@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Physics",
 ]
@@ -51,8 +52,10 @@ wbc = [
 ]
 dev = [
     "pytest>=7.0",
+    "pytest-cov>=4.0",
     "ruff>=0.4",
     "mypy>=1.0",
+    "pre-commit>=3.0",
 ]
 all = [
     "roboharness[mujoco,meshcat,rerun,wbc,dev]",
@@ -75,12 +78,45 @@ target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP"]
+select = ["E", "F", "I", "W", "UP", "B", "SIM", "PTH", "TCH", "RUF", "PIE"]
+ignore = [
+    "TC001",  # moving app imports to TYPE_CHECKING breaks runtime usage in this codebase
+    "TC003",  # moving stdlib imports to TYPE_CHECKING breaks runtime usage in this codebase
+]
+
+[tool.ruff.format]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=roboharness --cov-report=term-missing --cov-fail-under=70"
+
+[tool.coverage.run]
+omit = [
+    "src/roboharness/backends/mujoco_meshcat.py",
+    "src/roboharness/backends/visualizer.py",
+    "src/roboharness/controllers/wbc_ik.py",
+    "src/roboharness/wrappers/gymnasium_wrapper.py",
+]
 
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "numpy.*",
+    "mujoco.*",
+    "meshcat.*",
+    "gymnasium.*",
+    "gym.*",
+    "PIL.*",
+    "rerun_sdk.*",
+    "rerun.*",
+    "mani_skill.*",
+    "pinocchio.*",
+    "pink.*",
+    "qpsolvers.*",
+]
+ignore_missing_imports = true

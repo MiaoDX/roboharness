@@ -8,9 +8,9 @@ from roboharness.core.controller import Controller
 from roboharness.core.harness import Harness
 
 __all__ = [
-    "Controller",
-    "Harness",
+    "CaptureResult",
     "Checkpoint",
     "CheckpointStore",
-    "CaptureResult",
+    "Controller",
+    "Harness",
 ]

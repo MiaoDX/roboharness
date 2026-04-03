@@ -113,12 +113,12 @@ def main() -> None:
 
     # 3. Run the standard Gymnasium loop
     print(f"[3/3] Running for up to {args.max_steps} steps ...")
-    obs, info = env.reset()
+    _obs, info = env.reset()
     total_reward = 0.0
 
     for step in range(args.max_steps):
         action = env.action_space.sample()
-        obs, reward, terminated, truncated, info = env.step(action)
+        _obs, reward, terminated, truncated, info = env.step(action)
 
         # reward may be a torch tensor in Isaac Lab
         if hasattr(reward, "item"):

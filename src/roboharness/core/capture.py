@@ -137,5 +137,5 @@ def _save_json(data: dict, path: Path) -> None:
                 return float(obj)
             return super().default(obj)
 
-    with open(path, "w") as f:
+    with path.open("w") as f:
         json.dump(data, f, indent=2, cls=NumpyEncoder)

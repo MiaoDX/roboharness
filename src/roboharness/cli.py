@@ -26,7 +26,7 @@ def _find_image_files(directory: Path) -> list[Path]:
 
 def _load_json(path: Path) -> Any:
     """Load a JSON file."""
-    with open(path) as f:
+    with path.open() as f:
         return json.load(f)
 
 
@@ -186,9 +186,7 @@ def report_command(output_dir: Path) -> dict[str, Any]:
     report: dict[str, Any] = {"tasks": {}}
     for task_name, task_data in tasks.items():
         trials = task_data["trials"]
-        results_with_outcome = [
-            t for t in trials.values() if "result" in t
-        ]
+        results_with_outcome = [t for t in trials.values() if "result" in t]
         successes = sum(1 for t in results_with_outcome if t["result"]["success"])
 
         report["tasks"][task_name] = {
@@ -198,16 +196,14 @@ def report_command(output_dir: Path) -> dict[str, Any]:
             "trials_with_results": len(results_with_outcome),
             "successes": successes,
             "success_rate": (
-                successes / len(results_with_outcome)
-                if results_with_outcome
-                else None
+                successes / len(results_with_outcome) if results_with_outcome else None
             ),
             "trials": trials,
         }
 
     # Write report
     report_path = output_dir / "report.json"
-    with open(report_path, "w") as f:
+    with report_path.open("w") as f:
         json.dump(report, f, indent=2, default=str)
 
     return report

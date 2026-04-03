@@ -134,22 +134,30 @@ def build_grasp_phases() -> dict[str, list[np.ndarray]]:
     return {
         # Phase 1: Open gripper, hover above cube
         "pre_grasp": make_action_sequence(
-            target_z=0.05, finger_left=left_open, finger_right=right_open,
+            target_z=0.05,
+            finger_left=left_open,
+            finger_right=right_open,
             n_steps=500,
         ),
         # Phase 2: Lower onto cube, fingers still open
         "contact": make_action_sequence(
-            target_z=-0.24, finger_left=left_open, finger_right=right_open,
+            target_z=-0.24,
+            finger_left=left_open,
+            finger_right=right_open,
             n_steps=500,
         ),
         # Phase 3: Close fingers around cube (stay at contact height)
         "grasp": make_action_sequence(
-            target_z=-0.24, finger_left=left_closed, finger_right=right_closed,
+            target_z=-0.24,
+            finger_left=left_closed,
+            finger_right=right_closed,
             n_steps=800,
         ),
         # Phase 4: Lift with fingers closed
         "lift": make_action_sequence(
-            target_z=-0.10, finger_left=left_closed, finger_right=right_closed,
+            target_z=-0.10,
+            finger_left=left_closed,
+            finger_right=right_closed,
             n_steps=800,
         ),
     }
@@ -186,14 +194,14 @@ def generate_html_report(output_dir: Path) -> Path:
         meta_path = cp_dir / "metadata.json"
         meta = {}
         if meta_path.exists():
-            with open(meta_path) as f:
+            with meta_path.open() as f:
                 meta = json.load(f)
 
         # Collect images
         images_html = []
         for img_file in sorted(cp_dir.glob("*_rgb.png")):
             cam_name = img_file.stem.replace("_rgb", "")
-            with open(img_file, "rb") as f:
+            with img_file.open("rb") as f:
                 b64 = base64.b64encode(f.read()).decode()
             images_html.append(
                 f'<div class="cam">'
@@ -289,12 +297,8 @@ def main() -> None:
         action="store_true",
         help="Generate an HTML report after the run",
     )
-    parser.add_argument(
-        "--width", type=int, default=640, help="Render width (default: 640)"
-    )
-    parser.add_argument(
-        "--height", type=int, default=480, help="Render height (default: 480)"
-    )
+    parser.add_argument("--width", type=int, default=640, help="Render width (default: 640)")
+    parser.add_argument("--height", type=int, default=480, help="Render height (default: 480)")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -321,8 +325,10 @@ def main() -> None:
             import mujoco as _mj  # noqa: F401
 
             meshcat_viz = MeshcatVisualizer(
-                backend._model, backend._data,
-                width=args.width, height=args.height,
+                backend._model,
+                backend._data,
+                width=args.width,
+                height=args.height,
             )
             print("      Meshcat visualizer ready for 3D scene export.")
         except ImportError:

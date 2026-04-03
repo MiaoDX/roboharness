@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -89,18 +89,17 @@ class WbcIkController:
     ) -> None:
         try:
             import pinocchio as pin
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
                 "Pinocchio is required for WbcIkController. "
                 "Install with: pip install roboharness[wbc]"
-            )
+            ) from exc
         try:
             import pink
-        except ImportError:
+        except ImportError as exc:
             raise ImportError(
-                "Pink is required for WbcIkController. "
-                "Install with: pip install roboharness[wbc]"
-            )
+                "Pink is required for WbcIkController. Install with: pip install roboharness[wbc]"
+            ) from exc
 
         self._pin = pin
         self._pink = pink
@@ -123,9 +122,7 @@ class WbcIkController:
         self._configuration = pink.Configuration(
             self._model,
             self._data,
-            reference_configuration
-            if reference_configuration is not None
-            else np.zeros(self._nq),
+            reference_configuration if reference_configuration is not None else np.zeros(self._nq),
         )
 
         # Create frame tasks for each end-effector
@@ -133,12 +130,9 @@ class WbcIkController:
         for frame_name in self._ee_frame_names:
             # Verify frame exists
             if not self._model.existFrame(frame_name):
-                available = [
-                    self._model.frames[i].name for i in range(self._model.nframes)
-                ]
+                available = [self._model.frames[i].name for i in range(self._model.nframes)]
                 raise ValueError(
-                    f"Frame '{frame_name}' not found in URDF. "
-                    f"Available frames: {available}"
+                    f"Frame '{frame_name}' not found in URDF. Available frames: {available}"
                 )
             task = pink.tasks.FrameTask(
                 frame_name,
@@ -161,7 +155,7 @@ class WbcIkController:
     @property
     def nq(self) -> int:
         """Number of configuration variables (joint DOFs)."""
-        return self._nq
+        return cast("int", self._nq)
 
     @property
     def end_effector_frames(self) -> list[str]:
@@ -174,7 +168,7 @@ class WbcIkController:
         Parameters
         ----------
         command:
-            Mapping of frame name → 4×4 homogeneous transform (np.ndarray).
+            Mapping of frame name → 4x4 homogeneous transform (np.ndarray).
             Only frames listed in ``end_effector_frames`` are accepted.
         state:
             Must contain ``"qpos"`` — the current joint configuration
@@ -208,7 +202,7 @@ class WbcIkController:
         self._posture_task.set_target(self._q_ref)
 
         # Collect active frame tasks + posture regularisation
-        all_tasks = active_tasks + [self._posture_task]
+        all_tasks = [*active_tasks, self._posture_task]
 
         # Iterative QP solve
         dt = self._settings.dt
