@@ -1,4 +1,4 @@
-"""CLI tools for inspecting harness output and generating reports."""
+"""CLI tools for inspecting harness output, generating reports, and evaluation."""
 
 from __future__ import annotations
 
@@ -7,6 +7,17 @@ import json
 import sys
 from pathlib import Path
 from typing import Any
+
+from roboharness.evaluate.assertions import AssertionEngine
+from roboharness.evaluate.batch import (
+    check_success_rate,
+    evaluate_batch,
+    evaluate_batch_with_comparison,
+    format_batch_human,
+    format_comparison_human,
+)
+from roboharness.evaluate.constraints import load_constraints
+from roboharness.evaluate.defaults import GRASP_DEFAULTS
 
 
 def _find_metadata_files(output_dir: Path) -> list[Path]:
@@ -209,6 +220,67 @@ def report_command(output_dir: Path) -> dict[str, Any]:
     return report
 
 
+def evaluate_command(
+    report_path: Path,
+    constraints_path: Path | None = None,
+    output_format: str = "human",
+) -> tuple[dict[str, Any], int]:
+    """Evaluate a single report against constraints.
+
+    Returns ``(result_dict, exit_code)``.  Exit codes: 0=pass, 1=fail, 2=degraded.
+    """
+    if not report_path.exists():
+        raise FileNotFoundError(f"report not found: {report_path}")
+
+    assertions = load_constraints(constraints_path) if constraints_path else GRASP_DEFAULTS
+    engine = AssertionEngine(assertions)
+    report = _load_json(report_path)
+    result = engine.evaluate(report, report_path=str(report_path))
+
+    exit_code = {"pass": 0, "fail": 1, "degraded": 2}[result.verdict.value]
+    return result.to_dict(), exit_code
+
+
+def evaluate_batch_command(
+    results_dir: Path,
+    constraints_path: Path | None = None,
+    output_format: str = "human",
+    compare: bool = False,
+    min_success_rate: float | None = None,
+) -> tuple[dict[str, Any], int]:
+    """Run batch evaluation across multiple trials.
+
+    Returns ``(result_dict, exit_code)``.
+    """
+    if not results_dir.exists():
+        raise FileNotFoundError(f"directory not found: {results_dir}")
+
+    assertions = load_constraints(constraints_path) if constraints_path else GRASP_DEFAULTS
+
+    if compare:
+        comparison = evaluate_batch_with_comparison(results_dir, assertions)
+        result_dict = comparison.to_dict()
+        exit_code = 0
+        # Check if any variant has 0 success rate → fail
+        for v in comparison.variants:
+            if v.batch.total_trials > 0 and v.batch.success_rate == 0.0:
+                exit_code = 1
+                break
+    else:
+        batch = evaluate_batch(results_dir, assertions)
+        result_dict = batch.to_dict()
+        exit_code = 0
+        if batch.total_trials > 0 and batch.success_rate == 0.0:
+            exit_code = 1
+
+    if min_success_rate is not None and not compare:
+        batch = evaluate_batch(results_dir, assertions)
+        if not check_success_rate(batch, min_success_rate):
+            exit_code = 1
+
+    return result_dict, exit_code
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -239,6 +311,66 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to harness output directory.",
     )
 
+    # evaluate
+    eval_parser = subparsers.add_parser(
+        "evaluate",
+        help="Evaluate a harness report against constraints.",
+    )
+    eval_parser.add_argument(
+        "report_path",
+        type=Path,
+        help="Path to autonomous_report.json.",
+    )
+    eval_parser.add_argument(
+        "--constraints",
+        type=Path,
+        default=None,
+        help="Path to constraint definition file (YAML or JSON).",
+    )
+    eval_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["human", "json"],
+        default="human",
+        help="Output format (default: human).",
+    )
+
+    # evaluate-batch
+    batch_parser = subparsers.add_parser(
+        "evaluate-batch",
+        help="Aggregate evaluation results across multiple trials.",
+    )
+    batch_parser.add_argument(
+        "results_dir",
+        type=Path,
+        help="Directory containing trial result files.",
+    )
+    batch_parser.add_argument(
+        "--constraints",
+        type=Path,
+        default=None,
+        help="Path to constraint definition file (YAML or JSON).",
+    )
+    batch_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["human", "json"],
+        default="human",
+        help="Output format (default: human).",
+    )
+    batch_parser.add_argument(
+        "--compare",
+        action="store_true",
+        default=False,
+        help="Compare variants side-by-side (each subdirectory = one variant).",
+    )
+    batch_parser.add_argument(
+        "--min-success-rate",
+        type=float,
+        default=None,
+        help="Minimum success rate (0.0-1.0) for CI pass/fail. Exit 1 if below.",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -264,6 +396,59 @@ def main(argv: list[str] | None = None) -> int:
             rate_str = f"{rate:.0%}" if rate is not None else "N/A"
             print(f"  {task_name}: {total} trials, {captures} captures, success={rate_str}")
         return 0
+
+    if args.command == "evaluate":
+        try:
+            result_dict, exit_code = evaluate_command(
+                args.report_path, args.constraints, args.output_format
+            )
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        if args.output_format == "json":
+            print(json.dumps(result_dict, indent=2))
+        else:
+            verdict = result_dict["verdict"]
+            print(f"Verdict: {verdict}")
+            print(f"  Assertions: {result_dict['passed']}/{result_dict['total_assertions']} passed")
+            if result_dict["critical_failures"]:
+                print(f"  Critical failures: {result_dict['critical_failures']}")
+            if result_dict["major_failures"]:
+                print(f"  Major failures: {result_dict['major_failures']}")
+            for r in result_dict["results"]:
+                if not r["passed"]:
+                    print(f"  FAIL [{r['severity']}] {r['message']}")
+        return exit_code
+
+    if args.command == "evaluate-batch":
+        if not args.results_dir.exists():
+            print(f"Error: directory not found: {args.results_dir}", file=sys.stderr)
+            return 1
+        assertions = load_constraints(args.constraints) if args.constraints else GRASP_DEFAULTS
+        if args.compare:
+            comparison = evaluate_batch_with_comparison(args.results_dir, assertions)
+            if args.output_format == "json":
+                print(json.dumps(comparison.to_dict(), indent=2))
+            else:
+                print(format_comparison_human(comparison))
+            exit_code = 0
+            for v in comparison.variants:
+                if v.batch.total_trials > 0 and v.batch.success_rate == 0.0:
+                    exit_code = 1
+                    break
+        else:
+            batch = evaluate_batch(args.results_dir, assertions)
+            if args.output_format == "json":
+                print(json.dumps(batch.to_dict(), indent=2))
+            else:
+                print(format_batch_human(batch))
+            exit_code = 0
+            if args.min_success_rate is not None:
+                if not check_success_rate(batch, args.min_success_rate):
+                    exit_code = 1
+            elif batch.total_trials > 0 and batch.success_rate == 0.0:
+                exit_code = 1
+        return exit_code
 
     return 1
 

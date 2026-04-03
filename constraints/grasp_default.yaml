@@ -1,0 +1,27 @@
+# Default constraints for grasp task evaluation.
+# Thresholds derived from real harness report data.
+
+constraints:
+  - metric: grip_center_error_mm
+    operator: lt
+    threshold: 50.0
+    severity: critical
+    phase: "*"
+
+  - metric: pinch_gap_error_mm
+    operator: lt
+    threshold: 15.0
+    severity: critical
+    phase: "*"
+
+  - metric: pinch_elevation_deg
+    operator: lt
+    threshold: 15.0
+    severity: major
+    phase: "*"
+
+  - metric: index_middle_vertical_deg
+    operator: lt
+    threshold: 20.0
+    severity: major
+    phase: "*"
