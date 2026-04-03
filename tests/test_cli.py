@@ -132,8 +132,8 @@ class TestInspect:
 
 class TestReport:
     def test_nonexistent_dir(self, tmp_path: Path) -> None:
-        result = report_command(tmp_path / "nope")
-        assert "error" in result
+        with pytest.raises(FileNotFoundError, match="not found"):
+            report_command(tmp_path / "nope")
 
     def test_empty_dir(self, tmp_path: Path) -> None:
         result = report_command(tmp_path)

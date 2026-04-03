@@ -24,11 +24,10 @@ def _find_image_files(directory: Path) -> list[Path]:
     return sorted(directory.glob("*_rgb.png"))
 
 
-def _load_json(path: Path) -> dict[str, Any]:
+def _load_json(path: Path) -> Any:
     """Load a JSON file."""
     with open(path) as f:
-        result: dict[str, Any] = json.load(f)
-        return result
+        return json.load(f)
 
 
 def _format_state_summary(state: dict[str, Any], max_items: int = 5) -> str:
@@ -121,7 +120,7 @@ def report_command(output_dir: Path) -> dict[str, Any]:
     to the output directory root. Returns the report dict.
     """
     if not output_dir.exists():
-        return {"error": f"directory not found: {output_dir}"}
+        raise FileNotFoundError(f"directory not found: {output_dir}")
 
     result_files = _find_result_files(output_dir)
     metadata_files = _find_metadata_files(output_dir)
@@ -256,9 +255,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "report":
-        report = report_command(args.output_dir)
-        if "error" in report:
-            print(f"Error: {report['error']}", file=sys.stderr)
+        try:
+            report = report_command(args.output_dir)
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
             return 1
         print(f"Report written to {args.output_dir / 'report.json'}")
         for task_name, task_data in report.get("tasks", {}).items():
