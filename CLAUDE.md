@@ -40,6 +40,17 @@ Key pattern: `SimulatorBackend` is a Protocol (structural typing). New backends 
 - Commit messages: `type: description` (feat, fix, ci, docs, refactor)
 - CI runs on all PRs: lint (ruff) + test (pytest, Python 3.10/3.11/3.12) + MuJoCo example
 
+### PR review strategy
+
+When reviewing a PR (as an agent or on behalf of one), **push fixes directly to the PR's source branch** instead of creating a new branch or a separate PR. This keeps the workflow simple — one PR, one place to review, one merge. Specifically:
+
+1. Fetch and check out the PR's source branch (e.g. `git checkout <pr-branch>`)
+2. Make fixes, run tests/lint, commit
+3. Push to the same branch (`git push origin <pr-branch>`)
+4. The new commit appears in the existing PR, ready to merge
+
+Do NOT create a new branch or a new PR for review fixes.
+
 ## Gotchas
 
 - `RobotHarnessWrapper` must handle both numpy arrays AND PyTorch tensors for obs/rewards (Isaac Lab compatibility). Use duck typing (`hasattr(x, "item")`) instead of `isinstance` checks for tensor types.
