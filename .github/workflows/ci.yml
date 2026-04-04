@@ -111,3 +111,61 @@ jobs:
           done
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "Download the full artifact (including HTML report) from the Actions tab." >> $GITHUB_STEP_SUMMARY
+
+  lerobot-g1-example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+
+      - name: Install package with LeRobot dependencies
+        run: pip install -e ".[lerobot]" gymnasium Pillow
+
+      - name: Run LeRobot G1 example
+        env:
+          MUJOCO_GL: osmesa
+        run: python examples/lerobot_g1.py --report --assert-success --output-dir ./harness_output
+
+      - name: Upload visual artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lerobot-g1-output
+          path: |
+            harness_output/lerobot_g1_report.html
+            harness_output/lerobot_g1/trial_001/**/*_rgb.png
+            harness_output/lerobot_g1/trial_001/**/metadata.json
+          retention-days: 30
+
+      - name: Post summary with checkpoint images
+        if: always()
+        run: |
+          echo "## LeRobot G1 Example Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Checkpoint captures from the G1 humanoid validation:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for cp in harness_output/lerobot_g1/trial_001/*/; do
+            name=$(basename "$cp")
+            echo "### ${name}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            # Embed first available camera view as base64
+            for img in "${cp}"*_rgb.png; do
+              if [ -f "$img" ]; then
+                cam=$(basename "$img" _rgb.png)
+                echo "![${name} ${cam}](data:image/png;base64,$(base64 -w0 "$img"))" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+            if [ -f "${cp}metadata.json" ]; then
+              step=$(python3 -c "import json; print(json.load(open('${cp}metadata.json'))['step'])")
+              echo "Step: ${step}" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "Download the full artifact (including HTML report) from the Actions tab." >> $GITHUB_STEP_SUMMARY
