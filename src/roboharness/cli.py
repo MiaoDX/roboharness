@@ -223,7 +223,6 @@ def report_command(output_dir: Path) -> dict[str, Any]:
 def evaluate_command(
     report_path: Path,
     constraints_path: Path | None = None,
-    output_format: str = "human",
 ) -> tuple[dict[str, Any], int]:
     """Evaluate a single report against constraints.
 
@@ -239,46 +238,6 @@ def evaluate_command(
 
     exit_code = {"pass": 0, "fail": 1, "degraded": 2}[result.verdict.value]
     return result.to_dict(), exit_code
-
-
-def evaluate_batch_command(
-    results_dir: Path,
-    constraints_path: Path | None = None,
-    output_format: str = "human",
-    compare: bool = False,
-    min_success_rate: float | None = None,
-) -> tuple[dict[str, Any], int]:
-    """Run batch evaluation across multiple trials.
-
-    Returns ``(result_dict, exit_code)``.
-    """
-    if not results_dir.exists():
-        raise FileNotFoundError(f"directory not found: {results_dir}")
-
-    assertions = load_constraints(constraints_path) if constraints_path else GRASP_DEFAULTS
-
-    if compare:
-        comparison = evaluate_batch_with_comparison(results_dir, assertions)
-        result_dict = comparison.to_dict()
-        exit_code = 0
-        # Check if any variant has 0 success rate → fail
-        for v in comparison.variants:
-            if v.batch.total_trials > 0 and v.batch.success_rate == 0.0:
-                exit_code = 1
-                break
-    else:
-        batch = evaluate_batch(results_dir, assertions)
-        result_dict = batch.to_dict()
-        exit_code = 0
-        if batch.total_trials > 0 and batch.success_rate == 0.0:
-            exit_code = 1
-
-    if min_success_rate is not None and not compare:
-        batch = evaluate_batch(results_dir, assertions)
-        if not check_success_rate(batch, min_success_rate):
-            exit_code = 1
-
-    return result_dict, exit_code
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -399,9 +358,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "evaluate":
         try:
-            result_dict, exit_code = evaluate_command(
-                args.report_path, args.constraints, args.output_format
-            )
+            result_dict, exit_code = evaluate_command(args.report_path, args.constraints)
         except FileNotFoundError as e:
             print(f"Error: {e}", file=sys.stderr)
             return 1
