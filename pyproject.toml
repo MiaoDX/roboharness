@@ -45,6 +45,9 @@ maniskill = [
 rerun = [
     "rerun-sdk>=0.18",
 ]
+unitree = [
+    "unitree-sdk2py>=1.0.0",
+]
 wbc = [
     "pin>=3.0",
     "pin-pink>=0.11",
@@ -63,7 +66,7 @@ dev = [
     "pre-commit>=3.0",
 ]
 all = [
-    "roboharness[mujoco,meshcat,rerun,lerobot,wbc,dev]",
+    "roboharness[mujoco,meshcat,rerun,lerobot,wbc,unitree,dev]",
 ]
 
 [project.scripts]
@@ -104,6 +107,7 @@ omit = [
     "src/roboharness/backends/visualizer.py",        # requires mujoco / meshcat
     "src/roboharness/controllers/wbc_ik.py",         # requires pinocchio + pink
     "src/roboharness/controllers/locomotion.py",     # requires onnxruntime + huggingface_hub
+    "src/roboharness/backends/unitree_dds.py",        # requires unitree_sdk2py + real robot
     "src/roboharness/wrappers/gymnasium_wrapper.py", # requires gymnasium
 ]
 
@@ -130,5 +134,6 @@ module = [
     "yaml.*",
     "onnxruntime.*",
     "huggingface_hub.*",
+    "unitree_sdk2py.*",
 ]
 ignore_missing_imports = true
