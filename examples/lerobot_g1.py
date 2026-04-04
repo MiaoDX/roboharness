@@ -2,29 +2,22 @@
 """LeRobot G1 Validation — RobotHarnessWrapper on a Unitree G1 MuJoCo simulation.
 
 Validates that RobotHarnessWrapper integrates correctly with the Unitree G1
-humanoid robot in MuJoCo. Downloads the real 29-DOF G1 model (with hand DOFs)
-from HuggingFace and wraps it with RobotHarnessWrapper to:
-
-  1. Verify Gymnasium API compatibility (reset/step/render)
-  2. Capture multi-view screenshots at predefined checkpoints
-  3. Save state metadata in agent-consumable JSON format
-  4. Generate a self-contained HTML visual report
+humanoid robot in MuJoCo. Downloads the real 29-DOF G1 model from HuggingFace,
+runs it with the GR00T RL balance/walk controller, and captures multi-view
+checkpoint screenshots via RobotHarnessWrapper.
 
 The G1 model (29 body DOF + 14 hand DOF) is hosted at:
   huggingface.co/lerobot/unitree-g1-mujoco
 
-Run (scripted inputs):
+Run:
     pip install roboharness[lerobot] gymnasium Pillow
     MUJOCO_GL=osmesa python examples/lerobot_g1.py
-
-Run (GR00T RL balance policy — robot stays upright):
-    MUJOCO_GL=osmesa python examples/lerobot_g1.py --controller groot
 
 Output:
     ./harness_output/lerobot_g1/trial_001/
         stand/    — robot in default standing pose
-        step/     — robot mid-step (legs actuated)
-        balance/  — robot balancing after perturbation
+        walk/     — robot walking forward
+        stop/     — robot stopped, balancing
 """
 
 from __future__ import annotations
@@ -63,11 +56,7 @@ G1_NUM_BODY_MOTORS = 29
 
 
 def download_g1_assets() -> Path:
-    """Download the real G1 MuJoCo assets from HuggingFace.
-
-    Returns the local path to the downloaded repository.
-    Requires: ``pip install huggingface_hub``
-    """
+    """Download the real G1 MuJoCo assets from HuggingFace."""
     try:
         from huggingface_hub import snapshot_download
     except ImportError:
@@ -93,15 +82,13 @@ class LeRobotG1Env(gym.Env):
     """Gymnasium environment for the Unitree G1 humanoid in MuJoCo.
 
     Loads a MuJoCo XML model from ``model_path`` (the real G1 from HuggingFace).
-    For the 43-DOF model (29 body + 14 hand), only the first ``num_motors``
-    actuators are exposed in the action space. The remaining (hand) actuators
-    are held at zero.
+    Actions are joint position targets, converted to torques via a PD controller
+    (the G1 MuJoCo model uses torque actuators).
     """
 
     metadata: ClassVar[dict[str, Any]] = {"render_modes": ["rgb_array"], "render_fps": 50}
 
     # Default PD gains per joint (from GR00T WBC training configuration).
-    # These are typical values for the G1; real gains vary per joint.
     DEFAULT_KP = np.array(
         [
             100, 100, 100, 150, 40, 40,   # left leg
@@ -112,7 +99,7 @@ class LeRobotG1Env(gym.Env):
         ],
         dtype=np.float64,
     )  # fmt: skip
-    DEFAULT_KD = DEFAULT_KP * 0.02  # ~2% of kp is a common starting point
+    DEFAULT_KD = DEFAULT_KP * 0.02
 
     def __init__(
         self,
@@ -121,44 +108,38 @@ class LeRobotG1Env(gym.Env):
         render_width: int = 640,
         render_height: int = 480,
         num_motors: int | None = None,
-        use_pd_control: bool = True,
     ):
         super().__init__()
         self.render_mode = render_mode
         self._render_width = render_width
         self._render_height = render_height
-        self._use_pd_control = use_pd_control
 
-        # Load MuJoCo model
         self._model = mujoco.MjModel.from_xml_path(str(model_path))
         self._data = mujoco.MjData(self._model)
         self._renderer = mujoco.Renderer(self._model, self._render_height, self._render_width)
 
-        # Number of controlled motors (may be less than total actuators)
         self._num_motors = num_motors or self._model.nu
-        assert self._num_motors <= self._model.nu, (
-            f"num_motors={self._num_motors} > model.nu={self._model.nu}"
-        )
+        assert self._num_motors <= self._model.nu
 
-        # PD gains (truncated/padded to num_motors)
+        # PD gains
         self._kp = self.DEFAULT_KP[: self._num_motors].copy()
         self._kd = self.DEFAULT_KD[: self._num_motors].copy()
 
-        # Observation: joint positions (nq) + joint velocities (nv)
+        # Free joint offset for qpos/qvel indexing
+        self._has_free_joint = (
+            self._model.njnt > 0 and self._model.jnt_type[0] == mujoco.mjtJoint.mjJNT_FREE
+        )
+        self._qj_offset = 7 if self._has_free_joint else 0
+        self._dqj_offset = 6 if self._has_free_joint else 0
+
         obs_dim = self._model.nq + self._model.nv
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float64
         )
-
-        # Action: position targets for controlled motors only
         self.action_space = spaces.Box(
-            low=-np.pi,
-            high=np.pi,
-            shape=(self._num_motors,),
-            dtype=np.float64,
+            low=-np.pi, high=np.pi, shape=(self._num_motors,), dtype=np.float64
         )
 
-        # Available cameras (from MJCF)
         self._cameras = [self._model.camera(i).name for i in range(self._model.ncam)]
         self._step_count = 0
 
@@ -172,26 +153,19 @@ class LeRobotG1Env(gym.Env):
         return self._get_obs(), {}
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
+        # PD controller: convert position targets to torques
+        q_actual = self._data.qpos[self._qj_offset : self._qj_offset + self._num_motors]
+        dq_actual = self._data.qvel[self._dqj_offset : self._dqj_offset + self._num_motors]
+        torques = self._kp * (action - q_actual) + self._kd * (0.0 - dq_actual)
+
         self._data.ctrl[:] = 0.0
-        if self._use_pd_control:
-            # PD controller: convert position targets to torques
-            # τ = kp * (q_desired - q_actual) + kd * (0 - dq_actual)
-            qj_offset = 7 if (self._model.njnt > 0 and self._model.jnt_type[0] == 0) else 0
-            dqj_offset = 6 if qj_offset == 7 else 0
-            q_actual = self._data.qpos[qj_offset : qj_offset + self._num_motors]
-            dq_actual = self._data.qvel[dqj_offset : dqj_offset + self._num_motors]
-            torques = self._kp * (action - q_actual) + self._kd * (0.0 - dq_actual)
-            self._data.ctrl[: self._num_motors] = torques
-        else:
-            self._data.ctrl[: self._num_motors] = action
+        self._data.ctrl[: self._num_motors] = torques
         mujoco.mj_step(self._model, self._data)
         self._step_count += 1
 
         obs = self._get_obs()
         torso_z = self._get_torso_z()
         reward = 1.0 + torso_z
-        # Never terminate early — this is a wrapper validation, not a locomotion test.
-        # The robot may fall with zero/simple inputs; that's expected.
         terminated = False
 
         info: dict[str, Any] = {
@@ -201,14 +175,12 @@ class LeRobotG1Env(gym.Env):
         return obs, reward, terminated, False, info
 
     def render(self) -> np.ndarray:
-        """Render the first available camera."""
         if self._cameras:
             return self.render_camera(self._cameras[0])
         self._renderer.update_scene(self._data)
         return self._renderer.render()
 
     def render_camera(self, camera_name: str) -> np.ndarray:
-        """Render a named camera view — enables multi-camera capture."""
         cam_id = mujoco.mj_name2id(self._model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
         if cam_id < 0:
             raise ValueError(f"Unknown camera: {camera_name}. Available: {self._cameras}")
@@ -219,47 +191,16 @@ class LeRobotG1Env(gym.Env):
         return np.concatenate([self._data.qpos.copy(), self._data.qvel.copy()])
 
     def _get_torso_z(self) -> float:
-        """Get torso height (free joint: qpos[2])."""
-        if self._model.njnt > 0 and self._model.jnt_type[0] == mujoco.mjtJoint.mjJNT_FREE:
+        if self._has_free_joint:
             return float(self._data.qpos[2])
         return float(self._data.qpos[0])
 
     @property
     def cameras(self) -> list[str]:
-        """Available camera names."""
         return list(self._cameras)
 
     def close(self) -> None:
         self._renderer.close()
-
-
-# ---------------------------------------------------------------------------
-# Scripted motion sequences
-# ---------------------------------------------------------------------------
-
-
-def build_stand_sequence(num_motors: int, n_steps: int = 300) -> list[np.ndarray]:
-    """Standing pose: zero all joints (default pose)."""
-    return [np.zeros(num_motors) for _ in range(n_steps)]
-
-
-def build_step_sequence(num_motors: int, n_steps: int = 400) -> list[np.ndarray]:
-    """Stepping motion: sinusoidal actuation on first 6 joints (legs)."""
-    actions = []
-    n_legs = min(6, num_motors)
-    for i in range(n_steps):
-        action = np.zeros(num_motors)
-        phase = (i / n_steps) * 2 * np.pi
-        for j in range(n_legs):
-            sign = 1.0 if j < n_legs // 2 else -1.0
-            action[j] = sign * 0.2 * np.sin(phase + (j % (n_legs // 2)) * 0.5)
-        actions.append(action)
-    return actions
-
-
-def build_balance_sequence(num_motors: int, n_steps: int = 300) -> list[np.ndarray]:
-    """Recovery balance: return to neutral."""
-    return [np.zeros(num_motors) for _ in range(n_steps)]
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +277,7 @@ def generate_html_report(output_dir: Path) -> Path:
 <h1>LeRobot G1 Validation Report</h1>
 <div class="summary">
   <strong>Model:</strong> Unitree G1 29-DOF ({G1_HF_REPO})
-  <br/><strong>Wrapper:</strong> Multi-camera via render_camera() detected
+  <br/><strong>Controller:</strong> GR00T Balance + Walk (ONNX)
   <br/><strong>Status:</strong> Validation {status}
 </div>
 {"".join(rows_html)}
@@ -354,6 +295,8 @@ def generate_html_report(output_dir: Path) -> Path:
 # ---------------------------------------------------------------------------
 # Validation checks
 # ---------------------------------------------------------------------------
+
+MIN_TORSO_Z = 0.5  # robot must stay above 0.5m (initial ~0.79m)
 
 
 def validate_integration(
@@ -399,11 +342,11 @@ def validate_integration(
         if "obs_shape" not in state:
             failures.append(f"Checkpoint '{cp_info['name']}': state.json missing obs_shape")
 
-    # Note: torso height check removed — the robot may fall with simple scripted
-    # inputs. This validation tests the wrapper integration, not locomotion quality.
     torso_z = env._get_torso_z()
-    if torso_z < -10.0:  # only fail if simulation exploded
-        failures.append(f"Robot fell: torso z={torso_z:.3f}")
+    if torso_z < MIN_TORSO_Z:
+        failures.append(f"Robot fell: torso z={torso_z:.3f}m (min={MIN_TORSO_Z}m)")
+    else:
+        print(f"      Robot upright: torso_z={torso_z:.3f}m (min={MIN_TORSO_Z}m)")
 
     return failures
 
@@ -423,9 +366,9 @@ def main() -> None:
     parser.add_argument("--height", type=int, default=480, help="Render height")
     parser.add_argument(
         "--controller",
-        choices=["scripted", "groot"],
-        default="scripted",
-        help="Controller: scripted (simple sinusoids) or groot (RL balance policy)",
+        choices=["groot"],
+        default="groot",
+        help="Locomotion controller (default: groot). More options coming soon.",
     )
     parser.add_argument(
         "--assert-success", action="store_true", help="Exit non-zero on validation failure"
@@ -460,22 +403,19 @@ def main() -> None:
     print(f"      Obs space: {env.observation_space.shape}")
     print(f"      Act space: {env.action_space.shape}")
 
-    # 2. Load controller (if GR00T requested)
-    loco_controller = None
-    if args.controller == "groot":
-        from roboharness.controllers.locomotion import GrootLocomotionController
+    # 2. Load GR00T locomotion controller
+    from roboharness.controllers.locomotion import GrootLocomotionController
 
-        print("[2/6] Loading GR00T locomotion controller ...")
-        loco_controller = GrootLocomotionController()
-        print("      Balance + Walk ONNX policies loaded")
+    print("[2/5] Loading GR00T locomotion controller ...")
+    loco = GrootLocomotionController()
+    print("      Balance + Walk ONNX policies loaded")
 
     # 3. Wrap with RobotHarnessWrapper
-    step_label = "[3/6]" if loco_controller else "[2/5]"
-    print(f"{step_label} Wrapping with RobotHarnessWrapper ...")
+    print("[3/5] Wrapping with RobotHarnessWrapper ...")
     checkpoints = [
         {"name": "stand", "step": 300},
-        {"name": "step", "step": 700},
-        {"name": "balance", "step": 1000},
+        {"name": "walk", "step": 700},
+        {"name": "stop", "step": 1000},
     ]
     wrapped = RobotHarnessWrapper(
         env,
@@ -487,63 +427,42 @@ def main() -> None:
     print(f"      Multi-camera detected: {wrapped.has_multi_camera}")
     print(f"      Camera capability: {wrapped.camera_capability}")
 
-    # 4. Run simulation
-    run_label = "[4/6]" if loco_controller else "[3/5]"
-    controller_name = args.controller
-    print(f"{run_label} Running simulation (controller={controller_name}) ...")
-    obs, info = wrapped.reset()
-    if loco_controller:
-        loco_controller.reset()
+    # 4. Run simulation with GR00T controller
+    print("[4/5] Running simulation ...")
+    obs, _info = wrapped.reset()
+    loco.reset()
     print(f"      Initial obs shape: {obs.shape}, dtype: {obs.dtype}")
 
     n_steps = 1000
     checkpoint_infos: list[dict[str, Any]] = []
 
-    if loco_controller:
-        # GR00T controller: compute actions from observations
-        for i in range(n_steps):
-            state = {"qpos": env._data.qpos, "qvel": env._data.qvel}
-            # Standing for first 300 steps, then walk forward, then stand again
-            if i < 300:
-                velocity = [0.0, 0.0, 0.0]
-            elif i < 700:
-                velocity = [0.3, 0.0, 0.0]
-            else:
-                velocity = [0.0, 0.0, 0.0]
-            lower_body = loco_controller.compute(command={"velocity": velocity}, state=state)
-            # Build full action: lower body from controller, arms at zero
-            action = np.zeros(num_motors)
-            action[: len(lower_body)] = lower_body
-            obs, reward, _terminated, _truncated, info = wrapped.step(action)
+    for i in range(n_steps):
+        state = {"qpos": env._data.qpos, "qvel": env._data.qvel}
+        # Stand for 300 steps, walk forward for 400, then stop
+        if i < 300:
+            velocity = [0.0, 0.0, 0.0]
+        elif i < 700:
+            velocity = [0.3, 0.0, 0.0]
+        else:
+            velocity = [0.0, 0.0, 0.0]
 
-            if "checkpoint" in info:
-                cp = info["checkpoint"]
-                checkpoint_infos.append(cp)
-                torso_z = env._get_torso_z()
-                print(
-                    f"      Checkpoint '{cp['name']}' at step {cp['step']}"
-                    f" | reward={reward:.3f}"
-                    f" | torso_z={torso_z:.3f}"
-                )
-                print(f"        -> {cp['capture_dir']}")
-    else:
-        # Scripted fallback
-        actions = (
-            build_stand_sequence(num_motors)
-            + build_step_sequence(num_motors)
-            + build_balance_sequence(num_motors)
-        )
-        for action in actions:
-            obs, reward, _terminated, _truncated, info = wrapped.step(action)
+        lower_body = loco.compute(command={"velocity": velocity}, state=state)
+        action = np.zeros(num_motors)
+        action[: len(lower_body)] = lower_body
+        obs, reward, _terminated, _truncated, info = wrapped.step(action)
 
-            if "checkpoint" in info:
-                cp = info["checkpoint"]
-                checkpoint_infos.append(cp)
-                print(f"      Checkpoint '{cp['name']}' at step {cp['step']} | reward={reward:.3f}")
-                print(f"        -> {cp['capture_dir']}")
+        if "checkpoint" in info:
+            cp = info["checkpoint"]
+            checkpoint_infos.append(cp)
+            torso_z = env._get_torso_z()
+            print(
+                f"      Checkpoint '{cp['name']}' at step {cp['step']}"
+                f" | reward={reward:.3f} | torso_z={torso_z:.3f}m"
+            )
+            print(f"        -> {cp['capture_dir']}")
 
-    # 4. Validate
-    print("[4/5] Validating integration ...")
+    # 5. Validate
+    print("[5/5] Validating integration ...")
     failures = validate_integration(env, checkpoint_infos, cameras)
 
     if failures:
@@ -553,8 +472,7 @@ def main() -> None:
     else:
         print("      All checks passed!")
 
-    # 5. Report
-    print("[5/5] Summary")
+    # Summary
     trial_dir = output_dir / "lerobot_g1" / "trial_001"
     total_images = len(list(trial_dir.rglob("*_rgb.png"))) if trial_dir.exists() else 0
     print(f"      {total_images} images saved to: {trial_dir}")
