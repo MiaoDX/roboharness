@@ -74,8 +74,11 @@ Do NOT create a new branch or a new PR for review fixes.
 
 ## Testing philosophy
 
+- **Test-driven development.** Write tests first, then implement. This ensures every feature has coverage from the start and avoids the "write tests later" debt that never gets paid. When adding a new module or function, start with the test file.
+- **Coverage threshold: 90%+.** CI enforces a minimum coverage threshold (see `pyproject.toml`). New code must not lower overall coverage. If you add code, add tests for it in the same PR.
 - **Real tests, not stub theater.** Unit tests must correlate with actual scenarios. Minimize mocks; only stub truly external/expensive operations (network, hardware, GPU). If UTs pass but E2E fails, the UTs are misleading.
 - **Visualization-based validation.** Logs miss things visual inspection catches instantly (wrong transforms, flipped axes, geometry errors). Add vis-based validation alongside numeric tests when the project supports it (MuJoCo viewer, Meshcat, Rerun).
+- **Coverage omit is for genuine hardware deps only.** Files in `[tool.coverage.run] omit` must require hardware or optional heavy dependencies (MuJoCo, GPU, Pinocchio) that aren't in `[dev]`. Don't omit files just because tests haven't been written — that hides debt.
 - After each significant change, verify related tests still pass before moving on.
 
 ## Core principles
