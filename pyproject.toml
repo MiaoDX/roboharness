@@ -88,14 +88,17 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=roboharness --cov-report=term-missing --cov-fail-under=70"
+addopts = "--cov=roboharness --cov-report=term-missing --cov-fail-under=90"
 
 [tool.coverage.run]
+# Omit files requiring optional heavy deps not in [dev].
+# These are covered by specialized CI jobs (test-mujoco) or need GPU/hardware.
+# Do NOT add files here just because tests haven't been written.
 omit = [
-    "src/roboharness/backends/mujoco_meshcat.py",
-    "src/roboharness/backends/visualizer.py",
-    "src/roboharness/controllers/wbc_ik.py",
-    "src/roboharness/wrappers/gymnasium_wrapper.py",
+    "src/roboharness/backends/mujoco_meshcat.py",   # requires mujoco
+    "src/roboharness/backends/visualizer.py",        # requires mujoco / meshcat
+    "src/roboharness/controllers/wbc_ik.py",         # requires pinocchio + pink
+    "src/roboharness/wrappers/gymnasium_wrapper.py", # requires gymnasium
 ]
 
 [tool.mypy]
