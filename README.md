@@ -30,7 +30,10 @@
 pip install roboharness                  # core (numpy only)
 pip install roboharness[mujoco]          # + MuJoCo backend
 pip install roboharness[mujoco,rerun]    # + Rerun logging
+pip install roboharness[wbc]             # + Pinocchio IK solver
+pip install roboharness[lerobot]         # + LeRobot G1 locomotion
 pip install roboharness[dev]             # development (pytest, ruff, mypy)
+pip install roboharness[all]             # everything
 ```
 
 ## Quick Start
@@ -56,9 +59,20 @@ pip install roboharness[mujoco,wbc] robot_descriptions Pillow
 python examples/g1_wbc_reach.py --report
 ```
 
+Whole-body control (WBC) for the Unitree G1 humanoid using Pinocchio + Pink differential-IK for upper-body reaching while maintaining lower-body balance. The controller solves inverse kinematics for both arms simultaneously, letting the robot reach arbitrary 3D targets without falling over.
+
 | stand | reach_left | reach_both | retract |
 |:-:|:-:|:-:|:-:|
 | ![stand](assets/example_g1_wbc_reach/stand_front.png) | ![reach_left](assets/example_g1_wbc_reach/reach_left_front.png) | ![reach_both](assets/example_g1_wbc_reach/reach_both_front.png) | ![retract](assets/example_g1_wbc_reach/retract_front.png) |
+
+### LeRobot G1 Locomotion
+
+```bash
+pip install roboharness[lerobot] robot_descriptions Pillow
+python examples/lerobot_g1.py --report
+```
+
+Integrates the real [Unitree G1 43-DOF model](https://huggingface.co/lerobot/unitree-g1-mujoco) from HuggingFace with GR00T WBC locomotion policies (Balance + Walk). The example downloads the model and ONNX policies automatically, runs the G1 through stand → walk → stop phases, and captures multi-camera checkpoints via `RobotHarnessWrapper`.
 
 ### Gymnasium Wrapper (Zero-Change Integration)
 
@@ -100,9 +114,21 @@ result = harness.run_to_next_checkpoint(actions)
 | Simulator | Status | Integration |
 |-----------|--------|-------------|
 | MuJoCo + Meshcat | ✅ Implemented | Native backend adapter |
+| LeRobot (G1 MuJoCo) | ✅ Implemented | Gymnasium Wrapper + Controllers |
 | Isaac Lab | 🚧 Planned | Gymnasium Wrapper |
 | ManiSkill | 🚧 Planned | Gymnasium Wrapper |
 | LocoMuJoCo / MuJoCo Playground / unitree_rl_gym | 📋 Roadmap | Various |
+
+## Controllers
+
+Roboharness ships optional robot controllers for integration testing and demos:
+
+| Controller | Robot | Extra | Description |
+|-----------|-------|-------|-------------|
+| `WbcIkController` | Any (URDF) | `[wbc]` | Differential-IK via Pinocchio + Pink |
+| `GrootLocomotionController` | Unitree G1 | `[lerobot]` | GR00T Balance + Walk ONNX policies |
+
+Controllers implement the `Controller` protocol and work standalone with any MuJoCo model.
 
 ## Design Principles
 
@@ -112,6 +138,20 @@ result = harness.run_to_next_checkpoint(actions)
 - **Agent-consumable output** — PNG + JSON files that any coding agent can read
 
 See [docs/context.en.md](docs/context.en.md) for full background and motivation.
+
+## Project Structure
+
+```
+src/roboharness/
+├── core/          # Harness, Checkpoint, Capture (framework core)
+├── backends/      # SimulatorBackend implementations (MuJoCo + Meshcat)
+├── wrappers/      # Gymnasium wrappers (zero-change integration)
+├── controllers/   # Generic controllers (WBC IK solver)
+├── robots/        # Robot-specific code (Unitree G1 locomotion)
+├── evaluate/      # Assertion engine, batch evaluation, constraints
+├── storage/       # Task-oriented file storage and evaluation history
+└── cli.py         # CLI tool (inspect, report, evaluate, trend)
+```
 
 ## Contributing
 

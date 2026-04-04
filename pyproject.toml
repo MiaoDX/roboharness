@@ -106,7 +106,8 @@ omit = [
     "src/roboharness/backends/mujoco_meshcat.py",   # requires mujoco
     "src/roboharness/backends/visualizer.py",        # requires mujoco / meshcat
     "src/roboharness/controllers/wbc_ik.py",         # requires pinocchio + pink
-    "src/roboharness/controllers/locomotion.py",     # requires onnxruntime + huggingface_hub
+    "src/roboharness/controllers/locomotion.py",     # re-export shim for robots.unitree_g1
+    "src/roboharness/robots/unitree_g1/locomotion.py", # requires onnxruntime + huggingface_hub
     "src/roboharness/wrappers/gymnasium_wrapper.py", # requires gymnasium
 ]
 
