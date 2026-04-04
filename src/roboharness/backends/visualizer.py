@@ -120,6 +120,11 @@ class MeshcatVisualizer:
         if open_browser:
             self._vis.open()
 
+        # MuJoCo native renderer for multi-view camera capture.
+        # Meshcat cannot render server-side, so we delegate capture_camera()
+        # to the MuJoCo off-screen renderer to produce real images.
+        self._capture_renderer = MuJoCoNativeVisualizer(model, data, width, height)
+
         # Build the scene from MuJoCo model geometry
         self._geom_paths: list[str] = []
         self._build_scene()
@@ -241,37 +246,13 @@ class MeshcatVisualizer:
     # ------------------------------------------------------------------
 
     def capture_camera(self, camera_name: str) -> CameraView:
-        """Capture an RGB image from the Meshcat viewer.
+        """Capture RGB and depth from a named MuJoCo camera.
 
-        Falls back to a MuJoCo native off-screen render when Meshcat
-        server-side capture is not available (common in headless CI).
-
-        Note: Meshcat does not natively support depth rendering,
-        so the depth channel is not provided.
+        Meshcat cannot render server-side, so this delegates to an
+        internal MuJoCo off-screen renderer.  The interactive 3D scene
+        is still available via :meth:`export_html` and :attr:`url`.
         """
-        # Meshcat's built-in static_html() can be used for capture, but
-        # reliable pixel-perfect capture requires a browser/WebGL context.
-        # For headless environments, we render a placeholder that signals
-        # the scene is available interactively in the browser.
-        rgb = self._render_placeholder(camera_name)
-        return CameraView(name=camera_name, rgb=rgb, depth=None)
-
-    def _render_placeholder(self, camera_name: str) -> np.ndarray:
-        """Create a labeled placeholder image when WebGL capture isn't available."""
-        img = np.full((self._height, self._width, 3), 240, dtype=np.uint8)
-
-        # Draw a simple text-like indicator in the center
-        h, w = self._height, self._width
-        # Border
-        img[:4, :] = [100, 100, 200]
-        img[-4:, :] = [100, 100, 200]
-        img[:, :4] = [100, 100, 200]
-        img[:, -4:] = [100, 100, 200]
-        # Center cross
-        img[h // 2 - 1 : h // 2 + 1, w // 4 : 3 * w // 4] = [100, 100, 200]
-        img[h // 4 : 3 * h // 4, w // 2 - 1 : w // 2 + 1] = [100, 100, 200]
-
-        return img
+        return self._capture_renderer.capture_camera(camera_name)
 
     def export_html(self, path: str | Path) -> Path:
         """Export the current Meshcat scene as a self-contained HTML file.

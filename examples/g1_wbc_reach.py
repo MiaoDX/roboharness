@@ -246,6 +246,24 @@ def make_target_pose(pos: np.ndarray, approach_axis: str = "-z") -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
+def world_targets_to_pin(
+    targets: dict[str, np.ndarray],
+    base_pos: np.ndarray,
+) -> dict[str, np.ndarray]:
+    """Transform world-frame targets to Pinocchio base frame.
+
+    Pinocchio uses a fixed-base model, so its origin is at the robot pelvis.
+    MuJoCo uses a floating base with the pelvis at ``base_pos`` in world frame.
+    We must subtract the base position from target translations.
+    """
+    pin_targets = {}
+    for frame_name, T_world in targets.items():
+        T_pin = T_world.copy()
+        T_pin[:3, 3] = T_world[:3, 3] - base_pos
+        pin_targets[frame_name] = T_pin
+    return pin_targets
+
+
 def run_ik_reach(
     controller,
     mapper: JointMapper,
@@ -253,9 +271,23 @@ def run_ik_reach(
     targets: dict[str, np.ndarray],
     current_ctrl: np.ndarray,
     arm_joints: list[str],
+    base_pos: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Run IK controller and return MuJoCo ctrl for the target pose."""
+    """Run IK controller and return MuJoCo ctrl for the target pose.
+
+    Parameters
+    ----------
+    base_pos : np.ndarray | None
+        World-frame position of the robot base (pelvis).  When provided,
+        targets are transformed from world frame to Pinocchio's fixed-base
+        frame before solving IK.
+    """
     pin_q = mapper.mj_qpos_to_pin_q(np.asarray(state["qpos"]))
+
+    # Transform targets from world frame to Pinocchio base frame
+    if base_pos is not None:
+        targets = world_targets_to_pin(targets, base_pos)
+
     ik_result = controller.compute(
         command=targets,
         state={"qpos": pin_q},
@@ -304,11 +336,14 @@ def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> P
         meshcat_html = ""
         if meshcat_file.exists():
             meshcat_rel = f"{cp_name}/meshcat_scene.html"
+            size_mb = meshcat_file.stat().st_size / (1024 * 1024)
             meshcat_html = (
                 f'<div class="meshcat-viewer">'
                 f"<h3>Interactive 3D Scene</h3>"
-                f'<iframe src="{meshcat_rel}" loading="lazy"></iframe>'
-                f"<p>Rotate, pan, and zoom to explore the scene.</p>"
+                f'<a href="{meshcat_rel}" target="_blank" class="meshcat-link">'
+                f"Open in new tab</a>"
+                f"<p>Self-contained Three.js viewer ({size_mb:.1f} MB). "
+                f"Rotate, pan, and zoom to explore.</p>"
                 f"</div>"
             )
 
@@ -346,11 +381,13 @@ def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> P
   .cam {{ text-align: center; }}
   .cam img {{ max-width: 320px; border: 1px solid #ddd; border-radius: 4px; }}
   .cam p {{ margin: 4px 0 0; font-size: 14px; color: #666; }}
-  .meshcat-viewer {{ flex: 0 0 480px; text-align: center; }}
+  .meshcat-viewer {{ flex: 0 0 200px; text-align: center; }}
   .meshcat-viewer h3 {{ color: #d94a4a; margin: 0 0 8px; font-size: 16px; }}
-  .meshcat-viewer iframe {{ width: 480px; height: 400px; border: 1px solid #ddd;
-                            border-radius: 4px; }}
-  .meshcat-viewer p {{ margin: 4px 0 0; font-size: 13px; color: #888; }}
+  .meshcat-link {{ display: inline-block; padding: 10px 20px; background: #d94a4a;
+                   color: white; text-decoration: none; border-radius: 4px;
+                   font-weight: bold; }}
+  .meshcat-link:hover {{ background: #b83a3a; }}
+  .meshcat-viewer p {{ margin: 8px 0 0; font-size: 13px; color: #888; }}
   .footer {{ margin-top: 30px; color: #999; font-size: 12px; }}
 </style>
 </head>
@@ -405,31 +442,35 @@ def main() -> None:
     # 1. Load scene
     print("\n[1/5] Building G1 scene ...")
     scene_xml = build_scene_xml()
+
+    # When generating a report, use MeshcatVisualizer as the backend visualizer.
+    # It produces real multi-view images (via MuJoCo renderer fallback) AND
+    # provides interactive 3D HTML export — best of both worlds.
+    viz_choice: str | None = None
+    if args.report:
+        try:
+            import meshcat as _meshcat  # noqa: F401
+
+            viz_choice = "meshcat"
+        except ImportError:
+            print("      Meshcat not installed — using native renderer only.")
+
     backend = MuJoCoMeshcatBackend(
         xml_string=scene_xml,
         cameras=cameras,
         render_width=args.width,
         render_height=args.height,
+        visualizer=viz_choice,
     )
     mj_model = backend._model
     mj_data = backend._data
     print(f"      Model loaded. nq={mj_model.nq}, nu={mj_model.nu}")
 
-    # Create Meshcat visualizer for interactive 3D export (if meshcat available)
+    # Get the MeshcatVisualizer for HTML export (if active)
     meshcat_viz: MeshcatVisualizer | None = None
-    if args.report:
-        try:
-            meshcat_viz = MeshcatVisualizer(
-                backend._model,
-                backend._data,
-                width=args.width,
-                height=args.height,
-            )
-            print("      Meshcat visualizer ready for 3D scene export.")
-        except ImportError:
-            print("      Meshcat not installed — skipping interactive 3D export.")
-        except Exception as exc:
-            print(f"      Meshcat scene build failed ({exc}) — skipping 3D export.")
+    if isinstance(backend.visualizer, MeshcatVisualizer):
+        meshcat_viz = backend.visualizer
+        print("      Meshcat visualizer active — multi-view capture + 3D export.")
 
     # 2. Set standing keyframe and build joint mapper
     print("[2/5] Setting standing pose ...")
@@ -450,12 +491,12 @@ def main() -> None:
 
     ee_frames = ["left_rubber_hand", "right_rubber_hand"]
     settings = WbcIkSettings(
-        dt=0.05,
-        num_iterations=5,
-        position_cost=10.0,
-        orientation_cost=1.0,
-        posture_cost=1e-2,
-        damping=1e-3,
+        dt=0.02,
+        num_iterations=20,
+        position_cost=20.0,
+        orientation_cost=0.1,
+        posture_cost=1e-3,
+        damping=1e-4,
     )
 
     stand_q = mapper.mj_qpos_to_pin_q(mj_data.qpos)
@@ -486,6 +527,11 @@ def main() -> None:
 
     all_arm_joints = LEFT_ARM_JOINTS + RIGHT_ARM_JOINTS
 
+    # Extract floating-base position for world→Pinocchio frame transform.
+    # MuJoCo qpos[0:3] is the pelvis world position for a floating-base robot.
+    base_pos = np.array(mj_data.qpos[0:3])
+    print(f"      Robot base (pelvis) at world position: {base_pos}")
+
     def _run_phase(actions, phase_name):
         result = harness.run_to_next_checkpoint(actions)
         _print_checkpoint(result)
@@ -503,9 +549,12 @@ def main() -> None:
     checkpoint_results["stand"] = _run_phase([stand_ctrl.copy() for _ in range(200)], "stand")
 
     # -- Phase 2: Left arm reach toward target
+    # Targets are in world frame; run_ik_reach transforms them to Pinocchio base frame.
+    # Target spheres are at world [0.4, 0.15, 0.40] and [0.4, -0.15, 0.40].
+    # Aim slightly above them for a natural hovering/approach pose.
     state = harness.get_state()
-    left_target_pos = np.array([0.35, 0.20, 0.55])
-    left_target = make_target_pose(left_target_pos, approach_axis="-x")
+    left_target_pos = np.array([0.38, 0.15, 0.48])
+    left_target = make_target_pose(left_target_pos, approach_axis="-z")
     ctrl = run_ik_reach(
         controller,
         mapper,
@@ -513,13 +562,14 @@ def main() -> None:
         {"left_rubber_hand": left_target},
         mj_data.ctrl,
         all_arm_joints,
+        base_pos=base_pos,
     )
     checkpoint_results["reach_left"] = _run_phase([ctrl for _ in range(600)], "reach_left")
 
     # -- Phase 3: Both arms reach
     state = harness.get_state()
-    right_target_pos = np.array([0.35, -0.20, 0.55])
-    right_target = make_target_pose(right_target_pos, approach_axis="-x")
+    right_target_pos = np.array([0.38, -0.15, 0.48])
+    right_target = make_target_pose(right_target_pos, approach_axis="-z")
     ctrl = run_ik_reach(
         controller,
         mapper,
@@ -527,6 +577,7 @@ def main() -> None:
         {"left_rubber_hand": left_target, "right_rubber_hand": right_target},
         mj_data.ctrl,
         all_arm_joints,
+        base_pos=base_pos,
     )
     checkpoint_results["reach_both"] = _run_phase([ctrl for _ in range(600)], "reach_both")
 
