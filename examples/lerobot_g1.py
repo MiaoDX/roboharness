@@ -100,6 +100,20 @@ class LeRobotG1Env(gym.Env):
 
     metadata: ClassVar[dict[str, Any]] = {"render_modes": ["rgb_array"], "render_fps": 50}
 
+    # Default PD gains per joint (from GR00T WBC training configuration).
+    # These are typical values for the G1; real gains vary per joint.
+    DEFAULT_KP = np.array(
+        [
+            100, 100, 100, 150, 40, 40,   # left leg
+            100, 100, 100, 150, 40, 40,   # right leg
+            100, 50, 50,                   # waist
+            40, 40, 40, 40, 40, 20, 20,   # left arm
+            40, 40, 40, 40, 40, 20, 20,   # right arm
+        ],
+        dtype=np.float64,
+    )  # fmt: skip
+    DEFAULT_KD = DEFAULT_KP * 0.02  # ~2% of kp is a common starting point
+
     def __init__(
         self,
         model_path: str | Path,
@@ -107,11 +121,13 @@ class LeRobotG1Env(gym.Env):
         render_width: int = 640,
         render_height: int = 480,
         num_motors: int | None = None,
+        use_pd_control: bool = True,
     ):
         super().__init__()
         self.render_mode = render_mode
         self._render_width = render_width
         self._render_height = render_height
+        self._use_pd_control = use_pd_control
 
         # Load MuJoCo model
         self._model = mujoco.MjModel.from_xml_path(str(model_path))
@@ -123,6 +139,10 @@ class LeRobotG1Env(gym.Env):
         assert self._num_motors <= self._model.nu, (
             f"num_motors={self._num_motors} > model.nu={self._model.nu}"
         )
+
+        # PD gains (truncated/padded to num_motors)
+        self._kp = self.DEFAULT_KP[: self._num_motors].copy()
+        self._kd = self.DEFAULT_KD[: self._num_motors].copy()
 
         # Observation: joint positions (nq) + joint velocities (nv)
         obs_dim = self._model.nq + self._model.nv
@@ -153,7 +173,17 @@ class LeRobotG1Env(gym.Env):
 
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         self._data.ctrl[:] = 0.0
-        self._data.ctrl[: self._num_motors] = action
+        if self._use_pd_control:
+            # PD controller: convert position targets to torques
+            # τ = kp * (q_desired - q_actual) + kd * (0 - dq_actual)
+            qj_offset = 7 if (self._model.njnt > 0 and self._model.jnt_type[0] == 0) else 0
+            dqj_offset = 6 if qj_offset == 7 else 0
+            q_actual = self._data.qpos[qj_offset : qj_offset + self._num_motors]
+            dq_actual = self._data.qvel[dqj_offset : dqj_offset + self._num_motors]
+            torques = self._kp * (action - q_actual) + self._kd * (0.0 - dq_actual)
+            self._data.ctrl[: self._num_motors] = torques
+        else:
+            self._data.ctrl[: self._num_motors] = action
         mujoco.mj_step(self._model, self._data)
         self._step_count += 1
 
