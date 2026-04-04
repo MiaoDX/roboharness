@@ -30,10 +30,8 @@
 pip install roboharness                  # core (numpy only)
 pip install roboharness[mujoco]          # + MuJoCo backend
 pip install roboharness[mujoco,rerun]    # + Rerun logging
-pip install roboharness[wbc]             # + Pinocchio IK solver
-pip install roboharness[lerobot]         # + LeRobot G1 locomotion
 pip install roboharness[dev]             # development (pytest, ruff, mypy)
-pip install roboharness[all]             # everything
+pip install roboharness[all]             # everything (MuJoCo, WBC, LeRobot, Rerun)
 ```
 
 ## Quick Start
@@ -119,17 +117,6 @@ result = harness.run_to_next_checkpoint(actions)
 | ManiSkill | 🚧 Planned | Gymnasium Wrapper |
 | LocoMuJoCo / MuJoCo Playground / unitree_rl_gym | 📋 Roadmap | Various |
 
-## Controllers
-
-Roboharness ships optional robot controllers for integration testing and demos:
-
-| Controller | Robot | Extra | Description |
-|-----------|-------|-------|-------------|
-| `WbcIkController` | Any (URDF) | `[wbc]` | Differential-IK via Pinocchio + Pink |
-| `GrootLocomotionController` | Unitree G1 | `[lerobot]` | GR00T Balance + Walk ONNX policies |
-
-Controllers implement the `Controller` protocol and work standalone with any MuJoCo model.
-
 ## Design Principles
 
 - **Harness only does "pause → capture → resume"** — agent logic stays in your code
@@ -138,20 +125,6 @@ Controllers implement the `Controller` protocol and work standalone with any MuJ
 - **Agent-consumable output** — PNG + JSON files that any coding agent can read
 
 See [docs/context.en.md](docs/context.en.md) for full background and motivation.
-
-## Project Structure
-
-```
-src/roboharness/
-├── core/          # Harness, Checkpoint, Capture (framework core)
-├── backends/      # SimulatorBackend implementations (MuJoCo + Meshcat)
-├── wrappers/      # Gymnasium wrappers (zero-change integration)
-├── controllers/   # Generic controllers (WBC IK solver)
-├── robots/        # Robot-specific code (Unitree G1 locomotion)
-├── evaluate/      # Assertion engine, batch evaluation, constraints
-├── storage/       # Task-oriented file storage and evaluation history
-└── cli.py         # CLI tool (inspect, report, evaluate, trend)
-```
 
 ## Contributing
 

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -70,8 +70,6 @@ class WbcIkController:
         Path to the robot URDF file.
     end_effector_frames:
         Names of the frames to track (must exist in the URDF).
-    mesh_dir:
-        Optional directory containing mesh files referenced by the URDF.
     settings:
         IK solver settings.  Uses defaults if not provided.
     reference_configuration:
@@ -83,7 +81,6 @@ class WbcIkController:
         self,
         urdf_path: str | Path,
         end_effector_frames: list[str],
-        mesh_dir: str | Path | None = None,
         settings: WbcIkSettings | None = None,
         reference_configuration: np.ndarray | None = None,
     ) -> None:
@@ -108,12 +105,7 @@ class WbcIkController:
 
         # Load robot model
         urdf_path = Path(urdf_path)
-        if mesh_dir is not None:
-            self._model = pin.buildModelFromUrdf(str(urdf_path))
-            self._collision_model = None
-            self._visual_model = None
-        else:
-            self._model = pin.buildModelFromUrdf(str(urdf_path))
+        self._model = pin.buildModelFromUrdf(str(urdf_path))
 
         self._data = self._model.createData()
         self._nq = self._model.nq
@@ -155,14 +147,14 @@ class WbcIkController:
     @property
     def nq(self) -> int:
         """Number of configuration variables (joint DOFs)."""
-        return cast("int", self._nq)
+        return int(self._nq)
 
     @property
     def end_effector_frames(self) -> list[str]:
         """List of tracked end-effector frame names."""
         return list(self._ee_frame_names)
 
-    def compute(self, command: dict[str, Any], state: dict[str, Any]) -> Any:
+    def compute(self, command: dict[str, Any], state: dict[str, Any]) -> np.ndarray:
         """Compute joint configuration from target end-effector poses.
 
         Parameters
@@ -215,4 +207,5 @@ class WbcIkController:
             )
             self._configuration.integrate_inplace(velocity, dt)
 
-        return self._configuration.q.copy()
+        result: np.ndarray = self._configuration.q.copy()
+        return result

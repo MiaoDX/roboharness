@@ -388,12 +388,8 @@ class HolosomaLocomotionController:
         self._phase += 2 * np.pi * self.control_dt / HOLOSOMA_GAIT_PERIOD
         self._phase %= 2 * np.pi
         # Two-leg phase: left leg at phase, right leg at phase + pi
-        gait_cos = np.array(
-            [np.cos(self._phase), np.cos(self._phase + np.pi)], dtype=np.float32
-        )
-        gait_sin = np.array(
-            [np.sin(self._phase), np.sin(self._phase + np.pi)], dtype=np.float32
-        )
+        gait_cos = np.array([np.cos(self._phase), np.cos(self._phase + np.pi)], dtype=np.float32)
+        gait_sin = np.array([np.sin(self._phase), np.sin(self._phase + np.pi)], dtype=np.float32)
 
         # Build 100-dim observation
         obs = np.zeros(HOLOSOMA_OBS_DIM, dtype=np.float32)

@@ -24,6 +24,7 @@ from roboharness.robots.unitree_g1.locomotion import (  # noqa: F401
     OBS_HISTORY_LEN,
     GrootLocomotionController,
     HolosomaLocomotionController,
+    _download_onnx,
     get_gravity_orientation,
 )
 

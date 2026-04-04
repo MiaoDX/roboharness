@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from roboharness._utils import save_image as _save_image
+from roboharness._utils import save_json as _save_json
 
 
 @dataclass
@@ -98,19 +100,6 @@ class CaptureResult:
         return base_dir
 
 
-def _save_image(arr: np.ndarray, path: Path) -> None:
-    """Save RGB array as PNG. Uses PIL if available, falls back to raw numpy."""
-    try:
-        from PIL import Image
-
-        img = Image.fromarray(arr)
-        img.save(path)
-    except ImportError:
-        # Fallback: save as npy with .png extension note
-        npy_path = path.with_suffix(".npy")
-        np.save(npy_path, arr)
-
-
 def _save_depth_viz(depth: np.ndarray, path: Path) -> None:
     """Save depth as a normalized grayscale visualization."""
     valid = depth[np.isfinite(depth)]
@@ -122,20 +111,3 @@ def _save_depth_viz(depth: np.ndarray, path: Path) -> None:
     else:
         normalized = ((depth - d_min) / (d_max - d_min) * 255).astype(np.uint8)
     _save_image(np.stack([normalized] * 3, axis=-1), path)
-
-
-def _save_json(data: dict, path: Path) -> None:
-    """Save dict as JSON, converting numpy types."""
-
-    class NumpyEncoder(json.JSONEncoder):
-        def default(self, obj: Any) -> Any:
-            if isinstance(obj, np.ndarray):
-                return obj.tolist()
-            if isinstance(obj, (np.integer,)):
-                return int(obj)
-            if isinstance(obj, (np.floating,)):
-                return float(obj)
-            return super().default(obj)
-
-    with path.open("w") as f:
-        json.dump(data, f, indent=2, cls=NumpyEncoder)

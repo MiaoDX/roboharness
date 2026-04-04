@@ -64,7 +64,8 @@ class RerunCaptureLogger:
             self._log_view(view)
 
     def _log_view(self, view: CameraView) -> None:
-        assert self._rr is not None
+        if self._rr is None:
+            return
         rr = self._rr
         base = f"camera/{view.name}"
         rr.log(f"{base}/rgb", rr.Image(view.rgb))
@@ -86,7 +87,8 @@ class RerunCaptureLogger:
 
         Uses rerun.blueprint when available. Compatible no-op if APIs change.
         """
-        assert self._rr is not None
+        if self._rr is None:
+            return
         rr = self._rr
 
         if not hasattr(rr, "blueprint") or not hasattr(rr, "send_blueprint"):
@@ -114,5 +116,6 @@ class RerunCaptureLogger:
 
 
 def _as_json_text(payload: dict[str, Any]) -> str:
-    parts = [f'"{key}": {value!r}' for key, value in sorted(payload.items())]
-    return "{\n  " + ",\n  ".join(parts) + "\n}"
+    import json
+
+    return json.dumps(payload, indent=2, default=str, sort_keys=True)
