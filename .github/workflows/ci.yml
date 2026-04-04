@@ -123,6 +123,12 @@ jobs:
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
 
+      - name: Cache HuggingFace model assets
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--lerobot--unitree-g1-mujoco
+          key: hf-lerobot-g1-mujoco-v1
+
       - name: Install package with LeRobot dependencies
         run: pip install -e ".[lerobot]" gymnasium Pillow
 
