@@ -429,14 +429,13 @@ QVEL_MAX = 50.0  # maximum acceptable qvel magnitude (stability check)
 def _get_cube_z(state: dict[str, object]) -> float:
     """Extract cube center z-position from simulator state.
 
-    The cube is the first free body, its qpos starts at index 0 of the
-    free joint DOFs. In this model: qpos layout is [gripper_z, finger_left,
-    finger_right, cube_x, cube_y, cube_z, cube_qw, cube_qx, cube_qy, cube_qz].
-    The cube free joint contributes 7 DOFs (3 pos + 4 quat), and the 3 slide
-    joints come first. So cube z = qpos[5].
+    MuJoCo orders free joints before slide joints in qpos. In this model:
+    qpos[0:3] = cube position (x, y, z), qpos[3:7] = cube quaternion,
+    qpos[7] = gripper_z, qpos[8] = finger_left, qpos[9] = finger_right.
+    So cube z = qpos[2].
     """
     qpos = state["qpos"]
-    return float(qpos[5])
+    return float(qpos[2])
 
 
 def assert_grasp_success(
