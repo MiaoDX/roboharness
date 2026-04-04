@@ -9,8 +9,9 @@ Currently supported controllers:
   - Holosoma: FastSAC single-policy from Amazon (Unitree G1 29-DOF)
 
 Not yet supported:
-  - SONIC (nvidia/GEAR-SONIC): encoder/decoder/planner architecture, requires
-    TensorRT for inference (GPU-only). Deferred to issue #18.
+  - SONIC (nvidia/GEAR-SONIC): encoder/decoder/planner architecture with
+    multi-tensor inputs. CPU inference is feasible but requires significant
+    work (3 models, 6-11 input tensors, 5 locomotion modes). See issue #86.
 
 These controllers implement the ``Controller`` protocol and can be used
 standalone with any MuJoCo model, without DDS or unitree_sdk2py.
