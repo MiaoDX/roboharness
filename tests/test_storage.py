@@ -76,3 +76,52 @@ def test_grasp_task_store_list_variants(tmp_path):
     store.add_grasp_position(2, xyz=(0.6, 0, 0))
     variants = store.list_variants()
     assert len(variants) == 2
+
+
+def test_task_store_save_variant_summary(tmp_path):
+    store = TaskStore(tmp_path, "test_task")
+    path = store.save_variant_summary("v1", {"best_trial": 2, "success_rate": 0.8})
+    assert path.exists()
+    with path.open() as f:
+        data = json.load(f)
+    assert data["success_rate"] == 0.8
+
+
+def test_task_store_save_report(tmp_path):
+    store = TaskStore(tmp_path, "test_task")
+    path = store.save_report({"total_trials": 5, "success_rate": 1.0})
+    assert path.exists()
+    with path.open() as f:
+        data = json.load(f)
+    assert data["total_trials"] == 5
+
+
+def test_task_store_list_trials(tmp_path):
+    store = TaskStore(tmp_path, "test_task")
+    store.get_trial_dir("v1", 1)
+    store.get_trial_dir("v1", 2)
+    store.get_trial_dir("v1", 3)
+    trials = store.list_trials("v1")
+    assert trials == [1, 2, 3]
+
+
+def test_task_store_list_trials_ignores_non_trial_dirs(tmp_path):
+    store = TaskStore(tmp_path, "test_task")
+    store.get_trial_dir("v1", 1)
+    # Create a non-trial directory
+    (tmp_path / "test_task" / "v1" / "notes").mkdir()
+    trials = store.list_trials("v1")
+    assert trials == [1]
+
+
+def test_grasp_task_store_generate_report(tmp_path):
+    store = GraspTaskStore(tmp_path, "grasp")
+    store.add_grasp_position(1, xyz=(0.5, 0, 0))
+    store.save_variant_summary("grasp_position_001", {"best_trial": 1, "success_rate": 1.0})
+    report = store.generate_report()
+    assert report["task"] == "grasp"
+    assert report["total_positions"] == 1
+    assert "grasp_position_001" in report["positions"]
+    # Report file is saved
+    report_path = tmp_path / "grasp" / "report.json"
+    assert report_path.exists()
