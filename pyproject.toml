@@ -46,7 +46,7 @@ rerun = [
     "rerun-sdk>=0.18",
 ]
 unitree = [
-    "unitree-sdk2py>=1.0.0",
+    "unitree-sdk2py @ git+https://github.com/MiaoDX-fork-and-pruning/unitree_sdk2_python_uv.git",
 ]
 wbc = [
     "pin>=3.0",
