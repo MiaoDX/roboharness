@@ -74,15 +74,13 @@ class ComponentLifecycle:
             ``True`` when *every* assumption is disproven, meaning the
             component is a candidate for removal.
         """
-        if not self.assumptions:
-            return False
-        if evidence is None:
+        if not self.assumptions or evidence is None:
             return False
         return all(evidence.get(a.description, False) for a in self.assumptions)
 
     def summary(self) -> dict[str, Any]:
         """Return a JSON-serialisable summary for reports and metadata files."""
-        return {
+        result: dict[str, Any] = {
             "component": self.component_name,
             "version_introduced": self.version_introduced,
             "horizon": self.horizon.value,
@@ -94,8 +92,10 @@ class ComponentLifecycle:
                 }
                 for a in self.assumptions
             ],
-            **self.metadata,
         }
+        if self.metadata:
+            result["metadata"] = self.metadata
+        return result
 
 
 class LifecycleRegistry:
@@ -163,86 +163,78 @@ class LifecycleRegistry:
 # Default registry with roboharness built-in component assumptions
 # ---------------------------------------------------------------------------
 
-
-def _build_default_registry() -> LifecycleRegistry:
-    """Create the default registry pre-populated with core component metadata."""
-    registry = LifecycleRegistry()
-
-    registry.register(
-        ComponentLifecycle(
-            component_name="multi_view_capture",
-            version_introduced="0.1.0",
-            assumptions=[
-                ComponentAssumption(
-                    description="Single-view 3D inference is unreliable for manipulation tasks",
-                    removal_condition=(
-                        "Model achieves >95% grasp success from a single RGB view "
-                        "without auxiliary camera angles"
-                    ),
-                ),
-            ],
-            horizon=ExpirationHorizon.MEDIUM_TERM,
-        )
-    )
-
-    registry.register(
-        ComponentLifecycle(
-            component_name="depth_capture",
-            version_introduced="0.1.0",
-            assumptions=[
-                ComponentAssumption(
-                    description="RGB-only depth estimation has gaps for close-range manipulation",
-                    removal_condition=(
-                        "Model infers metric depth from RGB alone with <1cm error "
-                        "at manipulation distances (<1m)"
-                    ),
-                ),
-            ],
-            horizon=ExpirationHorizon.NEAR_TERM,
-        )
-    )
-
-    registry.register(
-        ComponentLifecycle(
-            component_name="intermediate_checkpoints",
-            version_introduced="0.1.0",
-            assumptions=[
-                ComponentAssumption(
-                    description=(
-                        "Models have limited ability to diagnose failures from final state alone"
-                    ),
-                    removal_condition=(
-                        "Model reliably identifies failure root cause and recovery "
-                        "strategy from final-state observation only"
-                    ),
-                ),
-            ],
-            horizon=ExpirationHorizon.LONG_TERM,
-        )
-    )
-
-    registry.register(
-        ComponentLifecycle(
-            component_name="constraint_evaluator",
-            version_introduced="0.3.0",
-            assumptions=[
-                ComponentAssumption(
-                    description=(
-                        "Models exhibit self-rationalisation bias when evaluating own outputs"
-                    ),
-                    removal_condition=(
-                        "Model self-evaluation matches independent evaluator agreement "
-                        "rate (>90% concordance on pass/fail)"
-                    ),
-                ),
-            ],
-            horizon=ExpirationHorizon.VERY_LONG_TERM,
-        )
-    )
-
-    return registry
-
-
-default_registry: LifecycleRegistry = _build_default_registry()
+default_registry: LifecycleRegistry = LifecycleRegistry()
 """Pre-populated registry with lifecycle metadata for all core roboharness
 components.  Import and query this directly for audits and reports."""
+
+default_registry.register(
+    ComponentLifecycle(
+        component_name="multi_view_capture",
+        version_introduced="0.1.0",
+        assumptions=[
+            ComponentAssumption(
+                description="Single-view 3D inference is unreliable for manipulation tasks",
+                removal_condition=(
+                    "Model achieves >95% grasp success from a single RGB view "
+                    "without auxiliary camera angles"
+                ),
+            ),
+        ],
+        horizon=ExpirationHorizon.MEDIUM_TERM,
+    )
+)
+
+default_registry.register(
+    ComponentLifecycle(
+        component_name="depth_capture",
+        version_introduced="0.1.0",
+        assumptions=[
+            ComponentAssumption(
+                description="RGB-only depth estimation has gaps for close-range manipulation",
+                removal_condition=(
+                    "Model infers metric depth from RGB alone with <1cm error "
+                    "at manipulation distances (<1m)"
+                ),
+            ),
+        ],
+        horizon=ExpirationHorizon.NEAR_TERM,
+    )
+)
+
+default_registry.register(
+    ComponentLifecycle(
+        component_name="intermediate_checkpoints",
+        version_introduced="0.1.0",
+        assumptions=[
+            ComponentAssumption(
+                description=(
+                    "Models have limited ability to diagnose failures from final state alone"
+                ),
+                removal_condition=(
+                    "Model reliably identifies failure root cause and recovery "
+                    "strategy from final-state observation only"
+                ),
+            ),
+        ],
+        horizon=ExpirationHorizon.LONG_TERM,
+    )
+)
+
+default_registry.register(
+    ComponentLifecycle(
+        component_name="constraint_evaluator",
+        version_introduced="0.3.0",
+        assumptions=[
+            ComponentAssumption(
+                description=(
+                    "Models exhibit self-rationalisation bias when evaluating own outputs"
+                ),
+                removal_condition=(
+                    "Model self-evaluation matches independent evaluator agreement "
+                    "rate (>90% concordance on pass/fail)"
+                ),
+            ),
+        ],
+        horizon=ExpirationHorizon.VERY_LONG_TERM,
+    )
+)

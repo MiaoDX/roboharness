@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field
+from typing import Any
 
 
 class Verdict(enum.Enum):
@@ -47,8 +48,7 @@ class AssertionResult:
     actual_value: float | None = None
     message: str = ""
 
-    def to_dict(self) -> dict:
-        """Serialize to dict."""
+    def to_dict(self) -> dict[str, Any]:
         threshold: float | list[float] = (
             list(self.threshold) if isinstance(self.threshold, tuple) else self.threshold
         )
@@ -88,15 +88,27 @@ class EvaluationResult:
     def major_failures(self) -> list[AssertionResult]:
         return [r for r in self.results if not r.passed and r.severity == Severity.MAJOR]
 
-    def to_dict(self) -> dict:
-        """Serialize to dict."""
+    def to_dict(self) -> dict[str, Any]:
+        passed_count = 0
+        failed_count = 0
+        critical_count = 0
+        major_count = 0
+        for r in self.results:
+            if r.passed:
+                passed_count += 1
+            else:
+                failed_count += 1
+                if r.severity == Severity.CRITICAL:
+                    critical_count += 1
+                elif r.severity == Severity.MAJOR:
+                    major_count += 1
         return {
             "verdict": self.verdict.value,
             "report_path": self.report_path,
             "total_assertions": len(self.results),
-            "passed": len(self.passed),
-            "failed": len(self.failed),
-            "critical_failures": len(self.critical_failures),
-            "major_failures": len(self.major_failures),
+            "passed": passed_count,
+            "failed": failed_count,
+            "critical_failures": critical_count,
+            "major_failures": major_count,
             "results": [r.to_dict() for r in self.results],
         }

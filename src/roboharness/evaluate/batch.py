@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion
-from roboharness.evaluate.result import EvaluationResult, Verdict
+from roboharness.evaluate.result import Verdict
 
 
 @dataclass
@@ -19,17 +20,15 @@ class TrialSummary:
     report_path: str
     case_id: str
     verdict: Verdict
-    original_verdict: str
     critical_failures: int
     major_failures: int
     failure_codes: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "report_path": self.report_path,
             "case_id": self.case_id,
             "verdict": self.verdict.value,
-            "original_verdict": self.original_verdict,
             "critical_failures": self.critical_failures,
             "major_failures": self.major_failures,
             "failure_codes": self.failure_codes,
@@ -37,7 +36,7 @@ class TrialSummary:
 
 
 @dataclass
-class BatchResult:
+class EvalBatchResult:
     """Aggregated results across multiple trials."""
 
     results_dir: str
@@ -47,9 +46,8 @@ class BatchResult:
     failure_distribution: dict[str, int] = field(default_factory=dict)
     constraint_failures: dict[str, int] = field(default_factory=dict)
     trials: list[TrialSummary] = field(default_factory=list)
-    per_evaluation: list[EvaluationResult] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "results_dir": self.results_dir,
             "total_trials": self.total_trials,
@@ -66,9 +64,9 @@ class VariantResult:
     """Results for a single variant (e.g. grasp position)."""
 
     variant_id: str
-    batch: BatchResult
+    batch: EvalBatchResult
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "variant_id": self.variant_id,
             **self.batch.to_dict(),
@@ -81,7 +79,7 @@ class ComparisonResult:
 
     variants: list[VariantResult] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "variants": [v.to_dict() for v in self.variants],
             "summary": {
@@ -102,8 +100,8 @@ def find_reports(results_dir: Path) -> list[Path]:
 
 def _load_report(path: Path) -> dict[str, Any]:
     with path.open() as f:
-        result: dict[str, Any] = json.load(f)
-        return result
+        data: dict[str, Any] = json.load(f)
+    return data
 
 
 def _failure_codes_from_report(report: dict[str, Any]) -> list[str]:
@@ -114,8 +112,8 @@ def _failure_codes_from_report(report: dict[str, Any]) -> list[str]:
 
 def evaluate_batch(
     results_dir: Path,
-    assertions: list[MetricAssertion],
-) -> BatchResult:
+    assertions: Sequence[MetricAssertion],
+) -> EvalBatchResult:
     """Evaluate all trial reports in a directory against constraints.
 
     Finds all ``autonomous_report.json`` files under *results_dir*, evaluates
@@ -128,15 +126,12 @@ def evaluate_batch(
     failure_code_counter: Counter[str] = Counter()
     constraint_counter: Counter[str] = Counter()
     trials: list[TrialSummary] = []
-    evaluations: list[EvaluationResult] = []
 
     for rpath in report_paths:
         report = _load_report(rpath)
         eval_result = engine.evaluate(report, report_path=str(rpath))
-        evaluations.append(eval_result)
 
         case_id = report.get("case_id", rpath.parent.name)
-        original_verdict = report.get("verdict", "unknown")
         failure_codes = _failure_codes_from_report(report)
 
         verdict_counter[eval_result.verdict.value] += 1
@@ -151,7 +146,6 @@ def evaluate_batch(
                 report_path=str(rpath),
                 case_id=case_id,
                 verdict=eval_result.verdict,
-                original_verdict=original_verdict,
                 critical_failures=len(eval_result.critical_failures),
                 major_failures=len(eval_result.major_failures),
                 failure_codes=failure_codes,
@@ -162,7 +156,7 @@ def evaluate_batch(
     pass_count = verdict_counter.get("pass", 0)
     success_rate = pass_count / total if total > 0 else 0.0
 
-    return BatchResult(
+    return EvalBatchResult(
         results_dir=str(results_dir),
         total_trials=total,
         verdicts=dict(verdict_counter),
@@ -170,13 +164,12 @@ def evaluate_batch(
         failure_distribution=dict(failure_code_counter),
         constraint_failures=dict(constraint_counter),
         trials=trials,
-        per_evaluation=evaluations,
     )
 
 
 def evaluate_batch_with_comparison(
     results_dir: Path,
-    assertions: list[MetricAssertion],
+    assertions: Sequence[MetricAssertion],
 ) -> ComparisonResult:
     """Evaluate trials grouped by variant (subdirectory) for comparison.
 
@@ -188,16 +181,15 @@ def evaluate_batch_with_comparison(
     subdirs = sorted(p for p in results_dir.iterdir() if p.is_dir())
 
     for subdir in subdirs:
-        reports = find_reports(subdir)
-        if not reports:
-            continue
         batch = evaluate_batch(subdir, assertions)
+        if batch.total_trials == 0:
+            continue
         variants.append(VariantResult(variant_id=subdir.name, batch=batch))
 
     return ComparisonResult(variants=variants)
 
 
-def format_batch_human(batch: BatchResult) -> str:
+def format_batch_human(batch: EvalBatchResult) -> str:
     """Format batch results for human-readable CLI output."""
     lines: list[str] = []
     lines.append(f"Batch evaluation: {batch.results_dir}")
@@ -243,13 +235,13 @@ def format_comparison_human(comparison: ComparisonResult) -> str:
 
 def _format_verdicts(verdicts: dict[str, int]) -> str:
     parts = []
-    for v in ["pass", "degraded", "fail"]:
-        if v in verdicts:
-            parts.append(f"{v}={verdicts[v]}")
+    for v in Verdict:
+        if v.value in verdicts:
+            parts.append(f"{v.value}={verdicts[v.value]}")
     return ", ".join(parts) if parts else "none"
 
 
-def check_success_rate(batch: BatchResult, min_rate: float) -> bool:
+def check_success_rate(batch: EvalBatchResult, min_rate: float) -> bool:
     """Check if the batch success rate meets a minimum threshold.
 
     Useful for CI integration: assert that >=80% of trials pass.

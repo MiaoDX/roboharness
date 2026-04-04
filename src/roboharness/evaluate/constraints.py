@@ -59,7 +59,9 @@ def load_constraints(path: Path) -> list[MetricAssertion]:
     return [_parse_assertion(raw) for raw in raw_list]
 
 
-def save_constraints(assertions: list[MetricAssertion], path: Path) -> None:
+def save_constraints(
+    assertions: list[MetricAssertion] | tuple[MetricAssertion, ...], path: Path
+) -> None:
     """Save constraint assertions to a JSON file."""
     data = {
         "constraints": [

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -111,20 +112,15 @@ def _extract_metric(report: dict[str, Any], metric: str, phase: str) -> float | 
 class AssertionEngine:
     """Evaluates a list of assertions against a harness report."""
 
-    def __init__(self, assertions: list[MetricAssertion]) -> None:
+    def __init__(self, assertions: Sequence[MetricAssertion]) -> None:
         self.assertions = assertions
 
     def evaluate(self, report: dict[str, Any], report_path: str = "") -> EvaluationResult:
         """Run all assertions against the report and return an aggregated result."""
         results: list[AssertionResult] = []
         for assertion in self.assertions:
-            if assertion.phase == "*":
-                value = _extract_metric(report, assertion.metric, "*")
-                results.append(assertion.evaluate(value))
-            else:
-                # Specific phase
-                value = _extract_metric(report, assertion.metric, assertion.phase)
-                results.append(assertion.evaluate(value))
+            value = _extract_metric(report, assertion.metric, assertion.phase)
+            results.append(assertion.evaluate(value))
 
         verdict = self._compute_verdict(results)
         return EvaluationResult(verdict=verdict, results=results, report_path=report_path)

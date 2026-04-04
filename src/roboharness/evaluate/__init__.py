@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion
 from roboharness.evaluate.batch import (
-    BatchResult,
     ComparisonResult,
+    EvalBatchResult,
     VariantResult,
     check_success_rate,
     evaluate_batch,
@@ -25,8 +25,8 @@ __all__ = [
     "GRASP_DEFAULTS",
     "AssertionEngine",
     "AssertionResult",
-    "BatchResult",
     "ComparisonResult",
+    "EvalBatchResult",
     "EvaluationResult",
     "MetricAssertion",
     "Operator",

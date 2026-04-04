@@ -111,7 +111,7 @@ def test_lifecycle_summary():
     assert s["horizon"] == "near_term"
     assert len(s["assumptions"]) == 1
     assert s["assumptions"][0]["evidence"] == "tested v3"
-    assert s["owner"] == "core-team"
+    assert s["metadata"]["owner"] == "core-team"
 
 
 # ---------------------------------------------------------------------------

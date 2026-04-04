@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Final
+
 from roboharness.evaluate.assertions import MetricAssertion
 from roboharness.evaluate.result import Operator, Severity
 
 # Default grasp constraints derived from real harness report thresholds.
-GRASP_DEFAULTS: list[MetricAssertion] = [
+GRASP_DEFAULTS: Final[tuple[MetricAssertion, ...]] = (
     MetricAssertion(
         metric="grip_center_error_mm",
         operator=Operator.LT,
@@ -35,4 +37,4 @@ GRASP_DEFAULTS: list[MetricAssertion] = [
         severity=Severity.MAJOR,
         phase="*",
     ),
-]
+)

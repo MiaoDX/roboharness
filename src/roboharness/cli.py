@@ -21,19 +21,9 @@ from roboharness.evaluate.defaults import GRASP_DEFAULTS
 from roboharness.storage.history import EvaluationHistory, detect_trend
 
 
-def _find_metadata_files(output_dir: Path) -> list[Path]:
-    """Find all metadata.json files under the output directory."""
-    return sorted(output_dir.rglob("metadata.json"))
-
-
-def _find_result_files(output_dir: Path) -> list[Path]:
-    """Find all result.json files under the output directory."""
-    return sorted(output_dir.rglob("result.json"))
-
-
-def _find_image_files(directory: Path) -> list[Path]:
-    """Find all image files (PNG) in a directory."""
-    return sorted(directory.glob("*_rgb.png"))
+def _find_files(directory: Path, pattern: str, recursive: bool = True) -> list[Path]:
+    """Find files matching a glob pattern under a directory."""
+    return sorted(directory.rglob(pattern) if recursive else directory.glob(pattern))
 
 
 def _load_json(path: Path) -> Any:
@@ -65,7 +55,7 @@ def inspect_command(output_dir: Path) -> str:
     if not output_dir.exists():
         return f"Error: directory not found: {output_dir}"
 
-    metadata_files = _find_metadata_files(output_dir)
+    metadata_files = _find_files(output_dir, "metadata.json")
     if not metadata_files:
         return f"No captures found in {output_dir}"
 
@@ -108,7 +98,7 @@ def inspect_command(output_dir: Path) -> str:
         lines.append(f"    {checkpoint_name}  (step={step}, t={sim_time_str})")
 
         # List images
-        images = _find_image_files(checkpoint_dir)
+        images = _find_files(checkpoint_dir, "*_rgb.png", recursive=False)
         if images:
             img_names = [img.name for img in images]
             lines.append(f"      images: {', '.join(img_names)}")
@@ -134,8 +124,8 @@ def report_command(output_dir: Path) -> dict[str, Any]:
     if not output_dir.exists():
         raise FileNotFoundError(f"directory not found: {output_dir}")
 
-    result_files = _find_result_files(output_dir)
-    metadata_files = _find_metadata_files(output_dir)
+    result_files = _find_files(output_dir, "result.json")
+    metadata_files = _find_files(output_dir, "metadata.json")
 
     # Collect per-task info
     tasks: dict[str, dict[str, Any]] = {}
@@ -295,11 +285,6 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Path to harness output directory.",
     )
-    report_parser.add_argument(
-        "--trend",
-        action="store_true",
-        help="Show success rate trends vs. recent history.",
-    )
 
     # trend
     trend_parser = subparsers.add_parser(
@@ -408,15 +393,6 @@ def main(argv: list[str] | None = None) -> int:
             rate = task_data.get("success_rate")
             rate_str = f"{rate:.0%}" if rate is not None else "N/A"
             print(f"  {task_name}: {total} trials, {captures} captures, success={rate_str}")
-
-        if args.trend:
-            trends = trend_command(args.output_dir)
-            if trends:
-                print("\nTrend analysis:")
-                for t in trends:
-                    print(f"  {t['message']}")
-            else:
-                print("\nNo trend data available (no tasks with results).")
         return 0
 
     if args.command == "trend":

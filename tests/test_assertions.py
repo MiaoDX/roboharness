@@ -9,7 +9,7 @@ import pytest
 
 from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion, _extract_metric
 from roboharness.evaluate.batch import (
-    BatchResult,
+    EvalBatchResult,
     check_success_rate,
     evaluate_batch,
     evaluate_batch_with_comparison,
@@ -357,11 +357,11 @@ class TestBatchEvaluation:
         assert isinstance(d["trials"], list)
 
     def test_check_success_rate_pass(self) -> None:
-        batch = BatchResult(results_dir=".", total_trials=10, success_rate=0.85)
+        batch = EvalBatchResult(results_dir=".", total_trials=10, success_rate=0.85)
         assert check_success_rate(batch, 0.8)
 
     def test_check_success_rate_fail(self) -> None:
-        batch = BatchResult(results_dir=".", total_trials=10, success_rate=0.75)
+        batch = EvalBatchResult(results_dir=".", total_trials=10, success_rate=0.75)
         assert not check_success_rate(batch, 0.8)
 
     def test_empty_dir(self, tmp_path: Path) -> None:

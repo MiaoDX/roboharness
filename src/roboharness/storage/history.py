@@ -104,11 +104,11 @@ class EvaluationHistory:
             return []
         records: list[EvaluationRecord] = []
         with self._path.open() as f:
-            for line in f:
-                line = line.strip()
-                if not line:
+            for raw_line in f:
+                stripped = raw_line.strip()
+                if not stripped:
                     continue
-                data = json.loads(line)
+                data = json.loads(stripped)
                 if task is None or data.get("task") == task:
                     records.append(EvaluationRecord.from_dict(data))
         return records
@@ -140,6 +140,59 @@ class EvaluationHistory:
             records.append(record)
         return records
 
+    def detect_trend(
+        self,
+        task: str,
+        current_rate: float,
+        window: int = 5,
+        threshold: float = 0.1,
+    ) -> TrendResult:
+        """Compare *current_rate* against the last *window* runs for *task*.
+
+        A regression is flagged when the current rate is more than *threshold*
+        below the average of recent history.
+        """
+        records = self.load(task=task)
+
+        if not records:
+            return TrendResult(
+                task=task,
+                current_rate=current_rate,
+                previous_rate=None,
+                delta=None,
+                window_size=0,
+                regressed=False,
+                message=f"No previous history for '{task}' — baseline recorded.",
+            )
+
+        recent = records[-window:]
+        avg_rate = sum(r.success_rate for r in recent) / len(recent)
+        delta = current_rate - avg_rate
+        regressed = delta < -threshold
+
+        if regressed:
+            msg = (
+                f"REGRESSION: '{task}' success rate dropped from "
+                f"{avg_rate:.0%} to {current_rate:.0%} (Δ{delta:+.0%})"
+            )
+        elif delta > threshold:
+            msg = (
+                f"IMPROVEMENT: '{task}' success rate rose from "
+                f"{avg_rate:.0%} to {current_rate:.0%} (Δ{delta:+.0%})"
+            )
+        else:
+            msg = f"'{task}' success rate stable at {current_rate:.0%} (avg {avg_rate:.0%})"
+
+        return TrendResult(
+            task=task,
+            current_rate=current_rate,
+            previous_rate=avg_rate,
+            delta=delta,
+            window_size=len(recent),
+            regressed=regressed,
+            message=msg,
+        )
+
 
 def detect_trend(
     history: EvaluationHistory,
@@ -148,48 +201,5 @@ def detect_trend(
     window: int = 5,
     threshold: float = 0.1,
 ) -> TrendResult:
-    """Compare *current_rate* against the last *window* runs for *task*.
-
-    A regression is flagged when the current rate is more than *threshold*
-    below the average of recent history.
-    """
-    records = history.load(task=task)
-
-    if not records:
-        return TrendResult(
-            task=task,
-            current_rate=current_rate,
-            previous_rate=None,
-            delta=None,
-            window_size=0,
-            regressed=False,
-            message=f"No previous history for '{task}' — baseline recorded.",
-        )
-
-    recent = records[-window:]
-    avg_rate = sum(r.success_rate for r in recent) / len(recent)
-    delta = current_rate - avg_rate
-    regressed = delta < -threshold
-
-    if regressed:
-        msg = (
-            f"REGRESSION: '{task}' success rate dropped from "
-            f"{avg_rate:.0%} to {current_rate:.0%} (Δ{delta:+.0%})"
-        )
-    elif delta > threshold:
-        msg = (
-            f"IMPROVEMENT: '{task}' success rate rose from "
-            f"{avg_rate:.0%} to {current_rate:.0%} (Δ{delta:+.0%})"
-        )
-    else:
-        msg = f"'{task}' success rate stable at {current_rate:.0%} (avg {avg_rate:.0%})"
-
-    return TrendResult(
-        task=task,
-        current_rate=current_rate,
-        previous_rate=avg_rate,
-        delta=delta,
-        window_size=len(recent),
-        regressed=regressed,
-        message=msg,
-    )
+    """Convenience wrapper — delegates to :meth:`EvaluationHistory.detect_trend`."""
+    return history.detect_trend(task, current_rate, window=window, threshold=threshold)

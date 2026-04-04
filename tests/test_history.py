@@ -238,16 +238,6 @@ class TestTrendCommand:
         captured = capsys.readouterr()
         assert "pick_and_place" in captured.out
 
-    def test_trend_cli_report_flag(
-        self,
-        harness_output_with_results: Path,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        ret = main(["report", "--trend", str(harness_output_with_results)])
-        assert ret == 0
-        captured = capsys.readouterr()
-        assert "Trend analysis" in captured.out
-
     def test_trend_regression_exit_code(self, tmp_path: Path) -> None:
         """Trend subcommand returns exit code 2 on regression."""
         # Build history with high success rate

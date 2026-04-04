@@ -166,10 +166,13 @@ class ParallelTrialRunner:
         # Maintain insertion order so results[i] corresponds to specs[i].
         results: list[TrialResult | None] = [None] * len(specs)
 
+        def run_one(spec: TrialSpec) -> TrialResult:
+            backend = self.backend_factory()
+            output_dir = self.store.get_trial_dir(spec.variant_name, spec.trial_id)
+            return trial_fn(backend, output_dir, spec)
+
         with ThreadPoolExecutor(max_workers=min(self.max_workers, len(specs))) as executor:
-            future_to_idx = {
-                executor.submit(self._run_one, spec, trial_fn): i for i, spec in enumerate(specs)
-            }
+            future_to_idx = {executor.submit(run_one, spec): i for i, spec in enumerate(specs)}
             for future in as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 spec = specs[idx]
@@ -186,15 +189,10 @@ class ParallelTrialRunner:
                 self.store.save_trial_result(spec.variant_name, result)
 
         total_duration = time.monotonic() - start
-        # All slots should be filled; the cast is safe.
+        # Every slot must be filled — assert rather than silently dropping.
+        assert all(r is not None for r in results), "BUG: unfilled result slot"
         return BatchResult(
-            results=[r for r in results if r is not None],
+            results=[r for r in results if r is not None],  # narrowing for type checker
             specs=list(specs),
             total_duration=total_duration,
         )
-
-    def _run_one(self, spec: TrialSpec, trial_fn: TrialFn) -> TrialResult:
-        """Create an isolated environment and execute one trial."""
-        backend = self.backend_factory()
-        output_dir = self.store.get_trial_dir(spec.variant_name, spec.trial_id)
-        return trial_fn(backend, output_dir, spec)
