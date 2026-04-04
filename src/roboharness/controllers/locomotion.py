@@ -22,8 +22,20 @@ from roboharness.robots.unitree_g1.locomotion import (  # noqa: F401
     NUM_LOWER_BODY_JOINTS,
     OBS_FRAME_DIM,
     OBS_HISTORY_LEN,
+    SONIC_CONTEXT_LEN,
+    SONIC_CONTROL_RATE,
+    SONIC_DEFAULT_ANGLES,
+    SONIC_DEFAULT_HEIGHT,
+    SONIC_DEFAULT_NUM_TOKENS,
+    SONIC_HF_REPO,
+    SONIC_OUTPUT_RATE,
+    SONIC_PLANNER_DT,
+    SONIC_PLANNER_FILE,
+    SONIC_QPOS_DIM,
     GrootLocomotionController,
     HolosomaLocomotionController,
+    SonicLocomotionController,
+    SonicMode,
     _download_onnx,
     get_gravity_orientation,
 )
@@ -31,5 +43,7 @@ from roboharness.robots.unitree_g1.locomotion import (  # noqa: F401
 __all__ = [
     "GrootLocomotionController",
     "HolosomaLocomotionController",
+    "SonicLocomotionController",
+    "SonicMode",
     "get_gravity_orientation",
 ]

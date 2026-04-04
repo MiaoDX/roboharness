@@ -32,15 +32,27 @@ class _FakeSession:
         self.path = path
         self.providers = providers
         self._input_name = "obs"
+        self._is_planner = "planner" in path
 
     def get_inputs(self) -> list[_FakeInput]:
+        if self._is_planner:
+            return [_FakeInput("context_mujoco_qpos")]
         return [_FakeInput(self._input_name)]
 
     def run(self, output_names: list[str] | None, feed: dict[str, Any]) -> list[np.ndarray]:
-        """Return deterministic zeros matching the input batch size."""
+        """Return deterministic outputs matching the model type."""
+        if self._is_planner:
+            # SONIC planner: return [mujoco_qpos [1, N, 36], num_pred_frames]
+            num_frames = 6
+            qpos = np.zeros((1, num_frames, 36), dtype=np.float32)
+            # Set valid quaternion w=1 and default joint angles in each frame
+            for i in range(num_frames):
+                qpos[0, i, 3] = 1.0  # quaternion w
+                qpos[0, i, 2] = 0.74  # root height
+            return [qpos, np.array(num_frames, dtype=np.int64)]
+        # GR00T / Holosoma: single action output
         inp = next(iter(feed.values()))
         batch = inp.shape[0]
-        # Return 29-dim action (covers both GR00T 15 and Holosoma 29)
         return [np.zeros((batch, 29), dtype=np.float32)]
 
 
@@ -299,3 +311,145 @@ class TestLocomotionUtilities:
 
         with pytest.raises(ImportError, match="onnxruntime"):
             HolosomaLocomotionController()
+
+
+# ---------------------------------------------------------------------------
+# SONIC controller tests
+# ---------------------------------------------------------------------------
+@pytest.mark.usefixtures("_patch_onnx_deps")
+class TestSonicLocomotionController:
+    def _make_controller(self, **kwargs: Any) -> Any:
+        from roboharness.controllers.locomotion import SonicLocomotionController
+
+        return SonicLocomotionController(**kwargs)
+
+    def test_implements_controller_protocol(self) -> None:
+        ctrl = self._make_controller()
+        assert isinstance(ctrl, Controller)
+
+    def test_compute_returns_29_joint_targets(self) -> None:
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        action = ctrl.compute(command={"velocity": [0, 0, 0]}, state=state)
+        assert isinstance(action, np.ndarray)
+        assert action.shape == (29,)
+
+    def test_compute_with_walk_command(self) -> None:
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        action = ctrl.compute(command={"velocity": [1.0, 0.5, 0.1]}, state=state)
+        assert action.shape == (29,)
+
+    def test_compute_with_missing_velocity(self) -> None:
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        action = ctrl.compute(command={}, state=state)
+        assert action.shape == (29,)
+
+    def test_compute_with_mode(self) -> None:
+        from roboharness.controllers.locomotion import SonicMode
+
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        action = ctrl.compute(command={"velocity": [1, 0, 0], "mode": SonicMode.RUN}, state=state)
+        assert action.shape == (29,)
+        assert ctrl._mode == SonicMode.RUN
+
+    def test_compute_with_height(self) -> None:
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        action = ctrl.compute(command={"velocity": [0, 0, 0], "height": 0.5}, state=state)
+        assert action.shape == (29,)
+
+    def test_reset_clears_state(self) -> None:
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        ctrl.compute(command={"velocity": [1, 0, 0]}, state=state)
+        ctrl.reset()
+        assert np.allclose(ctrl._cmd, 0)
+        assert len(ctrl._trajectory) == 0
+        assert ctrl._traj_index == 0
+        assert ctrl._interp_phase == 0.0
+        assert ctrl._steps_since_plan == 0
+
+    def test_control_dt(self) -> None:
+        ctrl = self._make_controller()
+        assert ctrl.control_dt == pytest.approx(0.02)
+
+    def test_replans_at_10hz(self) -> None:
+        """Planner should be invoked every 5 control steps (50/10 Hz)."""
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        # First call always plans
+        ctrl.compute(command={"velocity": [1, 0, 0]}, state=state)
+        # Steps 2-5 should not replan
+        for _ in range(4):
+            ctrl.compute(command={"velocity": [1, 0, 0]}, state=state)
+        assert ctrl._steps_since_plan == 5
+        # Step 6 should trigger replan
+        ctrl.compute(command={"velocity": [1, 0, 0]}, state=state)
+        assert ctrl._steps_since_plan == 1  # just replanned
+
+    def test_handles_short_qpos(self) -> None:
+        ctrl = self._make_controller()
+        state = {"qpos": np.zeros(10, dtype=np.float32), "qvel": np.zeros(10, dtype=np.float32)}
+        action = ctrl.compute(command={"velocity": [0, 0, 0]}, state=state)
+        assert action.shape == (29,)
+
+    def test_context_window_size(self) -> None:
+        from roboharness.controllers.locomotion import SONIC_CONTEXT_LEN
+
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        for _ in range(10):
+            ctrl.compute(command={"velocity": [0.5, 0, 0]}, state=state)
+        assert len(ctrl._context) == SONIC_CONTEXT_LEN
+
+    def test_reset_then_compute(self) -> None:
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        ctrl.compute(command={"velocity": [1, 0, 0]}, state=state)
+        ctrl.reset()
+        action = ctrl.compute(command={"velocity": [0, 0, 0]}, state=state)
+        assert action.shape == (29,)
+
+    def test_sonic_modes_enum(self) -> None:
+        from roboharness.controllers.locomotion import SonicMode
+
+        assert SonicMode.IDLE == 0
+        assert SonicMode.SLOW_WALK == 1
+        assert SonicMode.WALK == 2
+        assert SonicMode.RUN == 3
+        assert SonicMode.BOXING == 4
+
+    def test_default_mode(self) -> None:
+        from roboharness.controllers.locomotion import SonicMode
+
+        ctrl = self._make_controller()
+        assert ctrl._default_mode == SonicMode.WALK
+
+    def test_custom_default_mode(self) -> None:
+        from roboharness.controllers.locomotion import SonicMode
+
+        ctrl = self._make_controller(default_mode=SonicMode.RUN)
+        assert ctrl._default_mode == SonicMode.RUN
+
+    def test_interpolation_advances(self) -> None:
+        """Interpolation phase should advance between planner calls."""
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        ctrl.compute(command={"velocity": [1, 0, 0]}, state=state)
+        # After first compute, interp_phase should have advanced
+        phase_after_1 = ctrl._interp_phase
+        ctrl.compute(command={"velocity": [1, 0, 0]}, state=state)
+        phase_after_2 = ctrl._interp_phase
+        # Phase should be advancing (or traj_index increasing)
+        assert phase_after_2 > phase_after_1 or ctrl._traj_index > 0
+
+    def test_multiple_steps_produce_valid_output(self) -> None:
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        for _ in range(20):
+            action = ctrl.compute(command={"velocity": [0.5, 0, 0]}, state=state)
+            assert action.shape == (29,)
+            assert np.all(np.isfinite(action))

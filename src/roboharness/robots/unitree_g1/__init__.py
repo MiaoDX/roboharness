@@ -24,8 +24,15 @@ try:
     from roboharness.robots.unitree_g1.locomotion import (
         GrootLocomotionController,
         HolosomaLocomotionController,
+        SonicLocomotionController,
+        SonicMode,
     )
 
-    __all__ += ["GrootLocomotionController", "HolosomaLocomotionController"]
+    __all__ += [
+        "GrootLocomotionController",
+        "HolosomaLocomotionController",
+        "SonicLocomotionController",
+        "SonicMode",
+    ]
 except ImportError:
     pass

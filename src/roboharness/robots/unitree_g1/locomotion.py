@@ -8,10 +8,9 @@ Currently supported controllers:
   - GR00T: Balance + Walk dual-policy from NVlabs GR00T-WholeBodyControl
   - Holosoma: FastSAC single-policy from Amazon (Unitree G1 29-DOF)
 
-Not yet supported:
-  - SONIC (nvidia/GEAR-SONIC): encoder/decoder/planner architecture with
-    multi-tensor inputs. CPU inference is feasible but requires significant
-    work (3 models, 6-11 input tensors, 5 locomotion modes). See issue #86.
+  - SONIC: Kinematic planner from NVIDIA GEAR-SONIC. Converts velocity
+    commands into full-body joint targets via ``planner_sonic.onnx``.
+    Supports multiple locomotion modes (idle, walk, run, boxing, etc.).
 
 These controllers implement the ``Controller`` protocol and can be used
 standalone with any MuJoCo model, without DDS or unitree_sdk2py.
@@ -39,6 +38,7 @@ Reference implementations:
 
 from __future__ import annotations
 
+import enum
 import logging
 from collections import deque
 from typing import Any
@@ -419,3 +419,275 @@ class HolosomaLocomotionController:
         self._cmd[:] = 0.0
         self._phase = 0.0
         self._step_count = 0
+
+
+# ---------------------------------------------------------------------------
+# SONIC — Kinematic planner controller (NVIDIA GEAR-SONIC)
+# ---------------------------------------------------------------------------
+# HuggingFace model source
+SONIC_HF_REPO = "nvidia/GEAR-SONIC"
+SONIC_PLANNER_FILE = "planner_sonic.onnx"
+
+# Planner qpos frame layout (36-dim per frame):
+#   [0:3]   root position (x, y, z)
+#   [3:7]   root quaternion (w, x, y, z)
+#   [7:36]  29 body joint angles (radians)
+SONIC_QPOS_DIM = 36
+SONIC_CONTEXT_LEN = 4  # 4-frame context window
+
+# Planner runs at 10 Hz, outputs poses at 30 Hz, control loop at 50 Hz
+SONIC_PLANNER_DT = 0.1  # 10 Hz planner cycle
+SONIC_OUTPUT_RATE = 30  # Hz — model output rate
+SONIC_CONTROL_RATE = 50  # Hz — control loop rate
+
+# Default standing pose (same knee-bend as GR00T for Unitree G1)
+SONIC_DEFAULT_ANGLES = np.zeros(NUM_BODY_JOINTS, dtype=np.float32)
+SONIC_DEFAULT_ANGLES[0] = -0.1  # left hip pitch
+SONIC_DEFAULT_ANGLES[6] = -0.1  # right hip pitch
+SONIC_DEFAULT_ANGLES[3] = 0.3  # left knee
+SONIC_DEFAULT_ANGLES[9] = 0.3  # right knee
+SONIC_DEFAULT_ANGLES[4] = -0.2  # left ankle pitch
+SONIC_DEFAULT_ANGLES[10] = -0.2  # right ankle pitch
+
+# Default pelvis height (meters)
+SONIC_DEFAULT_HEIGHT = 0.74
+
+# Default number of allowed prediction tokens
+SONIC_DEFAULT_NUM_TOKENS = 11
+
+
+class SonicMode(enum.IntEnum):
+    """Locomotion modes supported by the SONIC planner.
+
+    The planner accepts an integer ``mode`` input that selects the movement
+    style.  Phase 1 exposes the five most common modes; the full set (27 in
+    SONIC V2) can be added later.
+    """
+
+    IDLE = 0
+    SLOW_WALK = 1
+    WALK = 2
+    RUN = 3
+    BOXING = 4
+
+
+class SonicLocomotionController:
+    """SONIC kinematic planner locomotion controller via ONNX inference.
+
+    Downloads the ``planner_sonic.onnx`` model from HuggingFace and runs it
+    at 10 Hz to produce full-body pose trajectories.  Between planner calls
+    the controller interpolates the 30 Hz output to 50 Hz for smooth control.
+
+    This is Phase 1 (planner-only).  Phase 2 would add the encoder/decoder
+    models for VR teleoperation support.
+
+    Implements the ``Controller`` protocol::
+
+        action = ctrl.compute(
+            command={
+                "velocity": [vx, vy, yaw_rate],  # or movement_direction/facing_direction
+                "mode": SonicMode.WALK,           # optional, default WALK
+            },
+            state={"qpos": qpos, "qvel": qvel},
+        )
+
+    Parameters
+    ----------
+    repo_id:
+        HuggingFace repo with the planner ONNX model.
+    default_height:
+        Desired pelvis height in meters.
+    default_mode:
+        Locomotion mode when not specified in the command.
+    """
+
+    control_dt: float = 1.0 / SONIC_CONTROL_RATE  # 50 Hz (0.02 s)
+
+    def __init__(
+        self,
+        repo_id: str = SONIC_HF_REPO,
+        default_height: float = SONIC_DEFAULT_HEIGHT,
+        default_mode: SonicMode = SonicMode.WALK,
+    ):
+        self._repo_id = repo_id
+        self._default_height = default_height
+        self._default_mode = default_mode
+
+        # Download and load planner ONNX model
+        self._planner_session = self._load_onnx(SONIC_PLANNER_FILE)
+
+        # Context window: last 4 full qpos frames (36-dim each)
+        self._context: deque[np.ndarray] = deque(maxlen=SONIC_CONTEXT_LEN)
+
+        # Predicted trajectory from last planner call (30 Hz frames)
+        self._trajectory: list[np.ndarray] = []
+        self._traj_index: int = 0
+
+        # Interpolation state for 30→50 Hz resampling
+        self._interp_phase: float = 0.0
+
+        # Steps since last planner invocation (at 50 Hz)
+        self._steps_since_plan: int = 0
+        self._plan_interval: int = int(SONIC_PLANNER_DT * SONIC_CONTROL_RATE)  # 5 steps
+
+        # Current command state
+        self._cmd = np.zeros(3, dtype=np.float32)
+        self._mode = default_mode
+
+        # Initialise context with default standing pose
+        standing = self._make_standing_qpos()
+        for _ in range(SONIC_CONTEXT_LEN):
+            self._context.append(standing.copy())
+
+        logger.info("SONIC locomotion controller loaded (planner-only, Phase 1)")
+
+    @staticmethod
+    def _make_standing_qpos() -> np.ndarray:
+        """Build a default standing qpos frame (36-dim)."""
+        qpos = np.zeros(SONIC_QPOS_DIM, dtype=np.float32)
+        qpos[3] = 1.0  # quaternion w = 1 (identity)
+        qpos[2] = SONIC_DEFAULT_HEIGHT  # root z = pelvis height
+        qpos[7:36] = SONIC_DEFAULT_ANGLES
+        return qpos
+
+    def _load_onnx(self, filename: str) -> Any:
+        """Load an ONNX model into an inference session."""
+        try:
+            import onnxruntime as ort
+        except ImportError as e:
+            raise ImportError(
+                "onnxruntime is required for locomotion controllers. "
+                "Install with: pip install onnxruntime"
+            ) from e
+        path = _download_onnx(self._repo_id, filename)
+        return ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+
+    def _run_planner(self, height: float) -> None:
+        """Invoke the planner ONNX model and store the predicted trajectory."""
+        # Build context tensor [1, 4, 36]
+        context = np.stack(list(self._context), axis=0).reshape(1, SONIC_CONTEXT_LEN, -1)
+        context = context.astype(np.float32)
+
+        # Movement direction from velocity command (x, y forward; z = 0)
+        cmd_norm = float(np.linalg.norm(self._cmd[:2]))
+        if cmd_norm > 1e-6:
+            move_dir = np.array(
+                [self._cmd[0] / cmd_norm, self._cmd[1] / cmd_norm, 0.0], dtype=np.float32
+            )
+        else:
+            move_dir = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+
+        # Facing direction: rotate by yaw_rate (small angle approx for single step)
+        yaw = self._cmd[2]
+        facing_dir = np.array([np.cos(yaw), np.sin(yaw), 0.0], dtype=np.float32)
+
+        # Target velocity — use command magnitude, ≤0 means use mode default
+        target_vel = np.array([cmd_norm], dtype=np.float32)
+
+        feed: dict[str, np.ndarray] = {
+            "context_mujoco_qpos": context,
+            "target_vel": target_vel,
+            "mode": np.array([int(self._mode)], dtype=np.int64),
+            "movement_direction": move_dir.reshape(1, 3),
+            "facing_direction": facing_dir.reshape(1, 3),
+            "height": np.array([height], dtype=np.float32),
+            "random_seed": np.array([0], dtype=np.int64),
+            "has_specific_target": np.zeros((1, 1), dtype=np.int64),
+            "specific_target_positions": np.zeros((1, 4, 3), dtype=np.float32),
+            "specific_target_headings": np.zeros((1, 4), dtype=np.float32),
+            "allowed_pred_num_tokens": np.ones((1, SONIC_DEFAULT_NUM_TOKENS), dtype=np.int64),
+        }
+
+        outputs = self._planner_session.run(None, feed)
+        # outputs[0] = mujoco_qpos [1, N, 36], outputs[1] = num_pred_frames
+        pred_qpos = outputs[0][0]  # [N, 36]
+        num_frames = int(outputs[1]) if np.ndim(outputs[1]) == 0 else int(outputs[1].flat[0])
+        num_frames = max(1, min(num_frames, len(pred_qpos)))
+
+        self._trajectory = [pred_qpos[i] for i in range(num_frames)]
+        self._traj_index = 0
+        self._interp_phase = 0.0
+
+    def compute(self, command: dict[str, Any], state: dict[str, Any]) -> np.ndarray:
+        """Compute full-body joint targets from velocity command and robot state.
+
+        Parameters
+        ----------
+        command:
+            ``{"velocity": [vx, vy, yaw_rate]}`` — desired base velocity.
+            Optional ``"mode"`` key selects locomotion style (``SonicMode``).
+            Optional ``"height"`` overrides pelvis height.
+        state:
+            Must contain:
+            - ``"qpos"``: joint positions (at least first 36 elements for
+              free joint quaternion + 29 body joints)
+
+        Returns
+        -------
+        np.ndarray
+            Joint position targets for all 29 body joints.
+        """
+        # Parse command
+        vel = command.get("velocity", [0.0, 0.0, 0.0])
+        self._cmd[:] = vel
+        self._mode = SonicMode(command.get("mode", self._default_mode))
+        height = float(command.get("height", self._default_height))
+
+        # Parse state — extract full qpos for context
+        qpos = np.asarray(state["qpos"], dtype=np.float32)
+        # Build 36-dim qpos frame for context
+        if len(qpos) >= SONIC_QPOS_DIM:
+            context_frame = qpos[:SONIC_QPOS_DIM].copy()
+        else:
+            context_frame = np.zeros(SONIC_QPOS_DIM, dtype=np.float32)
+            context_frame[: len(qpos)] = qpos
+            context_frame[3] = 1.0  # ensure valid quaternion
+
+        # Update context window
+        self._context.append(context_frame)
+
+        # Re-plan at 10 Hz (every plan_interval control steps)
+        if self._steps_since_plan >= self._plan_interval or not self._trajectory:
+            self._run_planner(height)
+            self._steps_since_plan = 0
+        self._steps_since_plan += 1
+
+        # Interpolate 30 Hz trajectory → 50 Hz control
+        # Ratio: 30/50 = 0.6 model frames per control step
+        interp_step = SONIC_OUTPUT_RATE / SONIC_CONTROL_RATE  # 0.6
+
+        if len(self._trajectory) < 2:
+            # Single frame or empty — just return it directly
+            frame = self._trajectory[0] if self._trajectory else self._make_standing_qpos()
+            result: np.ndarray = frame[7:36].copy()
+            return result
+
+        # Compute interpolated frame
+        idx = min(self._traj_index, len(self._trajectory) - 2)
+        alpha = self._interp_phase
+        frame_a = self._trajectory[idx]
+        frame_b = self._trajectory[min(idx + 1, len(self._trajectory) - 1)]
+        interpolated = frame_a + alpha * (frame_b - frame_a)
+
+        # Advance interpolation phase
+        self._interp_phase += interp_step
+        while self._interp_phase >= 1.0 and self._traj_index < len(self._trajectory) - 2:
+            self._interp_phase -= 1.0
+            self._traj_index += 1
+
+        # Return only the 29 joint angles (skip root pos + quaternion)
+        joints: np.ndarray = interpolated[7:36].copy()
+        return joints
+
+    def reset(self) -> None:
+        """Reset internal state (call on episode reset)."""
+        self._cmd[:] = 0.0
+        self._mode = self._default_mode
+        self._trajectory.clear()
+        self._traj_index = 0
+        self._interp_phase = 0.0
+        self._steps_since_plan = 0
+        self._context.clear()
+        standing = self._make_standing_qpos()
+        for _ in range(SONIC_CONTEXT_LEN):
+            self._context.append(standing.copy())
