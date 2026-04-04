@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -380,6 +381,11 @@ def main() -> None:
     parser.add_argument("--report", action="store_true")
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--height", type=int, default=480)
+    parser.add_argument(
+        "--assert-success",
+        action="store_true",
+        help="Validate reach success and exit non-zero on failure",
+    )
     args = parser.parse_args()
 
     import mujoco
@@ -491,12 +497,15 @@ def main() -> None:
             print(f"        -> Meshcat 3D: {scene_path}")
         return result
 
+    checkpoint_results: dict[str, object] = {}
+
     # -- Phase 1: Stand (capture initial pose)
-    _run_phase([stand_ctrl.copy() for _ in range(200)], "stand")
+    checkpoint_results["stand"] = _run_phase([stand_ctrl.copy() for _ in range(200)], "stand")
 
     # -- Phase 2: Left arm reach toward target
     state = harness.get_state()
-    left_target = make_target_pose(np.array([0.35, 0.20, 0.55]), approach_axis="-x")
+    left_target_pos = np.array([0.35, 0.20, 0.55])
+    left_target = make_target_pose(left_target_pos, approach_axis="-x")
     ctrl = run_ik_reach(
         controller,
         mapper,
@@ -505,11 +514,12 @@ def main() -> None:
         mj_data.ctrl,
         all_arm_joints,
     )
-    _run_phase([ctrl for _ in range(600)], "reach_left")
+    checkpoint_results["reach_left"] = _run_phase([ctrl for _ in range(600)], "reach_left")
 
     # -- Phase 3: Both arms reach
     state = harness.get_state()
-    right_target = make_target_pose(np.array([0.35, -0.20, 0.55]), approach_axis="-x")
+    right_target_pos = np.array([0.35, -0.20, 0.55])
+    right_target = make_target_pose(right_target_pos, approach_axis="-x")
     ctrl = run_ik_reach(
         controller,
         mapper,
@@ -518,10 +528,10 @@ def main() -> None:
         mj_data.ctrl,
         all_arm_joints,
     )
-    _run_phase([ctrl for _ in range(600)], "reach_both")
+    checkpoint_results["reach_both"] = _run_phase([ctrl for _ in range(600)], "reach_both")
 
     # -- Phase 4: Retract to standing
-    _run_phase([stand_ctrl.copy() for _ in range(600)], "retract")
+    checkpoint_results["retract"] = _run_phase([stand_ctrl.copy() for _ in range(600)], "retract")
 
     # 5. Summary
     print("\n[5/5] Done!")
@@ -544,6 +554,28 @@ def main() -> None:
 
     print("\n" + "=" * 60)
 
+    # 6. Assert success (optional CI gate)
+    if args.assert_success:
+        reach_targets = {
+            "reach_left": {"left_rubber_hand": left_target_pos},
+            "reach_both": {
+                "left_rubber_hand": left_target_pos,
+                "right_rubber_hand": right_target_pos,
+            },
+        }
+        failures = assert_reach_success(checkpoint_results, backend, reach_targets)
+        if failures:
+            print("\n" + "=" * 60)
+            print("  ASSERT-SUCCESS: FAILED")
+            print("=" * 60)
+            for msg in failures:
+                print(f"  FAIL: {msg}")
+            sys.exit(1)
+        else:
+            print("\n" + "=" * 60)
+            print("  ASSERT-SUCCESS: PASSED")
+            print("=" * 60)
+
 
 def _print_checkpoint(result) -> None:
     if result:
@@ -552,6 +584,97 @@ def _print_checkpoint(result) -> None:
             f"{len(result.views)} views | step={result.step} | "
             f"sim_time={result.sim_time:.3f}s"
         )
+
+
+# ---------------------------------------------------------------------------
+# Success assertion helpers
+# ---------------------------------------------------------------------------
+
+# G1 floating base z is qpos[2]; if it drops below this, the robot fell
+MIN_BASE_HEIGHT = 0.4  # meters (G1 standing is ~0.75m)
+# End-effector must be within this distance of the target position
+EE_DISTANCE_THRESHOLD = 0.15  # meters
+QVEL_MAX = 50.0  # maximum acceptable qvel magnitude (stability check)
+
+
+def assert_reach_success(
+    checkpoint_results: dict[str, object],
+    backend: object,
+    reach_targets: dict[str, dict[str, np.ndarray]],
+) -> list[str]:
+    """Validate reach task success. Returns a list of failure messages (empty = pass)."""
+    import mujoco
+
+    failures: list[str] = []
+    mj_model = backend._model
+    mj_data = backend._data
+
+    # --- Check 1: End-effector proximity to targets ---
+    for phase_name, targets in reach_targets.items():
+        result = checkpoint_results.get(phase_name)
+        if result is None:
+            failures.append(f"'{phase_name}' checkpoint not reached")
+            continue
+
+        for ee_name, target_pos in targets.items():
+            # Get the site/body position for the end-effector
+            site_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_SITE, ee_name)
+            if site_id >= 0:
+                # Restore state to this checkpoint, then read site_xpos
+                qpos = np.array(result.state["qpos"])
+                qvel = np.array(result.state["qvel"])
+                np.copyto(mj_data.qpos, qpos)
+                np.copyto(mj_data.qvel, qvel)
+                mujoco.mj_forward(mj_model, mj_data)
+                ee_pos = mj_data.site_xpos[site_id].copy()
+            else:
+                body_id = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_BODY, ee_name)
+                if body_id < 0:
+                    failures.append(f"EE frame '{ee_name}' not found in model")
+                    continue
+                qpos = np.array(result.state["qpos"])
+                qvel = np.array(result.state["qvel"])
+                np.copyto(mj_data.qpos, qpos)
+                np.copyto(mj_data.qvel, qvel)
+                mujoco.mj_forward(mj_model, mj_data)
+                ee_pos = mj_data.xpos[body_id].copy()
+
+            dist = float(np.linalg.norm(ee_pos - target_pos))
+            if dist > EE_DISTANCE_THRESHOLD:
+                failures.append(
+                    f"{ee_name} at '{phase_name}': distance={dist:.4f}m to target, "
+                    f"expected <{EE_DISTANCE_THRESHOLD}m"
+                )
+            else:
+                print(f"  CHECK: {ee_name} at '{phase_name}' (dist={dist:.4f}m) — OK")
+
+    # --- Check 2: Robot stays upright ---
+    for phase_name, result in checkpoint_results.items():
+        if result is None:
+            continue
+        # G1 floating base: qpos[0:3] = xyz position
+        base_z = float(result.state["qpos"][2])
+        if base_z < MIN_BASE_HEIGHT:
+            failures.append(
+                f"robot fell at '{phase_name}': base z={base_z:.3f}m, min={MIN_BASE_HEIGHT}m"
+            )
+        else:
+            print(f"  CHECK: upright at '{phase_name}' (base z={base_z:.3f}m) — OK")
+
+    # --- Check 3: Simulation stability (qvel within bounds) ---
+    for phase_name, result in checkpoint_results.items():
+        if result is None:
+            continue
+        qvel = np.array(result.state["qvel"])
+        max_vel = float(np.max(np.abs(qvel)))
+        if max_vel > QVEL_MAX:
+            failures.append(
+                f"unstable simulation at '{phase_name}': max |qvel|={max_vel:.2f}, limit={QVEL_MAX}"
+            )
+        else:
+            print(f"  CHECK: stability at '{phase_name}' (max |qvel|={max_vel:.2f}) — OK")
+
+    return failures
 
 
 if __name__ == "__main__":
