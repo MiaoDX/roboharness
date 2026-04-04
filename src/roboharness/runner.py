@@ -190,7 +190,8 @@ class ParallelTrialRunner:
 
         total_duration = time.monotonic() - start
         # Every slot must be filled — assert rather than silently dropping.
-        assert all(r is not None for r in results), "BUG: unfilled result slot"
+        if not all(r is not None for r in results):
+            raise RuntimeError("BUG: unfilled result slot")
         return BatchResult(
             results=[r for r in results if r is not None],  # narrowing for type checker
             specs=list(specs),

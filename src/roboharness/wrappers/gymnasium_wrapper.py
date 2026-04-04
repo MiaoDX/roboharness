@@ -41,6 +41,8 @@ from typing import Any, cast
 
 import numpy as np
 
+from roboharness._utils import save_image as _save_image
+
 try:
     import gymnasium as gym
     from gymnasium import Wrapper
@@ -333,14 +335,3 @@ def _to_float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
-
-
-def _save_image(arr: np.ndarray, path: Path) -> None:
-    """Save RGB array as PNG."""
-    try:
-        from PIL import Image
-
-        img = Image.fromarray(arr)
-        img.save(path)
-    except ImportError:
-        np.save(path.with_suffix(".npy"), arr)

@@ -281,6 +281,7 @@ class TestLocomotionUtilities:
         """Should raise ImportError when huggingface_hub is not installed."""
         monkeypatch.delitem(sys.modules, "huggingface_hub", raising=False)
         monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
+        monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
         from roboharness.controllers.locomotion import _download_onnx
 
         # Remove the fake hf module so the import fails

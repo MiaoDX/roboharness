@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from roboharness._utils import load_json as _load_report
 from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion
 from roboharness.evaluate.result import Verdict
 
@@ -96,12 +96,6 @@ class ComparisonResult:
 def find_reports(results_dir: Path) -> list[Path]:
     """Find all autonomous_report.json files under a directory."""
     return sorted(results_dir.rglob("autonomous_report.json"))
-
-
-def _load_report(path: Path) -> dict[str, Any]:
-    with path.open() as f:
-        data: dict[str, Any] = json.load(f)
-    return data
 
 
 def _failure_codes_from_report(report: dict[str, Any]) -> list[str]:
