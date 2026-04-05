@@ -32,6 +32,9 @@ RUN mkdir -p src/roboharness && \
 # Install all dependency groups
 RUN uv pip install -e ".[demo,dev]"
 
+# Install unitree SDK (from fork, for native LeRobot G1 env)
+RUN uv pip install -e ".[unitree]"
+
 # Install CPU-only PyTorch + lerobot (for native LeRobot examples)
 RUN uv pip install torch --index-url https://download.pytorch.org/whl/cpu && \
     uv pip install lerobot

@@ -1,13 +1,11 @@
-"""Tests for native LeRobot integration — validates VectorEnv adapter + RobotHarnessWrapper.
+"""Tests for native LeRobot integration — validates RobotHarnessWrapper with G1-like envs.
 
-The native LeRobot path uses ``make_env()`` which returns a ``VectorEnv``.
-The ``_VectorEnvAdapter`` in ``examples/lerobot_g1_native.py`` unbatches it
-into a standard Gymnasium Env.
+The native LeRobot path imports the hub env module directly and wraps the
+resulting Gymnasium Env with RobotHarnessWrapper.
 
-These tests use real Gymnasium VectorEnvs (no mocks) to validate:
-  - VectorEnv (n=1) is correctly unbatched to single-env interface
-  - Dict observations are unbatched per-key
-  - RobotHarnessWrapper captures checkpoints through the adapter
+These tests use real Gymnasium envs (no mocks) to validate:
+  - RobotHarnessWrapper captures checkpoints through a G1-like env
+  - Dict observations are handled correctly
   - Validation logic in the example works correctly
 
 No LeRobot or MuJoCo installation is required.
@@ -129,84 +127,17 @@ def native_module():
 
 
 # ---------------------------------------------------------------------------
-# Tests: VectorEnv adapter unbatching
+# Tests: RobotHarnessWrapper with G1-like envs
 # ---------------------------------------------------------------------------
 
 
-def _make_vector_env(env_fn):
-    """Create a real SyncVectorEnv with n=1 from an env factory."""
-    return gym.vector.SyncVectorEnv([env_fn])
+class TestWrapperWithG1Env:
+    """RobotHarnessWrapper integration with G1-like Gymnasium envs."""
 
-
-class TestVectorEnvAdapter:
-    """Tests for _VectorEnvAdapter with real SyncVectorEnv."""
-
-    def test_reset_unbatches_flat_obs(self, native_module):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
-        obs, _info = adapter.reset()
-
-        assert isinstance(obs, np.ndarray)
-        assert obs.shape == (99,)
-
-    def test_step_returns_scalars(self, native_module):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
-        adapter.reset()
-
-        action = np.zeros(29, dtype=np.float64)
-        obs, reward, terminated, truncated, _info = adapter.step(action)
-
-        assert obs.shape == (99,)
-        assert isinstance(reward, float)
-        assert abs(reward - 1.75) < 0.01
-        assert terminated is False
-        assert truncated is False
-
-    def test_render_single_frame(self, native_module):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
-        adapter.reset()
-        frame = adapter.render()
-
-        assert isinstance(frame, np.ndarray)
-        assert frame.shape == (480, 640, 3)
-
-    def test_dict_obs_unbatched(self, native_module):
-        vec_env = _make_vector_env(DictObsEnv)
-        adapter = native_module._VectorEnvAdapter(vec_env)
-        obs, _info = adapter.reset()
-
-        assert isinstance(obs, dict)
-        assert obs["observation.state"].shape == (29,)
-        assert obs["observation.images.head"].shape == (64, 64, 3)
-
-    def test_spaces_are_single(self, native_module):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
-
-        assert adapter.observation_space.shape == (99,)
-        assert adapter.action_space.shape == (29,)
-
-    def test_close(self, native_module):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
-        adapter.close()  # should not raise
-
-
-# ---------------------------------------------------------------------------
-# Tests: RobotHarnessWrapper through adapter
-# ---------------------------------------------------------------------------
-
-
-class TestWrapperWithAdapter:
-    """RobotHarnessWrapper integration with VectorEnvAdapter."""
-
-    def test_checkpoint_captured(self, native_module, tmp_path):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
+    def test_checkpoint_captured(self, tmp_path):
+        env = SimpleG1Env()
         wrapped = RobotHarnessWrapper(
-            adapter,
+            env,
             checkpoints=[{"name": "cp", "step": 3}],
             output_dir=tmp_path,
             task_name="native_test",
@@ -222,11 +153,10 @@ class TestWrapperWithAdapter:
         assert state["step"] == 3
         assert isinstance(state["reward"], float)
 
-    def test_obs_passthrough(self, native_module, tmp_path):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
+    def test_obs_passthrough(self, tmp_path):
+        env = SimpleG1Env()
         wrapped = RobotHarnessWrapper(
-            adapter,
+            env,
             checkpoints=[{"name": "cp", "step": 100}],
             output_dir=tmp_path,
         )
@@ -237,11 +167,10 @@ class TestWrapperWithAdapter:
         assert obs.shape == (99,)
         assert isinstance(reward, float)
 
-    def test_dict_obs_records_keys(self, native_module, tmp_path):
-        vec_env = _make_vector_env(DictObsEnv)
-        adapter = native_module._VectorEnvAdapter(vec_env)
+    def test_dict_obs_records_keys(self, tmp_path):
+        env = DictObsEnv()
         wrapped = RobotHarnessWrapper(
-            adapter,
+            env,
             checkpoints=[{"name": "cp", "step": 1}],
             output_dir=tmp_path,
             task_name="dict_obs",
@@ -254,11 +183,10 @@ class TestWrapperWithAdapter:
         assert "obs_keys" in state
         assert "observation.state" in state["obs_keys"]
 
-    def test_multiple_checkpoints(self, native_module, tmp_path):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
+    def test_multiple_checkpoints(self, tmp_path):
+        env = SimpleG1Env()
         wrapped = RobotHarnessWrapper(
-            adapter,
+            env,
             checkpoints=[
                 {"name": "initial", "step": 1},
                 {"name": "mid", "step": 5},
@@ -277,11 +205,10 @@ class TestWrapperWithAdapter:
 
         assert captured == ["initial", "mid", "final"]
 
-    def test_render_image_saved(self, native_module, tmp_path):
-        vec_env = _make_vector_env(SimpleG1Env)
-        adapter = native_module._VectorEnvAdapter(vec_env)
+    def test_render_image_saved(self, tmp_path):
+        env = SimpleG1Env()
         wrapped = RobotHarnessWrapper(
-            adapter,
+            env,
             checkpoints=[{"name": "cp", "step": 1}],
             output_dir=tmp_path,
             task_name="render_test",

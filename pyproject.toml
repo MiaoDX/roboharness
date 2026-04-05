@@ -47,6 +47,9 @@ wbc = [
     "pin-pink>=0.11",
     "qpsolvers[quadprog]",
 ]
+unitree = [
+    "unitree-sdk2py @ git+https://github.com/MiaoDX-fork-and-pruning/unitree_sdk2_python_uv.git",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=5.0",
@@ -63,6 +66,9 @@ Homepage = "https://github.com/MiaoDX/RobotHarness"
 Repository = "https://github.com/MiaoDX/RobotHarness"
 Issues = "https://github.com/MiaoDX/RobotHarness/issues"
 Documentation = "https://github.com/MiaoDX/RobotHarness/tree/main/docs"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/roboharness"]
