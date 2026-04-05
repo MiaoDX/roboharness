@@ -36,6 +36,7 @@
 | **[G1 WBC Reach](#g1-humanoid-wbc-reach)** | Whole-body IK reaching (Pinocchio + Pink) | [Live](https://miaodx.com/roboharness/g1-reach/) | `python examples/g1_wbc_reach.py --report` |
 | **[G1 Locomotion](#lerobot-g1-locomotion)** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/lerobot_g1.py --report` |
 | **[G1 Native LeRobot](#native-lerobot-integration)** | Official `make_env()` factory + DDS-ready | — | `python examples/lerobot_g1_native.py` |
+| **[SONIC Motion Tracking](#sonic-locomotion)** | Encoder+decoder pipeline, motion replay from MoCap | — | Controller API (see below) |
 
 ## Installation
 
@@ -101,6 +102,42 @@ MUJOCO_GL=osmesa python examples/lerobot_g1_native.py --report
 ```
 
 Uses LeRobot's official `make_env("lerobot/unitree-g1-mujoco")` factory for standardized env creation. DDS-ready for sim-to-real transfer when hardware is available. See [#83](https://github.com/MiaoDX/roboharness/issues/83) for details.
+
+</details>
+
+<details>
+<summary><b>SONIC Locomotion</b></summary>
+
+NVIDIA GEAR-SONIC locomotion controller with two modes:
+
+**Planner mode** — velocity commands → full-body pose trajectories (10 Hz planning, 50 Hz output):
+
+```python
+from roboharness.robots.unitree_g1 import SonicLocomotionController, SonicMode
+
+ctrl = SonicLocomotionController()
+action = ctrl.compute(
+    command={"velocity": [0.3, 0.0, 0.0], "mode": SonicMode.WALK},
+    state={"qpos": qpos, "qvel": qvel},
+)
+```
+
+**Tracking mode** — reproduce motion capture clips via encoder+decoder pipeline:
+
+```python
+from roboharness.robots.unitree_g1 import SonicLocomotionController, MotionClip
+
+ctrl = SonicLocomotionController()
+clip = MotionClip.from_csv_dir("path/to/dance_clip/")
+ctrl.set_tracking_clip(clip)
+
+action = ctrl.compute(
+    command={"tracking": True},
+    state={"qpos": qpos, "qvel": qvel},
+)
+```
+
+Models (`planner_sonic.onnx`, `encoder_sonic.onnx`, `decoder_sonic.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[lerobot]`. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
 
 </details>
 
