@@ -14,7 +14,7 @@ pytest --no-cov                  # run tests without coverage
 mypy src/                        # type check (Python 3.10 target)
 ```
 
-MuJoCo example (headless, needs `pip install -e ".[mujoco]"` + Pillow):
+MuJoCo example (headless, needs `pip install -e ".[demo]"`):
 ```bash
 MUJOCO_GL=osmesa python examples/mujoco_grasp.py
 ```
@@ -64,7 +64,7 @@ Do NOT create a new branch or a new PR for review fixes.
 
 - IMPORTANT: GitHub MCP tools are available (prefixed `mcp__github__`). Use them for all GitHub interactions (issues, PRs, comments). Do NOT assume `gh` CLI is available.
 - Pre-commit hooks are configured (`.pre-commit-config.yaml`). Run `pre-commit install` to enable, or run `ruff check . && ruff format --check .` manually.
-- Optional deps are grouped: `[mujoco]`, `[meshcat]`, `[maniskill]`, `[rerun]`, `[dev]`, `[all]`.
+- Optional deps: `[demo]` (all example dependencies), `[dev]` (testing/linting tools).
 
 ## Subagent strategy
 

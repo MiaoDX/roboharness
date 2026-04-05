@@ -1,7 +1,7 @@
 """Unitree G1 humanoid support — locomotion controllers and constants.
 
 Provides GR00T-based locomotion policies (Balance + Walk) and G1-specific
-joint configuration constants. Requires ``pip install roboharness[lerobot]``
+joint configuration constants. Requires ``pip install roboharness[demo]``
 for ONNX runtime and HuggingFace model downloads.
 
 Usage::
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
-# Conditional exports — only available when [lerobot] extras are installed
+# Conditional exports — only available when [demo] extras are installed
 try:
     from roboharness.robots.unitree_g1.locomotion import (
         GrootLocomotionController,

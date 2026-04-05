@@ -12,12 +12,8 @@ official LeRobot factory, enabling:
   - Consistent observation/action spaces defined by the env config
 
 Requirements:
-    # CPU-only (lighter install):
-    pip install torch --index-url https://download.pytorch.org/whl/cpu
-    pip install roboharness[lerobot-native] Pillow
-
-    # Or full GPU:
-    pip install roboharness[lerobot-native] Pillow
+    pip install torch --index-url https://download.pytorch.org/whl/cpu  # CPU-only
+    pip install roboharness[demo] lerobot
 
 Run:
     MUJOCO_GL=osmesa python examples/lerobot_g1_native.py
@@ -77,7 +73,7 @@ def create_native_env(
             "ERROR: lerobot is required for native integration.\n"
             "Install with:\n"
             "  pip install torch --index-url https://download.pytorch.org/whl/cpu\n"
-            "  pip install roboharness[lerobot-native] Pillow"
+            "  pip install roboharness[demo] lerobot"
         )
         sys.exit(1)
 

@@ -35,8 +35,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install package with dev dependencies
         run: pip install -e ".[dev]"
-      - name: Verify test collection (catch missing imports early)
-        run: pytest --collect-only -q
       - name: Run tests with coverage
         run: pytest
 
@@ -49,8 +47,8 @@ jobs:
           python-version: "3.12"
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
-      - name: Install package with MuJoCo backend and dev dependencies
-        run: pip install -e ".[mujoco,dev]" Pillow
+      - name: Install package with demo and dev dependencies
+        run: pip install -e ".[demo,dev]"
       - name: Run tests (including MuJoCo-dependent tests)
         env:
           MUJOCO_GL: osmesa
@@ -67,8 +65,8 @@ jobs:
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
 
-      - name: Install package with MuJoCo backend
-        run: pip install -e ".[mujoco]" Pillow
+      - name: Install package with demo dependencies
+        run: pip install -e ".[demo]"
 
       - name: Run MuJoCo grasp example
         env:
@@ -97,7 +95,6 @@ jobs:
             name=$(basename "$cp")
             echo "### ${name}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            # Embed front view as base64 in summary
             if [ -f "${cp}front_rgb.png" ]; then
               echo "![${name} front view](data:image/png;base64,$(base64 -w0 "${cp}front_rgb.png"))" >> $GITHUB_STEP_SUMMARY
             fi
@@ -128,8 +125,8 @@ jobs:
       - name: Install CPU-only PyTorch (lighter than default CUDA build)
         run: pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Install package with native LeRobot dependencies
-        run: pip install -e ".[lerobot-native]" Pillow
+      - name: Install package with demo dependencies + lerobot
+        run: pip install -e ".[demo]" lerobot
 
       - name: Run native LeRobot G1 example
         env:
@@ -164,8 +161,8 @@ jobs:
           path: ~/.cache/huggingface/hub/models--lerobot--unitree-g1-mujoco
           key: hf-lerobot-g1-mujoco-v1
 
-      - name: Install package with LeRobot dependencies
-        run: pip install -e ".[lerobot]" gymnasium Pillow
+      - name: Install package with demo dependencies
+        run: pip install -e ".[demo]"
 
       - name: Run LeRobot G1 example
         env:
@@ -194,7 +191,6 @@ jobs:
             name=$(basename "$cp")
             echo "### ${name}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            # Embed first available camera view as base64
             for img in "${cp}"*_rgb.png; do
               if [ -f "$img" ]; then
                 cam=$(basename "$img" _rgb.png)

@@ -104,7 +104,7 @@ def _download_onnx(repo_id: str, filename: str) -> str:
     except ImportError as e:
         raise ImportError(
             "huggingface_hub is required for locomotion controllers. "
-            "Install with: pip install roboharness[lerobot]"
+            "Install with: pip install roboharness[demo]"
         ) from e
     path: str = hf_hub_download(repo_id=repo_id, filename=filename)
     return path

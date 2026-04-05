@@ -1,7 +1,7 @@
 """MuJoCo backend adapter.
 
 This is the reference implementation for the SimulatorBackend protocol.
-Requires: pip install roboharness[mujoco]
+Requires: pip install roboharness[demo]
 
 Usage:
     from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
@@ -71,7 +71,7 @@ class MuJoCoMeshcatBackend:
             import mujoco
         except ImportError as exc:
             raise ImportError(
-                "MuJoCo is required for this backend. Install with: pip install roboharness[mujoco]"
+                "MuJoCo is required for this backend. Install with: pip install roboharness[demo]"
             ) from exc
 
         if xml_string is None and model_path is None:

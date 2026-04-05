@@ -26,17 +26,14 @@ jobs:
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
 
-      - name: Install package with all backends
-        run: pip install -e ".[mujoco,meshcat,wbc]" robot_descriptions Pillow
+      - name: Install package with demo dependencies
+        run: pip install -e ".[demo]"
 
       - name: Cache HuggingFace model assets
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface/hub/models--lerobot--unitree-g1-mujoco
           key: hf-lerobot-g1-mujoco-v1
-
-      - name: Install LeRobot dependencies
-        run: pip install -e ".[lerobot]" gymnasium
 
       - name: Run MuJoCo grasp example
         env:

@@ -10,7 +10,7 @@ The G1 model (29 body DOF + 14 hand DOF) is hosted at:
   huggingface.co/lerobot/unitree-g1-mujoco
 
 Run:
-    pip install roboharness[lerobot] gymnasium Pillow
+    pip install roboharness[demo]
     MUJOCO_GL=osmesa python examples/lerobot_g1.py
 
 Output:
@@ -40,7 +40,7 @@ except ImportError:
 try:
     import mujoco
 except ImportError:
-    print("ERROR: mujoco is required. Install with: pip install roboharness[lerobot]")
+    print("ERROR: mujoco is required. Install with: pip install roboharness[demo]")
     sys.exit(1)
 
 from roboharness.wrappers import RobotHarnessWrapper
@@ -59,7 +59,7 @@ def download_g1_assets() -> Path:
     try:
         from huggingface_hub import snapshot_download
     except ImportError:
-        print("ERROR: huggingface_hub is required.\nInstall with: pip install roboharness[lerobot]")
+        print("ERROR: huggingface_hub is required.\nInstall with: pip install roboharness[demo]")
         sys.exit(1)
 
     print(f"      Downloading {G1_HF_REPO} from HuggingFace ...")

@@ -171,7 +171,7 @@ gpu-test:
     - uses: actions/checkout@v4
     - name: Run GPU tests
       run: |
-        pip install -e ".[all]"
+        pip install -e ".[demo,dev]"
         pytest -m gpu
 ```
 
