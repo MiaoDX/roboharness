@@ -13,12 +13,26 @@ from roboharness.core.lifecycle import (
     LifecycleRegistry,
     default_registry,
 )
+from roboharness.core.protocol import (
+    BUILTIN_PROTOCOLS,
+    DANCE_PROTOCOL,
+    GRASP_PROTOCOL,
+    LOCO_MANIPULATION_PROTOCOL,
+    LOCOMOTION_PROTOCOL,
+    TaskPhase,
+    TaskProtocol,
+)
 from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion
 from roboharness.evaluate.result import EvaluationResult, Operator, Severity, Verdict
 from roboharness.runner import BatchResult, ParallelTrialRunner, TrialSpec
 from roboharness.storage.history import EvaluationHistory, EvaluationRecord, TrendResult
 
 __all__ = [
+    "BUILTIN_PROTOCOLS",
+    "DANCE_PROTOCOL",
+    "GRASP_PROTOCOL",
+    "LOCOMOTION_PROTOCOL",
+    "LOCO_MANIPULATION_PROTOCOL",
     "AssertionEngine",
     "BatchResult",
     "CaptureResult",
@@ -37,6 +51,8 @@ __all__ = [
     "Operator",
     "ParallelTrialRunner",
     "Severity",
+    "TaskPhase",
+    "TaskProtocol",
     "TrendResult",
     "TrialSpec",
     "Verdict",

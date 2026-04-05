@@ -7,6 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from roboharness.core.capture import CameraView, CaptureResult
 from roboharness.core.checkpoint import Checkpoint, CheckpointStore
+from roboharness.core.protocol import TaskProtocol
 from roboharness.core.rerun_logger import RerunCaptureLogger
 
 
@@ -86,6 +87,7 @@ class Harness:
         self._trial_count: int = 0
         self._checkpoint_store = CheckpointStore(self.output_dir / "snapshots")
         self._rerun_logger = RerunCaptureLogger(app_id=rerun_app_id) if enable_rerun else None
+        self._active_protocol: TaskProtocol | None = None
 
     # ---- Checkpoint management ----
 
@@ -106,6 +108,40 @@ class Harness:
             metadata=metadata,
         )
         self._checkpoints.append(cp)
+
+    def load_protocol(
+        self,
+        protocol: TaskProtocol,
+        phases: list[str] | None = None,
+    ) -> None:
+        """Load a semantic task protocol, registering its phases as checkpoints.
+
+        This replaces any previously registered checkpoints. Each phase in the
+        protocol becomes a checkpoint with the phase's camera configuration
+        and metadata.
+
+        Args:
+            protocol: The task protocol to load.
+            phases: Optional subset of phase names to use. If None, all phases
+                are loaded. Order follows the ``phases`` list if provided.
+        """
+        if phases is not None:
+            protocol = protocol.select(phases)
+
+        self._checkpoints.clear()
+        self._active_protocol = protocol
+
+        for phase in protocol.phases:
+            self.add_checkpoint(
+                name=phase.name,
+                cameras=phase.cameras,
+                **phase.metadata,
+            )
+
+    @property
+    def active_protocol(self) -> TaskProtocol | None:
+        """The currently loaded task protocol, or None."""
+        return self._active_protocol
 
     # ---- Core loop ----
 
