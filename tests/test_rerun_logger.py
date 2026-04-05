@@ -89,7 +89,19 @@ def test_harness_rerun_logs_when_sdk_present(tmp_path, monkeypatch):
 
 
 def test_harness_rerun_gracefully_disabled_when_sdk_missing(tmp_path, monkeypatch):
+    import builtins
+
     monkeypatch.delitem(sys.modules, "rerun", raising=False)
+
+    # Block rerun from being re-imported from disk
+    _real_import = builtins.__import__
+
+    def _block_rerun(name, *args, **kwargs):
+        if name == "rerun" or name.startswith("rerun."):
+            raise ImportError("No module named 'rerun'")
+        return _real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _block_rerun)
 
     harness = Harness(MockBackend(), output_dir=tmp_path, enable_rerun=True)
     harness.add_checkpoint("cp1", cameras=["front"])

@@ -304,12 +304,26 @@ class TestLocomotionUtilities:
     def test_download_onnx_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Should raise ImportError when huggingface_hub is not installed."""
         monkeypatch.delitem(sys.modules, "huggingface_hub", raising=False)
+        monkeypatch.delitem(sys.modules, "huggingface_hub.utils", raising=False)
+        monkeypatch.delitem(sys.modules, "huggingface_hub.utils._http", raising=False)
+        monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
+        monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
+
+        # Block huggingface_hub from being re-imported from disk
+        import builtins
+
+        _real_import = builtins.__import__
+
+        def _block_hf(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "huggingface_hub" or name.startswith("huggingface_hub."):
+                raise ImportError("No module named 'huggingface_hub'")
+            return _real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _block_hf)
         monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
         monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
         from roboharness.controllers.locomotion import _download_onnx
 
-        # Remove the fake hf module so the import fails
-        monkeypatch.delitem(sys.modules, "huggingface_hub", raising=False)
         with pytest.raises(ImportError, match="huggingface_hub"):
             _download_onnx("some/repo", "model.onnx")
 
@@ -319,6 +333,20 @@ class TestLocomotionUtilities:
         monkeypatch.setitem(sys.modules, "huggingface_hub", _FakeHfHub())  # type: ignore[arg-type]
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
         monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
+
+        # Block onnxruntime from being re-imported from disk
+        import builtins
+
+        _real_import = builtins.__import__
+
+        def _block_ort(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "onnxruntime" or name.startswith("onnxruntime."):
+                raise ImportError("No module named 'onnxruntime'")
+            return _real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", _block_ort)
+        monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
+        monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
         from roboharness.controllers.locomotion import HolosomaLocomotionController
 
         with pytest.raises(ImportError, match="onnxruntime"):

@@ -54,8 +54,26 @@ def test_fake_visualizer_capture():
 
 @pytest.fixture
 def _has_mujoco():
-    """Skip tests that need MuJoCo when the package is not installed."""
-    pytest.importorskip("mujoco")
+    """Skip tests that need MuJoCo rendering (import + GL context).
+
+    MuJoCo rendering requires a GL context (osmesa, egl, or display).
+    Without one, ``mujoco.Renderer()`` calls C-level ``abort()`` which
+    kills the entire pytest process. We check for a usable GL backend
+    before attempting to create a renderer.
+    """
+    mujoco = pytest.importorskip("mujoco")
+    # Check that a GL backend is configured (MUJOCO_GL env var or display)
+    import os
+
+    gl_backend = os.environ.get("MUJOCO_GL", "").lower()
+    has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    if not gl_backend and not has_display:
+        pytest.skip("MuJoCo rendering not available (no MUJOCO_GL or DISPLAY set)")
+    # Also verify the rendering module can be loaded
+    try:
+        mujoco.Renderer  # noqa: B018
+    except AttributeError:
+        pytest.skip("MuJoCo version does not support Renderer")
 
 
 MINIMAL_MJCF = """\

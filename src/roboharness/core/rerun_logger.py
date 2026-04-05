@@ -54,8 +54,12 @@ class RerunCaptureLogger:
             return
 
         rr = self._rr
-        rr.set_time_sequence("sim_step", capture.step)
-        rr.set_time_seconds("sim_time", capture.sim_time)
+        if hasattr(rr, "set_time_sequence"):
+            rr.set_time_sequence("sim_step", capture.step)
+            rr.set_time_seconds("sim_time", capture.sim_time)
+        else:
+            rr.set_time("sim_step", sequence=capture.step)
+            rr.set_time("sim_time", duration=capture.sim_time)
 
         rr.log("harness/checkpoint", rr.TextDocument(capture.checkpoint_name))
         rr.log("harness/state", rr.TextDocument(_as_json_text(capture.state)))
