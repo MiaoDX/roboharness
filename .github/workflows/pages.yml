@@ -50,6 +50,17 @@ jobs:
           MUJOCO_GL: osmesa
         run: python examples/lerobot_g1.py --report --output-dir ./harness_output
 
+      - name: Install CPU-only PyTorch for native LeRobot
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install lerobot
+        run: pip install lerobot
+
+      - name: Run native LeRobot G1 example
+        env:
+          MUJOCO_GL: osmesa
+        run: python examples/lerobot_g1_native.py --report --output-dir ./harness_output
+
       - name: Build Pages site
         run: |
           mkdir -p _site
@@ -90,6 +101,146 @@ jobs:
             cp "${cp_dir}"metadata.json "_site/g1-loco/${cp_name}/" 2>/dev/null || true
             cp "${cp_dir}"state.json "_site/g1-loco/${cp_name}/" 2>/dev/null || true
           done
+
+          # --- Demo 4: Native LeRobot G1 ---
+          mkdir -p _site/g1-native
+          cp harness_output/lerobot_g1_native_report.html _site/g1-native/index.html 2>/dev/null || true
+          for cp_dir in harness_output/lerobot_g1_native/trial_001/*/; do
+            cp_name=$(basename "$cp_dir")
+            mkdir -p "_site/g1-native/${cp_name}"
+            cp "${cp_dir}"*_rgb.png "_site/g1-native/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"metadata.json "_site/g1-native/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"state.json "_site/g1-native/${cp_name}/" 2>/dev/null || true
+          done
+
+          # --- Demo 5: SONIC Motion Tracking (static page, requires GPU) ---
+          mkdir -p _site/sonic
+          cat > _site/sonic/index.html << 'SONIC_PAGE'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+          <meta charset="utf-8"/>
+          <title>SONIC Motion Tracking — Roboharness</title>
+          <style>
+            body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 0 auto;
+                   padding: 40px 20px; background: #f5f5f5; color: #333; line-height: 1.6; }
+            h1 { border-bottom: 2px solid #7c4dff; padding-bottom: 10px; }
+            .back { display: inline-block; margin-bottom: 20px; color: #7c4dff; text-decoration: none; }
+            .back:hover { text-decoration: underline; }
+            .tag { display: inline-block; padding: 2px 8px; border-radius: 4px;
+                   font-size: 11px; font-weight: 600; margin-right: 4px; }
+            .tag-humanoid { background: #fce4ec; color: #c62828; }
+            .tag-mocap { background: #fff9c4; color: #f57f17; }
+            .tag-api { background: #f3e5f5; color: #6a1b9a; }
+            .tag-gpu { background: #ffebee; color: #b71c1c; }
+            .section { background: white; border-radius: 12px; padding: 24px; margin: 20px 0;
+                       box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+            pre { background: #263238; color: #eeffff; padding: 16px; border-radius: 8px;
+                  overflow-x: auto; font-size: 13px; }
+            .keyword { color: #c792ea; }
+            .string { color: #c3e88d; }
+            .comment { color: #546e7a; }
+            .pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                        gap: 12px; margin: 16px 0; }
+            .pipeline-step { background: #ede7f6; border-radius: 8px; padding: 16px;
+                             text-align: center; font-weight: 600; font-size: 14px; }
+            .pipeline-step .sub { font-weight: 400; font-size: 12px; color: #666; margin-top: 4px; }
+            .arrow { display: flex; align-items: center; justify-content: center;
+                     font-size: 24px; color: #7c4dff; }
+            table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+            th, td { border: 1px solid #e0e0e0; padding: 8px 12px; text-align: left; }
+            th { background: #f5f5f5; font-size: 13px; }
+            td { font-size: 13px; }
+            .note { background: #fff3e0; border-left: 4px solid #ff9800; padding: 12px 16px;
+                    border-radius: 4px; margin: 16px 0; font-size: 14px; }
+          </style>
+          </head>
+          <body>
+          <a class="back" href="../">&larr; Back to all demos</a>
+          <h1>SONIC Motion Tracking</h1>
+          <div>
+            <span class="tag tag-humanoid">Humanoid</span>
+            <span class="tag tag-mocap">MoCap</span>
+            <span class="tag tag-api">API</span>
+            <span class="tag tag-gpu">GPU Required</span>
+          </div>
+
+          <div class="section">
+            <h2>Overview</h2>
+            <p>NVIDIA <a href="https://huggingface.co/nvidia/GEAR-SONIC">GEAR-SONIC</a> locomotion
+            controller with two operational modes:</p>
+            <ul>
+              <li><strong>Planner mode</strong> — velocity commands &rarr; full-body pose trajectories
+                  (10 Hz planning, 50 Hz output)</li>
+              <li><strong>Tracking mode</strong> — reproduce motion capture clips via encoder+decoder
+                  latent-space pipeline</li>
+            </ul>
+          </div>
+
+          <div class="section">
+            <h2>Architecture: Encoder + Decoder Pipeline</h2>
+            <div class="pipeline">
+              <div class="pipeline-step">MoCap Clip<div class="sub">CSV joint angles</div></div>
+              <div class="pipeline-step">Encoder<div class="sub">encoder_sonic.onnx</div></div>
+              <div class="pipeline-step">Latent Space<div class="sub">z &isin; R<sup>d</sup></div></div>
+              <div class="pipeline-step">Decoder<div class="sub">decoder_sonic.onnx</div></div>
+              <div class="pipeline-step">Joint Targets<div class="sub">29-DOF output</div></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>ONNX Models</h2>
+            <table>
+              <tr><th>Model</th><th>File</th><th>Purpose</th></tr>
+              <tr><td>Planner</td><td>planner_sonic.onnx</td><td>Velocity &rarr; full-body trajectory</td></tr>
+              <tr><td>Encoder</td><td>encoder_sonic.onnx</td><td>MoCap clip &rarr; latent code</td></tr>
+              <tr><td>Decoder</td><td>decoder_sonic.onnx</td><td>Latent code &rarr; joint targets</td></tr>
+            </table>
+            <p>Models are downloaded from <code>nvidia/GEAR-SONIC</code> on HuggingFace on first use.</p>
+          </div>
+
+          <div class="section">
+            <h2>Usage: Planner Mode</h2>
+            <pre><span class="keyword">from</span> roboharness.robots.unitree_g1 <span class="keyword">import</span> (
+    SonicLocomotionController, SonicMode
+)
+
+ctrl = SonicLocomotionController()
+action = ctrl.compute(
+    command={<span class="string">"velocity"</span>: [0.3, 0.0, 0.0], <span class="string">"mode"</span>: SonicMode.WALK},
+    state={<span class="string">"qpos"</span>: qpos, <span class="string">"qvel"</span>: qvel},
+)</pre>
+          </div>
+
+          <div class="section">
+            <h2>Usage: Tracking Mode</h2>
+            <pre><span class="keyword">from</span> roboharness.robots.unitree_g1 <span class="keyword">import</span> (
+    SonicLocomotionController, MotionClip
+)
+
+ctrl = SonicLocomotionController()
+clip = MotionClip.from_csv_dir(<span class="string">"path/to/dance_clip/"</span>)
+ctrl.set_tracking_clip(clip)
+
+action = ctrl.compute(
+    command={<span class="string">"tracking"</span>: True},
+    state={<span class="string">"qpos"</span>: qpos, <span class="string">"qvel"</span>: qvel},
+)</pre>
+          </div>
+
+          <div class="note">
+            <strong>Note:</strong> This demo requires an NVIDIA GPU with CUDA/TensorRT and cannot
+            run in CI. The page documents the API and architecture. See
+            <a href="https://github.com/MiaoDX/roboharness/issues/86">#86</a> (Phase 1) and
+            <a href="https://github.com/MiaoDX/roboharness/issues/92">#92</a> (Phase 2).
+          </div>
+
+          <div style="margin-top: 40px; color: #999; font-size: 12px; text-align: center;">
+            Generated by <a href="https://github.com/MiaoDX/roboharness">Roboharness</a>
+          </div>
+          </body>
+          </html>
+          SONIC_PAGE
 
           # --- Landing page ---
           cat > _site/index.html << 'LANDING'
@@ -167,7 +318,18 @@ jobs:
               Real 29-DOF model from HuggingFace with multi-camera captures.</p>
               <div class="meta">LeRobot HF model &middot; multi-camera &middot; GrootLocomotionController</div>
             </a>
-            <div class="demo-card sonic">
+            <a class="demo-card" href="g1-native/" style="border-left-color: #43a047;">
+              <h2>G1 Native LeRobot</h2>
+              <div>
+                <span class="tag tag-humanoid">Humanoid</span>
+                <span class="tag tag-api">API</span>
+                <span class="tag tag-cpu">CPU</span>
+              </div>
+              <p>Official LeRobot <code>make_env()</code> factory for standardized env
+              creation. DDS-ready for sim-to-real transfer.</p>
+              <div class="meta">LeRobot native &middot; VectorEnvAdapter &middot; DDS-ready</div>
+            </a>
+            <a class="demo-card sonic" href="sonic/">
               <h2>SONIC Motion Tracking</h2>
               <div>
                 <span class="tag tag-humanoid">Humanoid</span>
@@ -177,7 +339,7 @@ jobs:
               <p>NVIDIA GEAR-SONIC encoder+decoder pipeline. Replay motion capture
               clips on the G1 via latent-space tracking. Planner + tracking modes.</p>
               <div class="meta">3 ONNX models &middot; 29-DOF &middot; SonicLocomotionController</div>
-            </div>
+            </a>
           </div>
           <div class="footer">
             Generated by <a href="https://github.com/MiaoDX/roboharness">Roboharness</a> CI/CD pipeline

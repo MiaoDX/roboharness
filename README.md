@@ -24,7 +24,7 @@
 
 ### **[View Interactive Visual Reports →](https://miaodx.com/roboharness/)**
 
-*Auto-generated from CI on every push to main — MuJoCo grasp, G1 WBC reach, G1 locomotion.*
+*Auto-generated from CI on every push to main — MuJoCo grasp, G1 WBC reach, G1 locomotion, G1 native LeRobot, SONIC.*
 
 </div>
 
@@ -35,8 +35,8 @@
 | **[MuJoCo Grasp](#mujoco-grasp)** | Scripted grasp with Meshcat 3D, multi-view captures | [Live](https://miaodx.com/roboharness/grasp/) | `python examples/mujoco_grasp.py --report` |
 | **[G1 WBC Reach](#g1-humanoid-wbc-reach)** | Whole-body IK reaching (Pinocchio + Pink) | [Live](https://miaodx.com/roboharness/g1-reach/) | `python examples/g1_wbc_reach.py --report` |
 | **[G1 Locomotion](#lerobot-g1-locomotion)** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/lerobot_g1.py --report` |
-| **[G1 Native LeRobot](#native-lerobot-integration)** | Official `make_env()` factory + DDS-ready | — | `python examples/lerobot_g1_native.py` |
-| **[SONIC Motion Tracking](#sonic-locomotion)** | Encoder+decoder pipeline, motion replay from MoCap | — | Controller API (see below) |
+| **[G1 Native LeRobot](#native-lerobot-integration)** | Official `make_env()` factory + DDS-ready | [Live](https://miaodx.com/roboharness/g1-native/) | `python examples/lerobot_g1_native.py` |
+| **[SONIC Motion Tracking](#sonic-locomotion)** | Encoder+decoder pipeline, motion replay from MoCap | [Live](https://miaodx.com/roboharness/sonic/) | Controller API (see below) |
 
 ## Installation
 
