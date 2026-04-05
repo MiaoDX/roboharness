@@ -1,6 +1,7 @@
 """Tests for task storage."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 from roboharness.storage.task_store import GraspTaskStore, TaskStore, TrialResult
 
@@ -76,3 +77,28 @@ def test_grasp_task_store_list_variants(tmp_path):
     store.add_grasp_position(2, xyz=(0.6, 0, 0))
     variants = store.list_variants()
     assert len(variants) == 2
+
+
+def test_task_store_reserve_next_trial(tmp_path):
+    store = TaskStore(tmp_path, "test_task")
+    first_id, first_dir = store.reserve_next_trial("variant_1")
+    second_id, second_dir = store.reserve_next_trial("variant_1")
+
+    assert first_id == 1
+    assert second_id == 2
+    assert first_dir.name == "trial_001"
+    assert second_dir.name == "trial_002"
+
+
+def test_task_store_reserve_next_trial_parallel(tmp_path):
+    store = TaskStore(tmp_path, "test_task")
+
+    def reserve_trial() -> int:
+        trial_id, _ = store.reserve_next_trial("variant_1")
+        return trial_id
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        trial_ids = list(executor.map(lambda _: reserve_trial(), range(20)))
+
+    assert len(set(trial_ids)) == 20
+    assert sorted(trial_ids) == list(range(1, 21))

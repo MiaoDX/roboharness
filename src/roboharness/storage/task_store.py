@@ -74,6 +74,24 @@ class TaskStore:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    def reserve_next_trial(self, variant_name: str, *, start_at: int = 1) -> tuple[int, Path]:
+        """Reserve and create the next available trial directory.
+
+        This method is safe for concurrent callers across threads/processes because
+        trial directory creation is claimed via an atomic ``mkdir(exist_ok=False)``.
+        Each successful caller gets a unique ``trial_id`` and isolated workspace.
+        """
+        variant_dir = self.get_variant_dir(variant_name)
+        trial_id = start_at
+
+        while True:
+            candidate = variant_dir / f"trial_{trial_id:03d}"
+            try:
+                candidate.mkdir(parents=True, exist_ok=False)
+                return trial_id, candidate
+            except FileExistsError:
+                trial_id += 1
+
     def get_checkpoint_dir(self, variant_name: str, trial_id: int, checkpoint_name: str) -> Path:
         """Get directory for a specific checkpoint within a trial."""
         d = self.get_trial_dir(variant_name, trial_id) / checkpoint_name
