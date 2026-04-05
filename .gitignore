@@ -29,6 +29,9 @@ htmlcov/
 harness_output/
 checkpoints/
 
+# Runtime logs
+MUJOCO_LOG.TXT
+
 # OS
 .DS_Store
 Thumbs.db
