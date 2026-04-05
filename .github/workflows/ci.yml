@@ -6,19 +6,18 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  CI_IMAGE: ghcr.io/${{ github.repository }}/ci:latest
-
 jobs:
   lint:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/miaodx/roboharness/ci:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Install dependencies
+        run: uv pip install --system ruff mypy
       - name: Ruff lint
         run: ruff check .
       - name: Ruff format check
@@ -37,7 +36,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v4
       - name: Install package with dev dependencies
         run: uv pip install --system -e ".[dev]"
       - name: Run tests with coverage
@@ -45,14 +44,16 @@ jobs:
 
   test-mujoco:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/miaodx/roboharness/ci:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install package (editable, deps already cached)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+      - name: Install package with demo and dev dependencies
         run: uv pip install --system -e ".[demo,dev]"
       - name: Run tests (including MuJoCo-dependent tests)
         env:
@@ -61,15 +62,18 @@ jobs:
 
   mujoco-example:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/miaodx/roboharness/ci:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
 
-      - name: Install package (editable, deps already cached)
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+
+      - name: Install package with demo dependencies
         run: uv pip install --system -e ".[demo]"
 
       - name: Run MuJoCo grasp example
@@ -115,16 +119,22 @@ jobs:
 
   lerobot-g1-native-example:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/miaodx/roboharness/ci:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
 
-      - name: Install package (editable, deps already cached)
-        run: uv pip install --system -e ".[demo]"
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+
+      - name: Install CPU-only PyTorch (lighter than default CUDA build)
+        run: uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install package with demo dependencies + lerobot
+        run: uv pip install --system -e ".[demo]" lerobot
 
       - name: Run native LeRobot G1 example
         env:
@@ -144,15 +154,24 @@ jobs:
 
   lerobot-g1-example:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/miaodx/roboharness/ci:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
 
-      - name: Install package (editable, deps already cached)
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+
+      - name: Cache HuggingFace model assets
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--lerobot--unitree-g1-mujoco
+          key: hf-lerobot-g1-mujoco-v1
+
+      - name: Install package with demo dependencies
         run: uv pip install --system -e ".[demo]"
 
       - name: Run LeRobot G1 example

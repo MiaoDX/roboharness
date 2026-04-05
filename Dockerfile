@@ -1,6 +1,8 @@
-# CI base image for roboharness
-# Pre-installs system deps, uv, Python packages, and model weights
-# to eliminate redundant work across CI jobs.
+# Pre-built image for roboharness development and CI.
+# Pre-installs system deps, uv, Python packages, and model weights.
+#
+# CI workflows use uv directly (no Docker dependency) for reliability.
+# This image is available for local dev and future CI optimization.
 #
 # Rebuild triggers: Dockerfile, pyproject.toml changes, or weekly schedule.
 # Published to: ghcr.io/miaodx/roboharness/ci
