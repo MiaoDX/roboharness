@@ -33,10 +33,16 @@ class _FakeSession:
         self.providers = providers
         self._input_name = "obs"
         self._is_planner = "planner" in path
+        self._is_encoder = "encoder" in path
+        self._is_decoder = "decoder" in path
 
     def get_inputs(self) -> list[_FakeInput]:
         if self._is_planner:
             return [_FakeInput("context_mujoco_qpos")]
+        if self._is_encoder:
+            return [_FakeInput("motion_ref")]
+        if self._is_decoder:
+            return [_FakeInput("latent"), _FakeInput("robot_state")]
         return [_FakeInput(self._input_name)]
 
     def run(self, output_names: list[str] | None, feed: dict[str, Any]) -> list[np.ndarray]:
@@ -50,6 +56,12 @@ class _FakeSession:
                 qpos[0, i, 3] = 1.0  # quaternion w
                 qpos[0, i, 2] = 0.74  # root height
             return [qpos, np.array(num_frames, dtype=np.int64)]
+        if self._is_encoder:
+            # Encoder: 65-dim input → 64-dim latent token
+            return [np.zeros((1, 64), dtype=np.float32)]
+        if self._is_decoder:
+            # Decoder: (64 + 58)-dim input → 29-DOF joint targets
+            return [np.zeros((1, 29), dtype=np.float32)]
         # GR00T / Holosoma: single action output
         inp = next(iter(feed.values()))
         batch = inp.shape[0]
@@ -453,3 +465,270 @@ class TestSonicLocomotionController:
             action = ctrl.compute(command={"velocity": [0.5, 0, 0]}, state=state)
             assert action.shape == (29,)
             assert np.all(np.isfinite(action))
+
+
+# ---------------------------------------------------------------------------
+# MotionClip and MotionClipLoader tests
+# ---------------------------------------------------------------------------
+class TestMotionClip:
+    def test_motion_clip_fields(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import MotionClip
+
+        clip = MotionClip(
+            joint_positions=np.zeros((100, 29), dtype=np.float32),
+            joint_velocities=np.zeros((100, 29), dtype=np.float32),
+            root_height=np.zeros(100, dtype=np.float32),
+            root_rotation_6d=np.zeros((100, 6), dtype=np.float32),
+            fps=50.0,
+            name="test_clip",
+        )
+        assert clip.joint_positions.shape == (100, 29)
+        assert clip.joint_velocities.shape == (100, 29)
+        assert clip.root_height.shape == (100,)
+        assert clip.root_rotation_6d.shape == (100, 6)
+        assert clip.fps == 50.0
+        assert clip.name == "test_clip"
+
+    def test_num_frames(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import MotionClip
+
+        clip = MotionClip(
+            joint_positions=np.zeros((50, 29), dtype=np.float32),
+            joint_velocities=np.zeros((50, 29), dtype=np.float32),
+            root_height=np.zeros(50, dtype=np.float32),
+            root_rotation_6d=np.zeros((50, 6), dtype=np.float32),
+            fps=50.0,
+        )
+        assert clip.num_frames == 50
+
+    def test_duration(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import MotionClip
+
+        clip = MotionClip(
+            joint_positions=np.zeros((100, 29), dtype=np.float32),
+            joint_velocities=np.zeros((100, 29), dtype=np.float32),
+            root_height=np.zeros(100, dtype=np.float32),
+            root_rotation_6d=np.zeros((100, 6), dtype=np.float32),
+            fps=50.0,
+        )
+        assert clip.duration == pytest.approx(2.0)
+
+    def test_reference_frame(self) -> None:
+        """reference_frame(i) should return a 65-dim vector."""
+        from roboharness.robots.unitree_g1.locomotion import MotionClip
+
+        joint_pos = np.random.randn(10, 29).astype(np.float32)
+        joint_vel = np.random.randn(10, 29).astype(np.float32)
+        root_h = np.random.randn(10).astype(np.float32)
+        root_rot = np.random.randn(10, 6).astype(np.float32)
+
+        clip = MotionClip(
+            joint_positions=joint_pos,
+            joint_velocities=joint_vel,
+            root_height=root_h,
+            root_rotation_6d=root_rot,
+            fps=50.0,
+        )
+        ref = clip.reference_frame(3)
+        assert ref.shape == (65,)
+        # Verify contents: 29 pos + 29 vel + 1 height + 6 rotation
+        np.testing.assert_array_equal(ref[:29], joint_pos[3])
+        np.testing.assert_array_equal(ref[29:58], joint_vel[3])
+        assert ref[58] == root_h[3]
+        np.testing.assert_array_equal(ref[59:65], root_rot[3])
+
+    def test_reference_frame_clamps_index(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import MotionClip
+
+        clip = MotionClip(
+            joint_positions=np.ones((5, 29), dtype=np.float32),
+            joint_velocities=np.ones((5, 29), dtype=np.float32),
+            root_height=np.ones(5, dtype=np.float32),
+            root_rotation_6d=np.ones((5, 6), dtype=np.float32),
+            fps=50.0,
+        )
+        # Should clamp to last frame, not raise
+        ref = clip.reference_frame(100)
+        assert ref.shape == (65,)
+
+
+class TestMotionClipLoader:
+    def test_load_from_csv_directory(self, tmp_path: Any) -> None:
+        """Loader should read CSV files from a directory."""
+        from roboharness.robots.unitree_g1.locomotion import MotionClipLoader
+
+        n_frames = 20
+        # Create CSV files
+        np.savetxt(tmp_path / "joint_positions.csv", np.zeros((n_frames, 29)), delimiter=",")
+        np.savetxt(tmp_path / "joint_velocities.csv", np.zeros((n_frames, 29)), delimiter=",")
+        np.savetxt(tmp_path / "root_height.csv", np.zeros((n_frames, 1)), delimiter=",")
+        np.savetxt(tmp_path / "root_rotation_6d.csv", np.zeros((n_frames, 6)), delimiter=",")
+
+        clip = MotionClipLoader.load(tmp_path, fps=50.0)
+        assert clip.num_frames == n_frames
+        assert clip.joint_positions.shape == (n_frames, 29)
+        assert clip.joint_velocities.shape == (n_frames, 29)
+        assert clip.root_height.shape == (n_frames,)
+        assert clip.root_rotation_6d.shape == (n_frames, 6)
+
+    def test_load_uses_directory_name(self, tmp_path: Any) -> None:
+        from roboharness.robots.unitree_g1.locomotion import MotionClipLoader
+
+        clip_dir = tmp_path / "walk_forward"
+        clip_dir.mkdir()
+        n = 10
+        np.savetxt(clip_dir / "joint_positions.csv", np.zeros((n, 29)), delimiter=",")
+        np.savetxt(clip_dir / "joint_velocities.csv", np.zeros((n, 29)), delimiter=",")
+        np.savetxt(clip_dir / "root_height.csv", np.zeros((n, 1)), delimiter=",")
+        np.savetxt(clip_dir / "root_rotation_6d.csv", np.zeros((n, 6)), delimiter=",")
+
+        clip = MotionClipLoader.load(clip_dir)
+        assert clip.name == "walk_forward"
+
+    def test_load_missing_file_raises(self, tmp_path: Any) -> None:
+        from roboharness.robots.unitree_g1.locomotion import MotionClipLoader
+
+        # Only create one file — should raise on missing others
+        np.savetxt(tmp_path / "joint_positions.csv", np.zeros((10, 29)), delimiter=",")
+        with pytest.raises(FileNotFoundError):
+            MotionClipLoader.load(tmp_path)
+
+    def test_default_fps(self, tmp_path: Any) -> None:
+        from roboharness.robots.unitree_g1.locomotion import MotionClipLoader
+
+        n = 5
+        np.savetxt(tmp_path / "joint_positions.csv", np.zeros((n, 29)), delimiter=",")
+        np.savetxt(tmp_path / "joint_velocities.csv", np.zeros((n, 29)), delimiter=",")
+        np.savetxt(tmp_path / "root_height.csv", np.zeros((n, 1)), delimiter=",")
+        np.savetxt(tmp_path / "root_rotation_6d.csv", np.zeros((n, 6)), delimiter=",")
+
+        clip = MotionClipLoader.load(tmp_path)
+        assert clip.fps == 50.0
+
+
+# ---------------------------------------------------------------------------
+# SONIC Phase 2 — Encoder+Decoder tracking mode tests
+# ---------------------------------------------------------------------------
+@pytest.mark.usefixtures("_patch_onnx_deps")
+class TestSonicTrackingMode:
+    def _make_controller(self, **kwargs: Any) -> Any:
+        from roboharness.controllers.locomotion import SonicLocomotionController
+
+        return SonicLocomotionController(**kwargs)
+
+    def _make_clip(self, n_frames: int = 100) -> Any:
+        from roboharness.robots.unitree_g1.locomotion import MotionClip
+
+        return MotionClip(
+            joint_positions=np.random.randn(n_frames, 29).astype(np.float32) * 0.1,
+            joint_velocities=np.random.randn(n_frames, 29).astype(np.float32) * 0.1,
+            root_height=np.full(n_frames, 0.74, dtype=np.float32),
+            root_rotation_6d=np.zeros((n_frames, 6), dtype=np.float32),
+            fps=50.0,
+            name="test_clip",
+        )
+
+    def test_set_tracking_clip(self) -> None:
+        ctrl = self._make_controller()
+        clip = self._make_clip()
+        ctrl.set_tracking_clip(clip)
+        assert ctrl._tracking_clip is clip
+        assert ctrl._tracking_frame_index == 0
+
+    def test_compute_tracking_returns_29_joints(self) -> None:
+        ctrl = self._make_controller()
+        clip = self._make_clip()
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        action = ctrl.compute(command={"tracking": True}, state=state)
+        assert isinstance(action, np.ndarray)
+        assert action.shape == (29,)
+
+    def test_tracking_advances_frame_index(self) -> None:
+        ctrl = self._make_controller()
+        clip = self._make_clip(n_frames=200)
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        for _ in range(5):
+            ctrl.compute(command={"tracking": True}, state=state)
+        assert ctrl._tracking_frame_index > 0
+
+    def test_tracking_clamps_at_end_of_clip(self) -> None:
+        ctrl = self._make_controller()
+        clip = self._make_clip(n_frames=3)
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        # Run more steps than frames
+        for _ in range(20):
+            action = ctrl.compute(command={"tracking": True}, state=state)
+        assert action.shape == (29,)
+        assert ctrl._tracking_frame_index <= clip.num_frames - 1
+
+    def test_tracking_without_clip_falls_back_to_planner(self) -> None:
+        """If no clip is set, tracking=True should fall back to planner mode."""
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        action = ctrl.compute(command={"tracking": True}, state=state)
+        assert action.shape == (29,)
+
+    def test_clear_tracking_clip(self) -> None:
+        ctrl = self._make_controller()
+        clip = self._make_clip()
+        ctrl.set_tracking_clip(clip)
+        ctrl.clear_tracking_clip()
+        assert ctrl._tracking_clip is None
+        assert ctrl._tracking_frame_index == 0
+
+    def test_reset_clears_tracking_state(self) -> None:
+        ctrl = self._make_controller()
+        clip = self._make_clip()
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        ctrl.compute(command={"tracking": True}, state=state)
+        ctrl.reset()
+        assert ctrl._tracking_frame_index == 0
+        # Clip reference should still be set (reset doesn't remove the clip)
+        assert ctrl._tracking_clip is clip
+
+    def test_encoder_decoder_sessions_loaded(self) -> None:
+        ctrl = self._make_controller()
+        assert ctrl._encoder_session is not None
+        assert ctrl._decoder_session is not None
+
+    def test_tracking_produces_finite_output(self) -> None:
+        ctrl = self._make_controller()
+        clip = self._make_clip(n_frames=50)
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        for _ in range(30):
+            action = ctrl.compute(command={"tracking": True}, state=state)
+            assert np.all(np.isfinite(action))
+
+    def test_planner_mode_still_works_with_encoder_decoder(self) -> None:
+        """Existing planner mode should be unaffected by Phase 2 additions."""
+        ctrl = self._make_controller()
+        state = _make_g1_state()
+        action = ctrl.compute(command={"velocity": [1, 0, 0]}, state=state)
+        assert action.shape == (29,)
+        assert np.all(np.isfinite(action))
+
+    def test_encoder_input_dimensions(self) -> None:
+        """Encoder should receive 65-dim motion reference."""
+        from roboharness.robots.unitree_g1.locomotion import SONIC_ENCODER_INPUT_DIM
+
+        assert SONIC_ENCODER_INPUT_DIM == 65
+
+    def test_decoder_output_dimensions(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import SONIC_DECODER_OUTPUT_DIM
+
+        assert SONIC_DECODER_OUTPUT_DIM == 29
+
+    def test_latent_dimension(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import SONIC_LATENT_DIM
+
+        assert SONIC_LATENT_DIM == 64
+
+    def test_robot_state_dimension(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import SONIC_ROBOT_STATE_DIM
+
+        assert SONIC_ROBOT_STATE_DIM == 58

@@ -38,10 +38,12 @@ Reference implementations:
 
 from __future__ import annotations
 
+import dataclasses
 import enum
 import logging
+import pathlib
 from collections import deque
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -455,6 +457,19 @@ SONIC_DEFAULT_HEIGHT = 0.74
 # Default number of allowed prediction tokens
 SONIC_DEFAULT_NUM_TOKENS = 11
 
+# Phase 2: Encoder+Decoder model files
+SONIC_ENCODER_FILE = "encoder_sonic.onnx"
+SONIC_DECODER_FILE = "decoder_sonic.onnx"
+
+# Encoder input: 29 joint pos + 29 joint vel + 1 root height + 6D rotation = 65
+SONIC_ENCODER_INPUT_DIM = 65
+# Encoder output / decoder latent input
+SONIC_LATENT_DIM = 64
+# Decoder robot state input: 29 joint pos + 29 joint vel = 58
+SONIC_ROBOT_STATE_DIM = 58
+# Decoder output: 29-DOF joint targets
+SONIC_DECODER_OUTPUT_DIM = NUM_BODY_JOINTS
+
 
 class SonicMode(enum.IntEnum):
     """Locomotion modes supported by the SONIC planner.
@@ -471,30 +486,140 @@ class SonicMode(enum.IntEnum):
     BOXING = 4
 
 
+@dataclasses.dataclass
+class MotionClip:
+    """A motion capture clip containing joint and root data at fixed FPS.
+
+    Each field has ``num_frames`` rows sampled at ``fps`` Hz (default 50 Hz).
+    """
+
+    joint_positions: np.ndarray  # (N, 29) — joint angles in radians
+    joint_velocities: np.ndarray  # (N, 29) — joint angular velocities
+    root_height: np.ndarray  # (N,) — pelvis height in meters
+    root_rotation_6d: np.ndarray  # (N, 6) — 6D rotation representation
+    fps: float = 50.0
+    name: str = ""
+
+    @property
+    def num_frames(self) -> int:
+        return int(self.joint_positions.shape[0])
+
+    @property
+    def duration(self) -> float:
+        """Clip duration in seconds."""
+        return self.num_frames / self.fps
+
+    def reference_frame(self, index: int) -> np.ndarray:
+        """Build a 65-dim encoder input vector for the given frame index.
+
+        Layout: [29 joint_pos, 29 joint_vel, 1 root_height, 6 root_rotation_6d].
+        Clamps ``index`` to valid range.
+        """
+        i = max(0, min(index, self.num_frames - 1))
+        return np.concatenate(
+            [
+                self.joint_positions[i],
+                self.joint_velocities[i],
+                self.root_height[i : i + 1],
+                self.root_rotation_6d[i],
+            ]
+        ).astype(np.float32)
+
+
+class MotionClipLoader:
+    """Load :class:`MotionClip` instances from CSV directories.
+
+    Expected directory layout::
+
+        clip_dir/
+            joint_positions.csv    # (N, 29)
+            joint_velocities.csv   # (N, 29)
+            root_height.csv        # (N, 1)
+            root_rotation_6d.csv   # (N, 6)
+
+    All CSV files are comma-delimited with no header row.
+    """
+
+    _REQUIRED_FILES: ClassVar[list[str]] = [
+        "joint_positions.csv",
+        "joint_velocities.csv",
+        "root_height.csv",
+        "root_rotation_6d.csv",
+    ]
+
+    @classmethod
+    def load(cls, directory: str | pathlib.Path, fps: float = 50.0) -> MotionClip:
+        """Load a motion clip from *directory*.
+
+        Parameters
+        ----------
+        directory:
+            Path to a directory containing the four required CSV files.
+        fps:
+            Sampling rate of the data (default 50 Hz).
+
+        Raises
+        ------
+        FileNotFoundError
+            If any required CSV file is missing.
+        """
+        d = pathlib.Path(directory)
+        for fname in cls._REQUIRED_FILES:
+            if not (d / fname).exists():
+                raise FileNotFoundError(f"Missing required file: {d / fname}")
+
+        joint_pos = np.loadtxt(d / "joint_positions.csv", delimiter=",", dtype=np.float32)
+        joint_vel = np.loadtxt(d / "joint_velocities.csv", delimiter=",", dtype=np.float32)
+        root_h = np.loadtxt(d / "root_height.csv", delimiter=",", dtype=np.float32)
+        root_rot = np.loadtxt(d / "root_rotation_6d.csv", delimiter=",", dtype=np.float32)
+
+        # Ensure 2D shape for single-column root_height
+        if root_h.ndim == 2:
+            root_h = root_h[:, 0]
+
+        return MotionClip(
+            joint_positions=joint_pos,
+            joint_velocities=joint_vel,
+            root_height=root_h,
+            root_rotation_6d=root_rot,
+            fps=fps,
+            name=d.name,
+        )
+
+
 class SonicLocomotionController:
-    """SONIC kinematic planner locomotion controller via ONNX inference.
+    """SONIC locomotion controller with planner and encoder+decoder pipelines.
 
-    Downloads the ``planner_sonic.onnx`` model from HuggingFace and runs it
-    at 10 Hz to produce full-body pose trajectories.  Between planner calls
-    the controller interpolates the 30 Hz output to 50 Hz for smooth control.
+    Downloads ONNX models from HuggingFace and supports two modes:
 
-    This is Phase 1 (planner-only).  Phase 2 would add the encoder/decoder
-    models for VR teleoperation support.
+    **Planner mode** (Phase 1): Uses ``planner_sonic.onnx`` at 10 Hz to produce
+    full-body pose trajectories from velocity commands. Between planner calls the
+    controller interpolates the 30 Hz output to 50 Hz for smooth control.
+
+    **Tracking mode** (Phase 2): Uses ``encoder_sonic.onnx`` and
+    ``decoder_sonic.onnx`` to track reference motion clips. The encoder converts
+    a 65-dim motion reference into a 64-dim latent token, and the decoder maps
+    the latent plus the current 58-dim robot state into 29-DOF joint targets.
 
     Implements the ``Controller`` protocol::
 
+        # Planner mode
         action = ctrl.compute(
-            command={
-                "velocity": [vx, vy, yaw_rate],  # or movement_direction/facing_direction
-                "mode": SonicMode.WALK,           # optional, default WALK
-            },
+            command={"velocity": [vx, vy, yaw_rate], "mode": SonicMode.WALK},
+            state={"qpos": qpos, "qvel": qvel},
+        )
+
+        # Tracking mode
+        ctrl.set_tracking_clip(clip)
+        action = ctrl.compute(
+            command={"tracking": True},
             state={"qpos": qpos, "qvel": qvel},
         )
 
     Parameters
     ----------
     repo_id:
-        HuggingFace repo with the planner ONNX model.
+        HuggingFace repo with the ONNX models.
     default_height:
         Desired pelvis height in meters.
     default_mode:
@@ -513,8 +638,10 @@ class SonicLocomotionController:
         self._default_height = default_height
         self._default_mode = default_mode
 
-        # Download and load planner ONNX model
+        # Download and load ONNX models
         self._planner_session = self._load_onnx(SONIC_PLANNER_FILE)
+        self._encoder_session = self._load_onnx(SONIC_ENCODER_FILE)
+        self._decoder_session = self._load_onnx(SONIC_DECODER_FILE)
 
         # Context window: last 4 full qpos frames (36-dim each)
         self._context: deque[np.ndarray] = deque(maxlen=SONIC_CONTEXT_LEN)
@@ -534,12 +661,16 @@ class SonicLocomotionController:
         self._cmd = np.zeros(3, dtype=np.float32)
         self._mode = default_mode
 
+        # Phase 2: tracking state
+        self._tracking_clip: MotionClip | None = None
+        self._tracking_frame_index: int = 0
+
         # Initialise context with default standing pose
         standing = self._make_standing_qpos()
         for _ in range(SONIC_CONTEXT_LEN):
             self._context.append(standing.copy())
 
-        logger.info("SONIC locomotion controller loaded (planner-only, Phase 1)")
+        logger.info("SONIC locomotion controller loaded (planner + encoder/decoder)")
 
     @staticmethod
     def _make_standing_qpos() -> np.ndarray:
@@ -608,26 +739,95 @@ class SonicLocomotionController:
         self._traj_index = 0
         self._interp_phase = 0.0
 
+    def set_tracking_clip(self, clip: MotionClip) -> None:
+        """Set a motion clip for tracking mode.
+
+        Parameters
+        ----------
+        clip:
+            The :class:`MotionClip` to track. Call :meth:`compute` with
+            ``command={"tracking": True}`` to use it.
+        """
+        self._tracking_clip = clip
+        self._tracking_frame_index = 0
+
+    def clear_tracking_clip(self) -> None:
+        """Remove the current tracking clip and reset tracking state."""
+        self._tracking_clip = None
+        self._tracking_frame_index = 0
+
+    def _run_tracking(self, state: dict[str, Any]) -> np.ndarray:
+        """Run the encoder+decoder pipeline for one tracking step.
+
+        Encodes the current motion reference frame into a latent token,
+        then decodes it with the current robot state to produce joint targets.
+        """
+        assert self._tracking_clip is not None
+
+        # Get 65-dim reference from the current clip frame
+        ref = self._tracking_clip.reference_frame(self._tracking_frame_index)
+        ref_input = ref.reshape(1, -1).astype(np.float32)
+
+        # Encoder: 65-dim → 64-dim latent
+        latent = self._encoder_session.run(None, {"motion_ref": ref_input})[0]
+
+        # Build 58-dim robot state: 29 joint pos + 29 joint vel
+        qpos = np.asarray(state["qpos"], dtype=np.float32)
+        qvel = np.asarray(state.get("qvel", np.zeros(35, dtype=np.float32)), dtype=np.float32)
+
+        qj_offset = 7 if len(qpos) > 7 else 0
+        dqj_offset = 6 if len(qvel) > 6 else 0
+        qj = qpos[qj_offset : qj_offset + NUM_BODY_JOINTS]
+        dqj = qvel[dqj_offset : dqj_offset + NUM_BODY_JOINTS]
+
+        if len(qj) < NUM_BODY_JOINTS:
+            qj = np.pad(qj, (0, NUM_BODY_JOINTS - len(qj)))
+        if len(dqj) < NUM_BODY_JOINTS:
+            dqj = np.pad(dqj, (0, NUM_BODY_JOINTS - len(dqj)))
+
+        robot_state = np.concatenate([qj, dqj]).reshape(1, -1).astype(np.float32)
+
+        # Decoder: (64-dim latent, 58-dim state) → 29-DOF targets
+        targets = self._decoder_session.run(None, {"latent": latent, "robot_state": robot_state})[0]
+
+        # Advance tracking frame (at control rate relative to clip fps)
+        step_frames = self._tracking_clip.fps / SONIC_CONTROL_RATE
+        self._tracking_frame_index = min(
+            int(self._tracking_frame_index + step_frames),
+            self._tracking_clip.num_frames - 1,
+        )
+
+        result: np.ndarray = targets.flatten()[:NUM_BODY_JOINTS]
+        return result
+
     def compute(self, command: dict[str, Any], state: dict[str, Any]) -> np.ndarray:
         """Compute full-body joint targets from velocity command and robot state.
 
         Parameters
         ----------
         command:
-            ``{"velocity": [vx, vy, yaw_rate]}`` — desired base velocity.
+            For planner mode: ``{"velocity": [vx, vy, yaw_rate]}``.
             Optional ``"mode"`` key selects locomotion style (``SonicMode``).
             Optional ``"height"`` overrides pelvis height.
+
+            For tracking mode: ``{"tracking": True}``. Requires a clip set
+            via :meth:`set_tracking_clip`.
         state:
             Must contain:
             - ``"qpos"``: joint positions (at least first 36 elements for
               free joint quaternion + 29 body joints)
+            - ``"qvel"``: joint velocities (for tracking mode)
 
         Returns
         -------
         np.ndarray
             Joint position targets for all 29 body joints.
         """
-        # Parse command
+        # Phase 2: tracking mode — use encoder+decoder if a clip is active
+        if command.get("tracking") and self._tracking_clip is not None:
+            return self._run_tracking(state)
+
+        # Parse command (planner mode)
         vel = command.get("velocity", [0.0, 0.0, 0.0])
         self._cmd[:] = vel
         self._mode = SonicMode(command.get("mode", self._default_mode))
@@ -680,13 +880,18 @@ class SonicLocomotionController:
         return joints
 
     def reset(self) -> None:
-        """Reset internal state (call on episode reset)."""
+        """Reset internal state (call on episode reset).
+
+        Resets planner and tracking state. The tracking clip reference is
+        preserved — call :meth:`clear_tracking_clip` to remove it.
+        """
         self._cmd[:] = 0.0
         self._mode = self._default_mode
         self._trajectory.clear()
         self._traj_index = 0
         self._interp_phase = 0.0
         self._steps_since_plan = 0
+        self._tracking_frame_index = 0
         self._context.clear()
         standing = self._make_standing_qpos()
         for _ in range(SONIC_CONTEXT_LEN):

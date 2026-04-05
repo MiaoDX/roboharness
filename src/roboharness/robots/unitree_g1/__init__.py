@@ -24,6 +24,8 @@ try:
     from roboharness.robots.unitree_g1.locomotion import (
         GrootLocomotionController,
         HolosomaLocomotionController,
+        MotionClip,
+        MotionClipLoader,
         SonicLocomotionController,
         SonicMode,
     )
@@ -31,6 +33,8 @@ try:
     __all__ += [
         "GrootLocomotionController",
         "HolosomaLocomotionController",
+        "MotionClip",
+        "MotionClipLoader",
         "SonicLocomotionController",
         "SonicMode",
     ]
