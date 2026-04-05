@@ -42,7 +42,8 @@
 
 ```bash
 pip install roboharness                  # core (numpy only)
-pip install roboharness[demo]            # all demo dependencies (MuJoCo, WBC, LeRobot, Rerun, etc.)
+pip install roboharness[demo]            # demo dependencies (MuJoCo, Meshcat, Gymnasium, Rerun, etc.)
+pip install roboharness[demo,wbc]        # + whole-body control (Pinocchio, Pink)
 pip install roboharness[dev]             # development (pytest, ruff, mypy)
 ```
 
@@ -64,7 +65,7 @@ python examples/mujoco_grasp.py --report
 <summary><b>G1 Humanoid WBC Reach</b></summary>
 
 ```bash
-pip install roboharness[mujoco,wbc] robot_descriptions Pillow
+pip install roboharness[demo,wbc]
 python examples/g1_wbc_reach.py --report
 ```
 
