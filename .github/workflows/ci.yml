@@ -112,6 +112,41 @@ jobs:
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "Download the full artifact (including HTML report) from the Actions tab." >> $GITHUB_STEP_SUMMARY
 
+  lerobot-g1-native-example:
+    runs-on: ubuntu-latest
+    # Native LeRobot requires torch + lerobot — heavy install, allowed to fail
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+
+      - name: Install CPU-only PyTorch (lighter than default CUDA build)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install package with native LeRobot dependencies
+        run: pip install -e ".[lerobot-native]" Pillow
+
+      - name: Run native LeRobot G1 example
+        env:
+          MUJOCO_GL: osmesa
+        run: python examples/lerobot_g1_native.py --report --assert-success --output-dir ./harness_output
+
+      - name: Upload visual artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lerobot-g1-native-output
+          path: |
+            harness_output/lerobot_g1_native_report.html
+            harness_output/lerobot_g1_native/trial_001/**/*_rgb.png
+            harness_output/lerobot_g1_native/trial_001/**/metadata.json
+          retention-days: 30
+
   lerobot-g1-example:
     runs-on: ubuntu-latest
     steps:

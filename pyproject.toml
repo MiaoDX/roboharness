@@ -58,6 +58,11 @@ lerobot = [
     "huggingface_hub>=0.20",
     "onnxruntime>=1.16",
 ]
+lerobot-native = [
+    "lerobot",
+    "mujoco>=3.0",
+    "gymnasium>=0.29",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -66,7 +71,7 @@ dev = [
     "pre-commit>=3.0",
 ]
 all = [
-    "roboharness[mujoco,meshcat,rerun,lerobot,wbc,unitree,dev]",
+    "roboharness[mujoco,meshcat,rerun,lerobot,lerobot-native,wbc,unitree,dev]",
 ]
 
 [project.scripts]
@@ -138,5 +143,6 @@ module = [
     "onnxruntime.*",
     "huggingface_hub.*",
     "unitree_sdk2py.*",
+    "lerobot.*",
 ]
 ignore_missing_imports = true
