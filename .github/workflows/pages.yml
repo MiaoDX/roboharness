@@ -26,8 +26,8 @@ jobs:
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
 
-      - name: Install package with demo dependencies
-        run: pip install -e ".[demo]"
+      - name: Install package with demo + WBC dependencies
+        run: pip install -e ".[demo,wbc]"
 
       - name: Cache HuggingFace model assets
         uses: actions/cache@v4

@@ -8,7 +8,7 @@ Demonstrates the Controller protocol with a Unitree G1 humanoid robot:
   4. Capture multi-view screenshots at each checkpoint
 
 Run:
-    pip install roboharness[mujoco,wbc] robot_descriptions Pillow
+    pip install roboharness[demo,wbc]
     python examples/g1_wbc_reach.py
 
 Output:
