@@ -32,36 +32,18 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-mujoco = [
-    "mujoco>=3.0",
-]
-meshcat = [
+demo = [
     "mujoco>=3.0",
     "meshcat>=0.3.0",
-]
-maniskill = [
-    "mani_skill>=3.0",
-]
-rerun = [
-    "rerun-sdk>=0.18",
-]
-unitree = [
-    "unitree-sdk2py @ git+https://github.com/MiaoDX-fork-and-pruning/unitree_sdk2_python_uv.git",
-]
-wbc = [
+    "gymnasium>=0.29",
+    "huggingface_hub>=0.20",
+    "onnxruntime>=1.16",
+    "Pillow",
     "pin>=3.0",
     "pin-pink>=0.11",
     "qpsolvers[quadprog]",
-]
-lerobot = [
-    "mujoco>=3.0",
-    "huggingface_hub>=0.20",
-    "onnxruntime>=1.16",
-]
-lerobot-native = [
-    "lerobot",
-    "mujoco>=3.0",
-    "gymnasium>=0.29",
+    "robot_descriptions",
+    "rerun-sdk>=0.18",
 ]
 dev = [
     "pytest>=7.0",
@@ -69,9 +51,6 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.0",
     "pre-commit>=3.0",
-]
-all = [
-    "roboharness[mujoco,meshcat,rerun,lerobot,lerobot-native,wbc,unitree,dev]",
 ]
 
 [project.scripts]
@@ -82,9 +61,6 @@ Homepage = "https://github.com/MiaoDX/RobotHarness"
 Repository = "https://github.com/MiaoDX/RobotHarness"
 Issues = "https://github.com/MiaoDX/RobotHarness/issues"
 Documentation = "https://github.com/MiaoDX/RobotHarness/tree/main/docs"
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/roboharness"]
@@ -107,7 +83,7 @@ testpaths = ["tests"]
 addopts = "--cov=roboharness --cov-report=term-missing --cov-fail-under=90"
 
 [tool.coverage.run]
-# Omit files requiring optional heavy deps not in [dev].
+# Omit files requiring optional deps not in [dev].
 # These are covered by specialized CI jobs (test-mujoco) or need GPU/hardware.
 # Do NOT add files here just because tests haven't been written.
 omit = [

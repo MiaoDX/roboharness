@@ -42,10 +42,8 @@
 
 ```bash
 pip install roboharness                  # core (numpy only)
-pip install roboharness[mujoco]          # + MuJoCo backend
-pip install roboharness[mujoco,rerun]    # + Rerun logging
+pip install roboharness[demo]            # all demo dependencies (MuJoCo, WBC, LeRobot, Rerun, etc.)
 pip install roboharness[dev]             # development (pytest, ruff, mypy)
-pip install roboharness[all]             # everything (MuJoCo, WBC, LeRobot, Rerun)
 ```
 
 ## Quick Start
@@ -53,7 +51,7 @@ pip install roboharness[all]             # everything (MuJoCo, WBC, LeRobot, Rer
 ### MuJoCo Grasp
 
 ```bash
-pip install roboharness[mujoco] Pillow
+pip install roboharness[demo]
 python examples/mujoco_grasp.py --report
 ```
 
@@ -82,7 +80,7 @@ Whole-body control (WBC) for the Unitree G1 humanoid using Pinocchio + Pink diff
 <summary><b>LeRobot G1 Locomotion</b></summary>
 
 ```bash
-pip install roboharness[lerobot] gymnasium Pillow
+pip install roboharness[demo]
 python examples/lerobot_g1.py --report
 ```
 
@@ -94,9 +92,8 @@ Integrates the real [Unitree G1 43-DOF model](https://huggingface.co/lerobot/uni
 <summary><b>Native LeRobot Integration</b></summary>
 
 ```bash
-# CPU-only (lighter):
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install roboharness[lerobot-native] Pillow
+pip install torch --index-url https://download.pytorch.org/whl/cpu  # CPU-only
+pip install roboharness[demo] lerobot
 
 MUJOCO_GL=osmesa python examples/lerobot_g1_native.py --report
 ```
@@ -137,7 +134,7 @@ action = ctrl.compute(
 )
 ```
 
-Models (`planner_sonic.onnx`, `encoder_sonic.onnx`, `decoder_sonic.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[lerobot]`. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
+Models (`planner_sonic.onnx`, `encoder_sonic.onnx`, `decoder_sonic.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
 
 </details>
 

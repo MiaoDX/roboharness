@@ -5,7 +5,7 @@ Use roboharness when an agent needs to **debug, inspect, or validate robot behav
 
 ## Install
 ```bash
-pip install roboharness[mujoco]   # core + MuJoCo physics & rendering
+pip install roboharness[demo]   # core + all demo dependencies
 ```
 
 ## Gymnasium wrapper (drop-in, zero-change)

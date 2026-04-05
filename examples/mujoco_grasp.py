@@ -8,7 +8,7 @@ A minimal, self-contained example that demonstrates the full harness workflow:
   4. Save everything to disk
 
 Run:
-    pip install roboharness[mujoco] Pillow
+    pip install roboharness[demo]
     python examples/mujoco_grasp.py
 
 Output:
