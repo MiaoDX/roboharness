@@ -130,11 +130,8 @@ jobs:
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
 
-      - name: Install CPU-only PyTorch (lighter than default CUDA build)
-        run: uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
-
-      - name: Install package with demo dependencies + lerobot
-        run: uv pip install --system -e ".[demo]" lerobot
+      - name: Install package with demo dependencies + lerobot (CPU PyTorch)
+        run: uv pip install --system -e ".[demo]" lerobot --extra-index-url https://download.pytorch.org/whl/cpu
 
       - name: Run native LeRobot G1 example
         env:
@@ -190,7 +187,7 @@ jobs:
             harness_output/lerobot_g1/trial_001/**/metadata.json
           retention-days: 30
 
-      - name: Post summary with checkpoint images
+      - name: Post summary
         if: always()
         run: |
           echo "## LeRobot G1 Example Results" >> $GITHUB_STEP_SUMMARY
@@ -199,20 +196,13 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           for cp in harness_output/lerobot_g1/trial_001/*/; do
             name=$(basename "$cp")
-            echo "### ${name}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            for img in "${cp}"*_rgb.png; do
-              if [ -f "$img" ]; then
-                cam=$(basename "$img" _rgb.png)
-                echo "![${name} ${cam}](data:image/png;base64,$(base64 -w0 "$img"))" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-              fi
-            done
+            n_images=$(find "$cp" -name '*_rgb.png' 2>/dev/null | wc -l)
             if [ -f "${cp}metadata.json" ]; then
               step=$(python3 -c "import json; print(json.load(open('${cp}metadata.json'))['step'])")
-              echo "Step: ${step}" >> $GITHUB_STEP_SUMMARY
+              echo "- **${name}**: step ${step}, ${n_images} captures" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **${name}**: ${n_images} captures" >> $GITHUB_STEP_SUMMARY
             fi
-            echo "" >> $GITHUB_STEP_SUMMARY
           done
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "Download the full artifact (including HTML report) from the Actions tab." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the full artifact (including HTML report and images) from the Actions tab." >> $GITHUB_STEP_SUMMARY

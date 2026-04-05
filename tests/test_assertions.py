@@ -292,12 +292,10 @@ constraints:
 """
         p = tmp_path / "test.yaml"
         p.write_text(yaml_content)
-        try:
-            assertions = load_constraints(p)
-            assert len(assertions) == 2
-            assert assertions[0].severity == Severity.CRITICAL
-        except ImportError:
-            pytest.skip("PyYAML not installed")
+        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")  # noqa: F841
+        assertions = load_constraints(p)
+        assert len(assertions) == 2
+        assert assertions[0].severity == Severity.CRITICAL
 
 
 # ---------------------------------------------------------------------------
@@ -331,8 +329,9 @@ class TestBatchEvaluation:
     def test_evaluate_batch(self, batch_dir: Path) -> None:
         result = evaluate_batch(batch_dir, GRASP_DEFAULTS)
         assert result.total_trials == 2
-        assert 0.0 < result.success_rate <= 1.0
-        assert "pass" in result.verdicts or "fail" in result.verdicts
+        assert result.success_rate == 0.5
+        assert result.verdicts.get("pass") == 1
+        assert result.verdicts.get("fail") == 1
 
     def test_evaluate_batch_success_rate(self, batch_dir: Path) -> None:
         result = evaluate_batch(batch_dir, GRASP_DEFAULTS)

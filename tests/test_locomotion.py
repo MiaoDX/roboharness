@@ -28,6 +28,8 @@ class _FakeInput:
 class _FakeSession:
     """Mimics ``onnxruntime.InferenceSession``."""
 
+    call_count: int = 0  # class-level call counter for verification
+
     def __init__(self, path: str, providers: list[str] | None = None) -> None:
         self.path = path
         self.providers = providers
@@ -35,6 +37,7 @@ class _FakeSession:
         self._is_planner = "planner" in path
         self._is_encoder = "encoder" in path
         self._is_decoder = "decoder" in path
+        self._run_count = 0
 
     def get_inputs(self) -> list[_FakeInput]:
         if self._is_planner:
@@ -47,6 +50,7 @@ class _FakeSession:
 
     def run(self, output_names: list[str] | None, feed: dict[str, Any]) -> list[np.ndarray]:
         """Return deterministic outputs matching the model type."""
+        self._run_count += 1
         if self._is_planner:
             # SONIC planner: return [mujoco_qpos [1, N, 36], num_pred_frames]
             num_frames = 6
@@ -153,11 +157,13 @@ class TestGrootLocomotionController:
         """Near-zero velocity should use the balance session."""
         ctrl = self._make_controller()
         state = _make_g1_state()
+        # Record run counts before compute
+        balance_before = ctrl._balance_session._run_count
+        walk_before = ctrl._walk_session._run_count
         ctrl.compute(command={"velocity": [0, 0, 0]}, state=state)
-        # With zero command, the balance session should have been used.
-        # We can't easily assert which session was called with fakes,
-        # but we verify the output is valid.
-        assert ctrl._action is not None
+        # With zero command, only the balance session should have been called
+        assert ctrl._balance_session._run_count == balance_before + 1
+        assert ctrl._walk_session._run_count == walk_before
 
     def test_handles_short_qpos(self) -> None:
         """Controller should handle qpos shorter than expected."""
@@ -295,11 +301,13 @@ class TestLocomotionUtilities:
     def test_get_gravity_orientation_90deg_pitch(self) -> None:
         from roboharness.controllers.locomotion import get_gravity_orientation
 
-        # 90-degree pitch rotation: q = [cos(45°), 0, sin(45°), 0]
+        # 90-degree pitch rotation about Y: q = [cos(45°), 0, sin(45°), 0]
+        # Body pitches forward 90°, world -z maps to body +x
         angle = np.pi / 2
         q = np.array([np.cos(angle / 2), 0, np.sin(angle / 2), 0], dtype=np.float32)
         grav = get_gravity_orientation(q)
         assert grav.shape == (3,)
+        np.testing.assert_allclose(grav, [1, 0, 0], atol=1e-6)
 
     def test_download_onnx_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Should raise ImportError when huggingface_hub is not installed."""
