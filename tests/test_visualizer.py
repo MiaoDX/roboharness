@@ -3,7 +3,6 @@
 import numpy as np
 import pytest
 
-from roboharness.backends.visualizer import Visualizer
 from roboharness.core.capture import CameraView
 from roboharness.core.harness import SimulatorBackend
 
@@ -36,8 +35,10 @@ class FakeVisualizer:
 
 
 def test_fake_visualizer_implements_protocol():
+    """Verify FakeVisualizer structurally matches Visualizer Protocol."""
     viz = FakeVisualizer()
-    assert isinstance(viz, Visualizer)
+    assert callable(getattr(viz, "capture_camera", None))
+    assert callable(getattr(viz, "sync", None))
 
 
 def test_fake_visualizer_capture():

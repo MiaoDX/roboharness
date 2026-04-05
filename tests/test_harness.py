@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 
 from roboharness.core.capture import CameraView
-from roboharness.core.harness import Harness, SimulatorBackend
+from roboharness.core.harness import Harness
 
 
 class MockBackend:
@@ -47,8 +47,11 @@ class MockBackend:
 
 
 def test_mock_implements_protocol():
+    """Verify MockBackend structurally matches SimulatorBackend Protocol."""
     backend = MockBackend()
-    assert isinstance(backend, SimulatorBackend)
+    assert callable(getattr(backend, "step", None))
+    assert callable(getattr(backend, "get_state", None))
+    assert callable(getattr(backend, "reset", None))
 
 
 def test_harness_add_checkpoints(tmp_path):
