@@ -134,30 +134,71 @@ CPU CI 跑 `pytest`（自动跳过 gpu marked 测试），GPU CI 跑 `pytest -m 
 | Cirrus Runners | N/A (月费) | $75–150 |
 | AWS CodeBuild | $3.00 | $150 |
 
-### 推荐路径
+### 其他 GPU 云平台评估（2026-04-06 补充）
 
-**阶段一（现在）**：先加 pytest markers，把 GPU 测试标记出来，CPU CI 不受影响。
+除 GitHub Actions 生态内的方案外，还调研了独立 GPU 云平台：
 
-**阶段二（有 GPU 测试时）**：
-- **首选 Cirun.io + AWS**（开源免费，只付云实例费 ~$5/月）
-- 或 **RunsOn + AWS spot**（最便宜，~$5/月）
-- 有 Team plan 则可用 **GitHub GPU Runners**（最简单但最贵）
+| 平台 | CI 集成方式 | T4 等价价格 | 自动启停 | 接入难度 | 推荐度 |
+|------|------------|------------|---------|---------|--------|
+| **Lambda Cloud** | 手动装 runner + 自写生命周期脚本 | ~$0.79/hr (V100, 无 T4) | 需 DIY | 中 | 不推荐用于 CI |
+| **Vast.ai** | 手动装 runner, 社区市场模式 | ~$0.15/hr | 需 DIY | 高 | 不推荐（不稳定） |
+| **RunPod** | 有[官方 GHA runner 模板](https://github.com/runpod-workers/worker-github_runner) | ~$0.40/hr | Serverless 自动缩零 | 中 | 可考虑 |
+| **CoreWeave** | 需在其 k8s 上部署 ARC | ~$0.30-0.60/hr | k8s ARC | 高 | 不推荐（过重） |
+| **NVIDIA** | 无公开 CI 资源 | N/A | N/A | N/A | 无可用方案 |
+
+> **NVIDIA 说明**：NVIDIA 自家 Isaac Lab 用的是内部 self-hosted runner，不对外开放。
+> NGC 只提供容器镜像拉取，不提供算力。DGX Cloud 是企业级产品。
+
+#### 多云平台 + Cirun.io 对比
+
+Cirun.io 同时支持 AWS、GCP、Azure，接入方式统一（一个 `.cirun.yml`），差异仅在 GPU 实例价格：
+
+| 云平台 | T4 Spot/抢占式价格 | T4 On-demand 价格 | 新用户赠金 |
+|--------|-------------------|-------------------|-----------|
+| **GCP** | ~$0.11/hr (preemptible) | ~$0.35-0.45/hr | **$300 / 90 天（注册即得）** |
+| **AWS** | ~$0.16/hr (spot) | ~$0.53/hr | 无 GPU 免费层 |
+| **Azure** | ~$0.05-0.10/hr (spot) | ~$0.53/hr | 需单独申请 credits |
+
+#### 云平台 Credits / 免费额度
+
+| 项目 | 额度 | 门槛 | 适用性 |
+|------|------|------|--------|
+| **GCP $300 新用户赠金** | $300, 90 天 | 注册绑卡即得 | **最佳起步方案** |
+| GCP OSS Credits | $1k-3k/年 | 需申请，无公开自助入口，小项目较难 | 项目规模大了再考虑 |
+| GCP Research Credits | $1k-5k/年 | 需学术/非营利机构背景 | 维护者有高校身份可申请 |
+| AWS Open Source Credits | $500-5k | 邮件 `awsopen@amazon.com`，需多组织贡献者 | 中期目标 |
+| AWS Activate Founders | $1,000 | 需公司实体 | 有 LLC 可申请 |
+
+### 推荐路径（2026-04-06 更新）
+
+**阶段一（现在）**：
+- 加 pytest markers（`@pytest.mark.gpu`），CPU CI 不受影响
+- **推荐方案：Cirun.io + GCP preemptible T4**
+  - GCP 新用户 $300 赠金可支撑 ~2,700 GPU 小时（约 16,000 次 10 分钟测试）
+  - 90 天内 GPU CI 零成本
+
+**阶段二（赠金用完后）**：
+- 继续使用 GCP preemptible T4（~$0.11/hr，每月 50 次测试仅 ~$5）
+- 或切换到 AWS spot T4（~$0.16/hr，~$5/月）
+- 申请 AWS Open Source Credits 或 GCP Research Credits（如有学术背景）
 
 **阶段三（测试变多时）**：
 - Docker 镜像固化 GPU 环境（CUDA + PyTorch + cuRobo）
 - 考虑 nightly 全量 GPU 测试 + PR 只跑关键路径
 - 如果 GPU 测试频率很高，考虑 Cirrus Runners 的无限分钟方案
 
-### Cirun.io 配置示例（推荐方案）
+### Cirun.io + GCP 配置示例（推荐方案）
 
 ```yaml
 # .cirun.yml
 runners:
   - name: gpu-runner
-    cloud: aws
-    instance_type: g4dn.xlarge  # T4 GPU, 4 vCPU, 16GB
-    machine_image: ami-xxxxx    # Deep Learning AMI
-    preemptible: true           # spot instance, 更便宜
+    cloud: gcp
+    instance_type: n1-standard-4
+    machine_image: projects/deeplearning-platform-release/global/images/family/common-cu121
+    accelerator_type: nvidia-tesla-t4
+    accelerator_count: 1
+    preemptible: true           # 抢占式实例, ~$0.11/hr
     labels:
       - gpu
 ```
@@ -166,7 +207,9 @@ runners:
 # .github/workflows/ci.yml 中新增 GPU job
 gpu-test:
   runs-on: [self-hosted, gpu]
-  if: github.ref == 'refs/heads/main'
+  if: |
+    github.event_name == 'push' && github.ref == 'refs/heads/main'
+    || contains(github.event.pull_request.labels.*.name, 'gpu-test')
   steps:
     - uses: actions/checkout@v4
     - name: Run GPU tests
@@ -174,6 +217,23 @@ gpu-test:
         pip install -e ".[demo,dev]"
         pytest -m gpu
 ```
+
+<details>
+<summary>备选：Cirun.io + AWS 配置</summary>
+
+```yaml
+# .cirun.yml
+runners:
+  - name: gpu-runner
+    cloud: aws
+    instance_type: g4dn.xlarge  # T4 GPU, 4 vCPU, 16GB
+    machine_image: ami-xxxxx    # Deep Learning AMI
+    preemptible: true           # spot instance, ~$0.16/hr
+    labels:
+      - gpu
+```
+
+</details>
 
 ## 社区参考
 
@@ -189,8 +249,12 @@ gpu-test:
 ## 参考链接
 
 - [GitHub GPU Runners (larger runners)](https://docs.github.com/en/actions/using-github-hosted-runners/using-larger-runners)
-- [Cirun.io](https://cirun.io/) — 开源项目免费
+- [Cirun.io](https://cirun.io/) — 开源项目免费，支持 AWS/GCP/Azure
 - [RunsOn GPU Runners](https://runs-on.com/runners/gpu/) — 非商业免费
+- [RunPod worker-github_runner](https://github.com/runpod-workers/worker-github_runner) — RunPod 官方 GHA runner
 - [Cirrus Runners](https://cirrus-runners.app/pricing/)
 - [Modal](https://modal.com/)
 - [cloud_gpu_build_agent (Terraform GPU CI)](https://github.com/jfpanisset/cloud_gpu_build_agent)
+- [GCP Preemptible VM](https://cloud.google.com/compute/docs/instances/preemptible) — 抢占式实例文档
+- [AWS Open Source Credits](https://aws.amazon.com/blogs/opensource/aws-promotional-credits-open-source-projects/) — 开源项目申请
+- [GCP Research Credits](https://edu.google.com/intl/ALL_us/programs/credits/research/) — 学术项目申请
