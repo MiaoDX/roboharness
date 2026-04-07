@@ -1,6 +1,8 @@
 # Roboharness：面向 AI Coding Agent 的机器人仿真可视化验证框架
 
-让 AI agent 真正“看见机器人”，而不只是“看见日志”。
+> **文档定位：正式飞书文档。** 可直接转飞书发布。报名操作见 `submission`，详细素材库见 `feishu-full`。
+
+让 AI agent 真正”看见机器人”，而不只是”看见日志”。
 
 ## 团队信息
 
@@ -11,9 +13,21 @@
 
 Roboharness 是一个为机器人仿真场景设计的 **agent-first visual harness**。
 
-它不是只记录日志，也不是只做截图，而是把抓取、行走、全身控制等机器人任务拆成语义化 checkpoint，在关键阶段自动采集多视角图像、状态 JSON、HTML 报告和可恢复快照，让 Claude Code、Codex 等 AI Coding Agent 能基于真实可视结果完成“写代码 → 跑仿真 → 判断成败 → 修改代码 → 再验证”的闭环。
+它不是只记录日志，也不是只做截图，而是把抓取、行走、全身控制等机器人任务拆成语义化 checkpoint，在关键阶段自动采集多视角图像、状态 JSON、HTML 报告和可恢复快照，让 Claude Code、Codex 等 AI Coding Agent 能基于真实可视结果完成”写代码 → 跑仿真 → 判断成败 → 修改代码 → 再验证”的闭环。
 
-我们希望解决的问题很明确：在机器人研发里，很多任务的成败根本无法仅靠日志判断。抓取是否成功、姿态是否稳定、轨迹是否偏移、接触是否合理，都必须靠看画面、看阶段状态、看行为结果。对 AI Coding Agent 来说也是一样——如果只给它日志，它其实看不见机器人行为本身，自动迭代就容易退化成“改一版、跑一下、继续猜”。
+### 项目一览
+
+| 指标 | 数据 |
+|------|------|
+| 源码规模 | 34 个 Python 模块，~4,000 行有效代码（`src/`） |
+| 测试规模 | ~3,500 行测试代码（`tests/`），覆盖率阈值 90% |
+| CI 工作流 | 4 条（ci / docker / pages / release），支持 Python 3.10–3.13 |
+| 示例场景 | 8 个可运行 example（MuJoCo grasp、G1 reach、LeRobot native 等） |
+| 提交统计 | 50 次提交，其中 Claude 完成 48 次（96%） |
+| Issue 驱动 | 13+ 个 issue 驱动开发，覆盖从 MuJoCo grasp 到 SONIC locomotion |
+| 在线 Demo | 5 个公开 HTML visual report（GitHub Pages 自动部署） |
+
+我们希望解决的问题很明确：在机器人研发里，很多任务的成败根本无法仅靠日志判断。抓取是否成功、姿态是否稳定、轨迹是否偏移、接触是否合理，都必须靠看画面、看阶段状态、看行为结果。对 AI Coding Agent 来说也是一样——如果只给它日志，它其实看不见机器人行为本身，自动迭代就容易退化成”改一版、跑一下、继续猜”。
 
 因此，Roboharness 的核心不是替 agent 写控制算法，而是给 agent 一个真正可用的工作环境：
 
@@ -64,9 +78,22 @@ Roboharness 做的是一层 `harness / validation layer`，主要能力包括：
 - 可接入 agent 工作流
 - 可进入 CI / PR 验证流程
 
-它不是在做“单次秀肌肉”，而是在做机器人 Agent 开发的公共地基。
+它不是在做”单次秀肌肉”，而是在做机器人 Agent 开发的公共地基。
 
 从创意性来看，它把 harness engineering 从网页/软件工程迁移到了机器人仿真场景；从落地性来看，它直接服务于机器人算法开发、仿真回归验证、PR 验证和失败定位，非常适合作为团队研发效能基础设施。
+
+### 与现有工具的对比
+
+| 维度 | Rerun | Meshcat | pytest / CI | **Roboharness** |
+|------|-------|---------|-------------|-----------------|
+| Agent 可消费的结构化输出 | ✗ | ✗ | 部分（文本） | ✓ PNG + JSON + HTML |
+| 语义化 checkpoint 分阶段 | ✗ | ✗ | ✗ | ✓ plan → grasp → lift … |
+| Checkpoint 恢复 & 重试 | ✗ | ✗ | ✗ | ✓ 从中间阶段继续 |
+| 多仿真后端统一接口 | ✗ | ✗ | N/A | ✓ MuJoCo / Gym / LeRobot |
+| 约束评估 & 趋势分析 | ✗ | ✗ | 需自建 | ✓ YAML 规则 + CLI |
+| 面向 AI Agent 设计 | ✗ | ✗ | ✗ | ✓ agent-first |
+
+Rerun 和 Meshcat 是优秀的可视化工具，但它们的定位是「给人看」；pytest/CI 擅长自动化但不理解机器人行为语义。Roboharness 把两者连起来：在仿真关键阶段自动采集、以 agent 可消费的格式输出、并支持约束评估和 checkpoint 恢复。
 
 ## 支持不同机器人、平台与任务
 
@@ -125,19 +152,40 @@ Roboharness 不是只服务于单一 demo，而是在形成一层可复用的机
 - `assets/example_mujoco_grasp/grasp_front.png`
 - `assets/example_mujoco_grasp/lift_front.png`
 
+## 真实案例：Agent 闭环迭代是怎么发生的
+
+这不是假设场景——以下是仓库里真实发生的一次 agent 闭环迭代：
+
+**背景：** MuJoCo 抓取示例在 CI 中运行，checkpoint 截图看起来一切正常（夹爪确实夹住了方块）。但当我们给 CI 加上 `--assert-success` 物理约束验证后，**断言立刻失败了**：cube z 高度 ≈ 0，说明方块根本没被检测为”抬起”。
+
+**根因：** Agent 生成的代码假设 MuJoCo `qpos` 数组中 slide joint 排在前面，因此用 `qpos[5]` 读取 cube z 坐标。但 MuJoCo 实际上把 free joint（cube 的 6-DOF）排在前面，正确索引是 `qpos[2]`。
+
+**闭环过程：**
+
+| 阶段 | Before | After |
+|------|--------|-------|
+| CI 门控 | 只检查”example 有没有崩溃” | `--assert-success`：检查 cube z > 桌面 + 5mm、夹爪接触存在、qvel 稳定 |
+| qpos 索引 | `qpos[5]`（错误） | `qpos[2]`（正确） |
+| 失败时产物 | 只在成功时上传 | `if: always()` 确保失败时也能看到 checkpoint 截图 |
+| 约束定义 | 硬编码在 Python 中 | 外部化到 `constraints/grasp_default.yaml`，CLI 可评估 |
+
+**这说明什么：** 视觉截图说”看起来 OK”，但结构化约束验证说”物理上不对”。两者结合才是完整的 agent 反馈闭环。这正是 Roboharness 要解决的问题。
+
+> 相关提交：`102a593` — `fix: correct qpos index for cube z-position in grasp assertion`
+
 ## 开发方式：这本身就是一次 Agentic Development 实验
 
 这个项目最值得强调的一点是：
 
-> **没有一行手写功能代码。**
+> **功能代码 100% 由 Claude Code / Codex 生成，人类只负责 issue 定义、方向决策和最终验收。**
 
 我们对这个仓库采用了一个极端约束：
 
-- 人类不直接手写功能代码
+- 人类不直接手写功能代码（项目配置、issue 描述、验收标准由人类编写）
 - 人类负责定义目标、拆 issue、给出验收口径、做最终取舍
 - 代码实现交给 agent 在云端完成
 
-这使它不是“做了一个 AI 相关项目”，而是“用 AI agent 真正把项目做出来”。
+这使它不是”做了一个 AI 相关项目”，而是”用 AI agent 真正把项目做出来”。
 
 ### Claude 负责项目规划与 steering
 
@@ -243,6 +291,17 @@ Roboharness 对应的是机器人研发里一条非常真实的链路：
 
 它未必是一个面向所有人的大众产品，但对目标团队来说，它是一层高价值基础设施。
 
+## 当前局限与下一步
+
+我们主动说明项目当前的不足，因为我们认为这也是它真实和可信的一部分：
+
+1. **Agent 端到端自动闭环的验证还有限。** 当前的闭环案例（如 qpos 修复）主要依赖 CI 约束门控触发，agent 主动"看图 → 判断 → 改代码"的全自动链路还需要更多场景打磨。
+2. **更多仿真后端的适配还在进行中。** 目前最成熟的是 MuJoCo，Isaac Lab 和更多内部仿真环境的 backend 还在路线上。
+3. **约束评估（evaluate）目前还比较初级。** 当前主要是基于阈值的 pass/fail 判定，更复杂的行为质量评分、跨试次趋势分析还需要继续迭代。
+4. **单人 + Agent 的开发模式有天花板。** 如果要真正进入团队日常工作流，还需要更多人参与场景适配和需求反馈。
+
+这些不足恰恰说明项目不是 PPT 概念，而是一个已经在跑、正在面对真实工程问题的系统。
+
 ## 评委最应该记住的 4 句话
 
 1. **它不是另一个机器人 demo，而是一层机器人研发验证基础设施。**
@@ -252,17 +311,33 @@ Roboharness 对应的是机器人研发里一条非常真实的链路：
 
 ## 3 分钟答辩稿
 
-大家好，我们这次带来的项目叫 **Roboharness**。它是一个面向 AI Coding Agent 的机器人仿真可视化验证框架。
+### `[0:00–0:30]` 问题
 
-我们想解决的核心问题很简单：**机器人任务是否成功，很多时候根本不能只看日志。** 抓取有没有抓住、步态稳不稳、轨迹偏没偏，这些都必须看画面。对 Claude Code、Codex 这样的 AI Coding Agent 来说也是一样——如果只给它日志，它其实看不见机器人行为，所以自动迭代很容易退化成“改一版、跑一下、继续猜”。
+大家好，我们这次带来的项目叫 **Roboharness**。
 
-Roboharness 做的事情，就是把机器人任务拆成语义化 checkpoint，在关键阶段自动抓取多视角图像、保存状态 JSON、生成 HTML report，并支持 checkpoint 恢复。这样 agent 就可以基于真实视觉结果完成“写代码 → 跑仿真 → 判断成败 → 修改代码 → 再验证”的闭环。
+机器人任务是否成功，很多时候根本不能只看日志。抓取有没有抓住、步态稳不稳、轨迹偏没偏，这些都必须看画面。对 Claude Code、Codex 这样的 AI Coding Agent 来说也是一样——如果只给它日志，它其实看不见机器人行为，自动迭代很容易退化成”改一版、跑一下、继续猜”。
 
-这个项目不是 PPT。当前仓库已经有 MuJoCo grasp、G1 WBC reach、G1 locomotion、Native LeRobot、SONIC 等多个方向；也已经有 5 个公开可访问的 HTML demos / live reports，可以直接点开看结果。
+### `[0:30–1:15]` 方案
 
-更特别的是，这个仓库本身也是一次 agentic development 实验。**没有一行手写功能代码**：Claude 负责项目规划和 steering，Claude Code 与 Codex 在云端完成绝大多数实现和 PR，GitHub 云端 CI 负责验证，GPU 场景则沿着 Cirun + AWS 的路线扩展，最后用 HTML demo 和 visual report 把结果直接发布出来。
+Roboharness 做的事情，就是把机器人任务拆成语义化 checkpoint，在关键阶段自动抓取多视角图像、保存状态 JSON、生成 HTML report，并支持 checkpoint 恢复和约束评估。这样 agent 就可以基于真实视觉结果完成”写代码 → 跑仿真 → 判断成败 → 修改代码 → 再验证”的闭环。
 
-所以我们认为，Roboharness 的意义不只是做一个机器人 demo，而是在给机器人研发团队提供一层真正 agent-first 的验证基础设施。谢谢。
+*（此处展示 MuJoCo 抓取 GIF 或 HTML report）*
+
+### `[1:15–1:45]` 真实案例
+
+举一个真实的例子：我们的 agent 写的抓取代码，checkpoint 截图看起来没问题，但加上物理约束验证后发现 qpos 索引写错了——方块根本没被”检测到”抬起来。视觉说”OK”，约束说”不对”，两者结合才是完整的反馈。这就是 Roboharness 要做的闭环。
+
+### `[1:45–2:15]` 证明它是真的
+
+这个项目不是 PPT：34 个 Python 模块、4000 行源码、测试覆盖 90%+、4 条 CI 工作流、8 个可运行示例、5 个公开的在线 visual report。已经覆盖 MuJoCo grasp、G1 reach、LeRobot native、SONIC 等多个方向。
+
+### `[2:15–2:45]` 开发方式
+
+更特别的是，这个仓库本身就是一次 agentic development 实验。功能代码 100% 由 Claude Code / Codex 生成，人类只负责 issue 定义和最终验收。50 次提交中 48 次由 Claude 完成。开发在云端 agent 上完成，验证在云端 CI 上完成，结果通过 HTML demo 直接发布。
+
+### `[2:45–3:00]` 收尾
+
+所以 Roboharness 的意义不只是做一个机器人 demo，而是在给机器人研发团队提供一层真正 agent-first 的验证基础设施。谢谢。
 
 ## 结语
 
