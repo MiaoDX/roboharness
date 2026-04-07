@@ -4,6 +4,8 @@ from typing import Any
 
 import numpy as np
 
+from roboharness.core.controller import Controller
+
 
 class MockController:
     """A mock controller for protocol compliance testing."""
@@ -22,13 +24,13 @@ class NotAController:
 def test_mock_implements_controller_protocol():
     """Verify MockController structurally matches Controller Protocol."""
     controller = MockController()
-    assert callable(getattr(controller, "compute", None))
+    assert isinstance(controller, Controller)
 
 
 def test_non_controller_rejected():
-    """Verify non-conforming object lacks required Protocol methods."""
+    """Verify non-conforming object is NOT recognized as Controller."""
     obj = NotAController()
-    assert not callable(getattr(obj, "compute", None))
+    assert not isinstance(obj, Controller)
 
 
 def test_mock_controller_compute():

@@ -222,7 +222,7 @@ class TestEvaluationResult:
         engine = AssertionEngine(GRASP_DEFAULTS)
         result = engine.evaluate(SAMPLE_REPORT, report_path="test.json")
         d = result.to_dict()
-        assert d["verdict"] in ("pass", "degraded", "fail")
+        assert d["verdict"] == "fail"  # SAMPLE_REPORT exceeds critical thresholds
         assert d["report_path"] == "test.json"
         assert d["total_assertions"] == len(GRASP_DEFAULTS)
         assert isinstance(d["results"], list)
@@ -341,11 +341,13 @@ class TestBatchEvaluation:
     def test_failure_distribution(self, batch_dir: Path) -> None:
         result = evaluate_batch(batch_dir, GRASP_DEFAULTS)
         # SAMPLE_REPORT has failure_taxonomy with bad_grasp_geometry
-        assert "bad_grasp_geometry" in result.failure_distribution
+        assert result.failure_distribution["bad_grasp_geometry"] == 1
 
     def test_constraint_failures_tracked(self, batch_dir: Path) -> None:
         result = evaluate_batch(batch_dir, GRASP_DEFAULTS)
-        assert len(result.constraint_failures) > 0
+        # SAMPLE_REPORT exceeds grip_center_error_mm and pinch_gap_error_mm
+        assert "grip_center_error_mm" in result.constraint_failures
+        assert "pinch_gap_error_mm" in result.constraint_failures
 
     def test_batch_to_dict(self, batch_dir: Path) -> None:
         result = evaluate_batch(batch_dir, GRASP_DEFAULTS)

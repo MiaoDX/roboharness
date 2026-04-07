@@ -111,10 +111,10 @@ def test_backend_with_custom_visualizer():
     assert isinstance(backend, SimulatorBackend)
 
     backend.reset()
-    assert viz.sync_count >= 1  # reset calls sync
+    assert viz.sync_count == 1  # reset calls sync exactly once
 
     backend.step(None)
-    assert viz.sync_count >= 2  # step calls sync
+    assert viz.sync_count == 2  # step calls sync exactly once more
 
     view = backend.capture_camera("front")
     assert view.name == "front"
