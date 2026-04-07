@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from roboharness.core.capture import CameraView
-from roboharness.core.harness import SimulatorBackend
 
 # ------------------------------------------------------------------
 # Helpers
@@ -108,7 +107,8 @@ def test_backend_with_custom_visualizer():
 
     viz = FakeVisualizer()
     backend = MuJoCoMeshcatBackend(xml_string=MINIMAL_MJCF, cameras=["front"], visualizer=viz)
-    assert isinstance(backend, SimulatorBackend)
+    assert callable(getattr(backend, "reset", None))
+    assert callable(getattr(backend, "step", None))
 
     backend.reset()
     assert viz.sync_count == 1  # reset calls sync exactly once

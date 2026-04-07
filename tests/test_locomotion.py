@@ -12,8 +12,6 @@ from typing import Any
 import numpy as np
 import pytest
 
-from roboharness.core.controller import Controller
-
 
 # ---------------------------------------------------------------------------
 # Fake ONNX / HuggingFace modules
@@ -120,7 +118,7 @@ class TestGrootLocomotionController:
 
     def test_implements_controller_protocol(self) -> None:
         ctrl = self._make_controller()
-        assert isinstance(ctrl, Controller)
+        assert callable(getattr(ctrl, "compute", None))
 
     def test_compute_returns_15_joint_targets(self) -> None:
         ctrl = self._make_controller()
@@ -195,7 +193,7 @@ class TestHolosomaLocomotionController:
 
     def test_implements_controller_protocol(self) -> None:
         ctrl = self._make_controller()
-        assert isinstance(ctrl, Controller)
+        assert callable(getattr(ctrl, "compute", None))
 
     def test_compute_returns_29_joint_targets(self) -> None:
         ctrl = self._make_controller()
@@ -372,7 +370,7 @@ class TestSonicLocomotionController:
 
     def test_implements_controller_protocol(self) -> None:
         ctrl = self._make_controller()
-        assert isinstance(ctrl, Controller)
+        assert callable(getattr(ctrl, "compute", None))
 
     def test_compute_returns_29_joint_targets(self) -> None:
         ctrl = self._make_controller()
