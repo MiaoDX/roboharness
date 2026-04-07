@@ -162,22 +162,19 @@ jobs:
 
   gpu-test:
     runs-on: [self-hosted, cirun-gpu]
+    container:
+      image: ghcr.io/miaodx/roboharness/ci-gpu:latest
+      options: --gpus all
     if: |
       github.event_name == 'push' && github.ref == 'refs/heads/main'
       || contains(github.event.pull_request.labels.*.name, 'gpu-test')
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-      - name: Install package with dev dependencies and torch
-        run: |
-          uv pip install --system -e ".[dev]"
-          uv pip install --system torch --index-url https://download.pytorch.org/whl/cu121
+      - name: Install package
+        run: uv pip install --system -e ".[dev]"
       - name: Verify GPU
         run: |
+          nvidia-smi
           python -c 'import torch; print(f"CUDA: {torch.cuda.is_available()}, GPUs: {torch.cuda.device_count()}")'
       - name: Run GPU tests
         run: pytest -m gpu -v --no-cov

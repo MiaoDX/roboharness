@@ -1,0 +1,48 @@
+# GPU CI image for roboharness.
+# Based on NVIDIA CUDA runtime with pre-installed drivers, PyTorch (cu121),
+# and all dev dependencies. Used by the gpu-test Cirun job.
+#
+# Published to: ghcr.io/miaodx/roboharness/ci-gpu
+
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System dependencies + Python 3.12
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        software-properties-common \
+        git \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3.12 \
+        python3.12-dev \
+        python3.12-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.12 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1 && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+ENV UV_SYSTEM_PYTHON=1
+
+# Copy only dependency metadata first (for layer caching)
+WORKDIR /opt/roboharness
+COPY pyproject.toml .
+RUN mkdir -p src/roboharness && \
+    echo '__version__ = "0.0.0"' > src/roboharness/__init__.py
+
+# Install dev dependencies
+RUN uv pip install -e ".[dev]"
+
+# Install PyTorch with CUDA 12.1 support
+RUN uv pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# Clean up the dummy package
+RUN rm -rf /opt/roboharness
+
+WORKDIR /workspace
