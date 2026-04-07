@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from roboharness._utils import load_json as _load_json
 from roboharness.evaluate.assertions import AssertionEngine
 from roboharness.evaluate.batch import (
     check_success_rate,
@@ -18,18 +19,12 @@ from roboharness.evaluate.batch import (
 )
 from roboharness.evaluate.constraints import load_constraints
 from roboharness.evaluate.defaults import GRASP_DEFAULTS
-from roboharness.storage.history import EvaluationHistory, detect_trend
+from roboharness.storage.history import EvaluationHistory
 
 
 def _find_files(directory: Path, pattern: str, recursive: bool = True) -> list[Path]:
     """Find files matching a glob pattern under a directory."""
     return sorted(directory.rglob(pattern) if recursive else directory.glob(pattern))
-
-
-def _load_json(path: Path) -> Any:
-    """Load a JSON file."""
-    with path.open() as f:
-        return json.load(f)
 
 
 def _format_state_summary(state: dict[str, Any], max_items: int = 5) -> str:
@@ -247,7 +242,7 @@ def trend_command(
         rate = task_data.get("success_rate")
         if rate is None:
             continue
-        result = detect_trend(history, task_name, rate, window=window, threshold=threshold)
+        result = history.detect_trend(task_name, rate, window=window, threshold=threshold)
         trends.append(result.to_dict())
 
     # Record current run *after* trend detection so it doesn't compare against itself

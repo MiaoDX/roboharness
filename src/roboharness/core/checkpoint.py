@@ -34,12 +34,9 @@ class CheckpointStore:
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._snapshots: dict[str, dict[str, Any]] = {}
 
-    def save(self, name: str, state: dict[str, Any]) -> Path:
-        """Save a simulation state snapshot."""
+    def save(self, name: str, state: dict[str, Any]) -> None:
+        """Save a simulation state snapshot (in-memory)."""
         self._snapshots[name] = state
-        snapshot_dir = self.base_dir / name
-        snapshot_dir.mkdir(parents=True, exist_ok=True)
-        return snapshot_dir
 
     def restore(self, name: str) -> dict[str, Any]:
         """Restore a simulation state snapshot."""

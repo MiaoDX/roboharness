@@ -3,23 +3,35 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
 
 def save_image(arr: np.ndarray, path: Path) -> None:
-    """Save RGB array as PNG. Uses PIL if available, falls back to raw numpy."""
+    """Save RGB array as PNG. Uses PIL if available, falls back to raw numpy.
+
+    When PIL is not installed the array is saved as ``.npy`` next to the
+    requested *path* and a warning is emitted so callers know the ``.png``
+    was not created.
+    """
     try:
         from PIL import Image
 
         img = Image.fromarray(arr)
         img.save(path)
     except ImportError:
-        # Fallback: save as npy with .png extension note
         npy_path = path.with_suffix(".npy")
         np.save(npy_path, arr)
+        logger.warning(
+            "PIL not installed — saved %s as %s instead of PNG",
+            path.name,
+            npy_path.name,
+        )
 
 
 class NumpyEncoder(json.JSONEncoder):

@@ -192,14 +192,3 @@ class EvaluationHistory:
             regressed=regressed,
             message=msg,
         )
-
-
-def detect_trend(
-    history: EvaluationHistory,
-    task: str,
-    current_rate: float,
-    window: int = 5,
-    threshold: float = 0.1,
-) -> TrendResult:
-    """Convenience wrapper — delegates to :meth:`EvaluationHistory.detect_trend`."""
-    return history.detect_trend(task, current_rate, window=window, threshold=threshold)

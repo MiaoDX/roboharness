@@ -328,9 +328,8 @@ class TestLocomotionUtilities:
             return _real_import(name, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "__import__", _block_hf)
-        monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
         monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
-        from roboharness.controllers.locomotion import _download_onnx
+        from roboharness.robots.unitree_g1.locomotion import _download_onnx
 
         with pytest.raises(ImportError, match="huggingface_hub"):
             _download_onnx("some/repo", "model.onnx")

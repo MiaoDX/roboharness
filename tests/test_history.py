@@ -12,7 +12,6 @@ from roboharness.storage.history import (
     EvaluationHistory,
     EvaluationRecord,
     TrendResult,
-    detect_trend,
 )
 
 
@@ -128,20 +127,20 @@ class TestDetectTrend:
 
     def test_no_history(self, tmp_path: Path) -> None:
         history = EvaluationHistory(tmp_path)
-        result = detect_trend(history, "grasp", 0.8)
+        result = history.detect_trend("grasp", 0.8)
         assert not result.regressed
         assert result.previous_rate is None
         assert "baseline" in result.message.lower()
 
     def test_stable(self, tmp_path: Path) -> None:
         history = self._make_history(tmp_path, [0.8, 0.8, 0.8])
-        result = detect_trend(history, "grasp", 0.8)
+        result = history.detect_trend("grasp", 0.8)
         assert not result.regressed
         assert "stable" in result.message.lower()
 
     def test_regression(self, tmp_path: Path) -> None:
         history = self._make_history(tmp_path, [0.9, 0.9, 0.9])
-        result = detect_trend(history, "grasp", 0.6)
+        result = history.detect_trend("grasp", 0.6)
         assert result.regressed
         assert result.delta is not None
         assert result.delta < 0
@@ -151,23 +150,23 @@ class TestDetectTrend:
 
     def test_improvement(self, tmp_path: Path) -> None:
         history = self._make_history(tmp_path, [0.5, 0.5, 0.5])
-        result = detect_trend(history, "grasp", 0.8)
+        result = history.detect_trend("grasp", 0.8)
         assert not result.regressed
         assert "improvement" in result.message.lower()
 
     def test_window_limits(self, tmp_path: Path) -> None:
         # 10 records but window=3 — only last 3 count
         history = self._make_history(tmp_path, [0.2] * 7 + [0.9, 0.9, 0.9])
-        result = detect_trend(history, "grasp", 0.9, window=3)
+        result = history.detect_trend("grasp", 0.9, window=3)
         assert not result.regressed
         assert result.window_size == 3
 
     def test_custom_threshold(self, tmp_path: Path) -> None:
         history = self._make_history(tmp_path, [0.8, 0.8, 0.8])
         # Delta of -0.15 is below default 0.1 threshold → regression
-        result = detect_trend(history, "grasp", 0.65, threshold=0.2)
+        result = history.detect_trend("grasp", 0.65, threshold=0.2)
         assert not result.regressed  # delta=-0.15 > -0.2, so NOT regressed
-        result2 = detect_trend(history, "grasp", 0.65, threshold=0.1)
+        result2 = history.detect_trend("grasp", 0.65, threshold=0.1)
         assert result2.regressed  # delta=-0.15 < -0.1, so regressed
 
     def test_trend_result_to_dict(self) -> None:

@@ -44,7 +44,6 @@ from roboharness.robots.unitree_g1.locomotion import (  # noqa: F401
     MotionClipLoader,
     SonicLocomotionController,
     SonicMode,
-    _download_onnx,
     get_gravity_orientation,
 )
 
