@@ -176,6 +176,7 @@ jobs:
           filters: |
             gpu:
               - 'tests/test_gpu_smoke.py'
+              - 'tests/test_isaac_lab_gpu.py'
               - 'tests/test_isaac_lab_compat.py'
               - 'src/roboharness/wrappers/gymnasium_wrapper.py'
               - '.cirun.yml'
