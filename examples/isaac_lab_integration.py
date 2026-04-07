@@ -76,6 +76,7 @@ def main() -> None:
     # Isaac Lab registers its envs on import
     import isaaclab_tasks  # noqa: F401
 
+    from roboharness.core.protocol import TaskPhase, TaskProtocol
     from roboharness.wrappers import RobotHarnessWrapper
 
     print("=" * 60)
@@ -90,24 +91,36 @@ def main() -> None:
         render_mode="rgb_array",
     )
 
-    # 2. Wrap with RobotHarnessWrapper — zero changes to environment code
+    # 2. Wrap with RobotHarnessWrapper using a semantic task protocol
     #    Multi-camera: The wrapper auto-detects whether the environment supports
     #    named cameras (e.g. Isaac Lab's TiledCamera). If it does, each camera
     #    listed below is captured independently at every checkpoint. If not, a
     #    single frame from env.render() is saved as "default".
     print("[2/3] Wrapping with RobotHarnessWrapper ...")
+    reach_protocol = TaskProtocol(
+        name="isaac_reach",
+        description="Isaac Lab reach task progress monitoring",
+        phases=[
+            TaskPhase("start", "Initial configuration"),
+            TaskPhase("quarter", "Quarter-way through episode"),
+            TaskPhase("mid", "Midpoint of episode"),
+            TaskPhase("end", "Final episode state"),
+        ],
+    )
     env = RobotHarnessWrapper(
         env,
-        checkpoints=[
-            {"name": "start", "step": 1},
-            {"name": "quarter", "step": args.max_steps // 4},
-            {"name": "mid", "step": args.max_steps // 2},
-            {"name": "end", "step": args.max_steps},
-        ],
+        protocol=reach_protocol,
+        phase_steps={
+            "start": 1,
+            "quarter": args.max_steps // 4,
+            "mid": args.max_steps // 2,
+            "end": args.max_steps,
+        },
         cameras=["tiled_camera"],  # Isaac Lab TiledCamera sensor name
         output_dir=args.output_dir,
         task_name=args.task.lower().replace("-", "_"),
     )
+    print(f"  Protocol: {env.active_protocol.name}")
     print(f"  Camera capability: {env.camera_capability}")
     print(f"  Configured cameras: {env.cameras}")
 

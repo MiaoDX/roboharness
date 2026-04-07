@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import pytest
@@ -15,6 +15,7 @@ from roboharness.core.protocol import (
     GRASP_PROTOCOL,
     LOCO_MANIPULATION_PROTOCOL,
     LOCOMOTION_PROTOCOL,
+    REACH_PROTOCOL,
     TaskPhase,
     TaskProtocol,
 )
@@ -200,11 +201,21 @@ class TestBuiltinProtocols:
         assert DANCE_PROTOCOL.name == "dance"
         assert len(DANCE_PROTOCOL.phases) == 3
 
+    def test_reach_protocol(self):
+        assert REACH_PROTOCOL.name == "reach"
+        names = REACH_PROTOCOL.phase_names()
+        assert "rest" in names
+        assert "reach" in names
+        assert "hold" in names
+        assert "retract" in names
+        assert len(names) == 4
+
     def test_builtin_registry(self):
         assert set(BUILTIN_PROTOCOLS.keys()) == {
             "grasp",
             "locomotion",
             "loco_manipulation",
+            "reach",
             "dance",
         }
         for name, proto in BUILTIN_PROTOCOLS.items():
@@ -296,3 +307,155 @@ class TestHarnessLoadProtocol:
         harness = Harness(MockBackend(), output_dir=tmp_path)
         harness.load_protocol(protocol)
         assert harness._checkpoints[0].metadata == {"timeout": 10}
+
+
+# ---------------------------------------------------------------------------
+# RobotHarnessWrapper protocol integration
+# ---------------------------------------------------------------------------
+
+try:
+    import gymnasium as _gym
+
+    _HAS_GYMNASIUM = True
+except ImportError:
+    _HAS_GYMNASIUM = False
+
+if _HAS_GYMNASIUM:
+
+    class _DummyEnv(_gym.Env):
+        """Minimal Gymnasium env for wrapper protocol tests."""
+
+        metadata: ClassVar[dict[str, Any]] = {"render_modes": ["rgb_array"]}
+
+        def __init__(self):
+            super().__init__()
+            self.observation_space = _gym.spaces.Box(low=-1, high=1, shape=(2,))
+            self.action_space = _gym.spaces.Discrete(2)
+            self.render_mode = "rgb_array"
+
+        def reset(self, *, seed=None, options=None):
+            super().reset(seed=seed, options=options)
+            return np.zeros(2), {}
+
+        def step(self, action):
+            return np.zeros(2), 1.0, False, False, {}
+
+        def render(self):
+            return np.zeros((64, 64, 3), dtype=np.uint8)
+
+
+@pytest.mark.skipif(not _HAS_GYMNASIUM, reason="gymnasium not installed")
+class TestWrapperProtocol:
+    def test_protocol_creates_checkpoints(self, tmp_path):
+        from roboharness.wrappers import RobotHarnessWrapper
+
+        protocol = TaskProtocol(
+            name="test",
+            phases=[TaskPhase("a", "Phase A"), TaskPhase("b", "Phase B")],
+        )
+        wrapped = RobotHarnessWrapper(
+            _DummyEnv(),
+            protocol=protocol,
+            phase_steps={"a": 5, "b": 10},
+            output_dir=tmp_path,
+        )
+        assert wrapped._checkpoints == {5: "a", 10: "b"}
+        assert wrapped.active_protocol is not None
+        assert wrapped.active_protocol.name == "test"
+
+    def test_protocol_requires_phase_steps(self, tmp_path):
+        from roboharness.wrappers import RobotHarnessWrapper
+
+        protocol = TaskProtocol(name="test", phases=[TaskPhase("a")])
+        with pytest.raises(ValueError, match="phase_steps"):
+            RobotHarnessWrapper(
+                _DummyEnv(),
+                protocol=protocol,
+                output_dir=tmp_path,
+            )
+
+    def test_protocol_cameras_from_phases(self, tmp_path):
+        from roboharness.wrappers import RobotHarnessWrapper
+
+        protocol = TaskProtocol(
+            name="cam_test",
+            phases=[
+                TaskPhase("a", cameras=["front", "side"]),
+                TaskPhase("b", cameras=["side", "top"]),
+            ],
+        )
+        wrapped = RobotHarnessWrapper(
+            _DummyEnv(),
+            protocol=protocol,
+            phase_steps={"a": 1, "b": 2},
+            output_dir=tmp_path,
+        )
+        # Union of cameras in order, no duplicates
+        assert wrapped.cameras == ["front", "side", "top"]
+
+    def test_protocol_cameras_override(self, tmp_path):
+        from roboharness.wrappers import RobotHarnessWrapper
+
+        protocol = TaskProtocol(
+            name="test",
+            phases=[TaskPhase("a", cameras=["front", "side"])],
+        )
+        wrapped = RobotHarnessWrapper(
+            _DummyEnv(),
+            protocol=protocol,
+            phase_steps={"a": 1},
+            cameras=["default"],
+            output_dir=tmp_path,
+        )
+        assert wrapped.cameras == ["default"]
+
+    def test_protocol_checkpoint_triggers(self, tmp_path):
+        from roboharness.wrappers import RobotHarnessWrapper
+
+        protocol = TaskProtocol(
+            name="trigger",
+            phases=[TaskPhase("x"), TaskPhase("y")],
+        )
+        wrapped = RobotHarnessWrapper(
+            _DummyEnv(),
+            protocol=protocol,
+            phase_steps={"x": 2, "y": 4},
+            output_dir=tmp_path,
+            task_name="proto_test",
+        )
+        wrapped.reset()
+
+        checkpoints_hit = []
+        for _ in range(5):
+            _, _, _, _, info = wrapped.step(0)
+            if "checkpoint" in info:
+                checkpoints_hit.append(info["checkpoint"]["name"])
+
+        assert checkpoints_hit == ["x", "y"]
+
+    def test_no_protocol_backward_compatible(self, tmp_path):
+        from roboharness.wrappers import RobotHarnessWrapper
+
+        wrapped = RobotHarnessWrapper(
+            _DummyEnv(),
+            checkpoints=[{"name": "cp1", "step": 3}],
+            output_dir=tmp_path,
+        )
+        assert wrapped.active_protocol is None
+        assert wrapped._checkpoints == {3: "cp1"}
+
+    def test_protocol_partial_phase_steps(self, tmp_path):
+        """Only phases with step mappings become checkpoints."""
+        from roboharness.wrappers import RobotHarnessWrapper
+
+        protocol = TaskProtocol(
+            name="partial",
+            phases=[TaskPhase("a"), TaskPhase("b"), TaskPhase("c")],
+        )
+        wrapped = RobotHarnessWrapper(
+            _DummyEnv(),
+            protocol=protocol,
+            phase_steps={"a": 1, "c": 5},  # skip "b"
+            output_dir=tmp_path,
+        )
+        assert wrapped._checkpoints == {1: "a", 5: "c"}

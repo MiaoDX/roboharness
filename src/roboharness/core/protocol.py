@@ -141,6 +141,17 @@ LOCO_MANIPULATION_PROTOCOL = TaskProtocol(
     ],
 )
 
+REACH_PROTOCOL = TaskProtocol(
+    name="reach",
+    description="End-effector reaching / pointing task",
+    phases=[
+        TaskPhase("rest", "Initial rest position"),
+        TaskPhase("reach", "Reach toward target"),
+        TaskPhase("hold", "Hold position at target"),
+        TaskPhase("retract", "Retract to rest position"),
+    ],
+)
+
 DANCE_PROTOCOL = TaskProtocol(
     name="dance",
     description="Rhythmic motion / dance routine",
@@ -154,5 +165,11 @@ DANCE_PROTOCOL = TaskProtocol(
 # Registry of all built-in protocols for discovery
 BUILTIN_PROTOCOLS: dict[str, TaskProtocol] = {
     p.name: p
-    for p in [GRASP_PROTOCOL, LOCOMOTION_PROTOCOL, LOCO_MANIPULATION_PROTOCOL, DANCE_PROTOCOL]
+    for p in [
+        GRASP_PROTOCOL,
+        LOCOMOTION_PROTOCOL,
+        LOCO_MANIPULATION_PROTOCOL,
+        REACH_PROTOCOL,
+        DANCE_PROTOCOL,
+    ]
 }

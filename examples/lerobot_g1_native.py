@@ -36,6 +36,7 @@ from typing import Any
 import gymnasium as gym  # noqa: TC002 — used at runtime inside create_native_env
 import numpy as np
 
+from roboharness.core.protocol import TaskPhase, TaskProtocol
 from roboharness.wrappers import RobotHarnessWrapper
 
 # ---------------------------------------------------------------------------
@@ -222,14 +223,18 @@ def main() -> None:
     print(f"      Obs space: {env.observation_space}")
     print(f"      Act space: {env.action_space}")
 
-    # 2. Wrap with RobotHarnessWrapper
+    # 2. Wrap with RobotHarnessWrapper using semantic protocol
     print("[2/4] Wrapping with RobotHarnessWrapper ...")
+    episode_protocol = TaskProtocol(
+        name="random_episode",
+        description="Random-action episode observation",
+        phases=[
+            TaskPhase("initial", "Initial state after environment reset"),
+            TaskPhase("mid", "Midpoint of episode"),
+            TaskPhase("final", "Final state at episode end"),
+        ],
+    )
     cp_steps = [1, n_steps // 2, n_steps]
-    checkpoints = [
-        {"name": "initial", "step": cp_steps[0]},
-        {"name": "mid", "step": cp_steps[1]},
-        {"name": "final", "step": cp_steps[2]},
-    ]
 
     # Detect available cameras — try render_camera if available
     cameras = ["default"]
@@ -241,11 +246,13 @@ def main() -> None:
 
     wrapped = RobotHarnessWrapper(
         env,
-        checkpoints=checkpoints,
+        protocol=episode_protocol,
+        phase_steps={"initial": cp_steps[0], "mid": cp_steps[1], "final": cp_steps[2]},
         cameras=cameras,
         output_dir=str(output_dir),
         task_name="lerobot_g1_native",
     )
+    print(f"      Protocol: {wrapped.active_protocol.name}")
     print(f"      Multi-camera: {wrapped.has_multi_camera}")
     print(f"      Camera capability: {wrapped.camera_capability}")
     print(f"      Cameras: {cameras}")
@@ -277,7 +284,7 @@ def main() -> None:
 
     # 4. Validate
     print("[4/4] Validating integration ...")
-    failures = validate_integration(checkpoint_infos, expected_count=len(checkpoints))
+    failures = validate_integration(checkpoint_infos, expected_count=len(episode_protocol.phases))
 
     if failures:
         print("      VALIDATION FAILED:")

@@ -19,6 +19,7 @@ from roboharness.core.protocol import (
     GRASP_PROTOCOL,
     LOCO_MANIPULATION_PROTOCOL,
     LOCOMOTION_PROTOCOL,
+    REACH_PROTOCOL,
     TaskPhase,
     TaskProtocol,
 )
@@ -33,6 +34,7 @@ __all__ = [
     "GRASP_PROTOCOL",
     "LOCOMOTION_PROTOCOL",
     "LOCO_MANIPULATION_PROTOCOL",
+    "REACH_PROTOCOL",
     "AssertionEngine",
     "BatchResult",
     "CaptureResult",

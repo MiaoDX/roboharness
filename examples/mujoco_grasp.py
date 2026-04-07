@@ -14,7 +14,7 @@ Run:
 Output:
     ./harness_output/mujoco_grasp/trial_001/
         pre_grasp/   — gripper open, above the cube
-        contact/     — gripper lowered onto the cube
+        approach/    — gripper lowered onto the cube
         lift/        — cube lifted off the table
 """
 
@@ -29,6 +29,7 @@ import numpy as np
 from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
 from roboharness.backends.visualizer import MeshcatVisualizer
 from roboharness.core.harness import Harness
+from roboharness.core.protocol import GRASP_PROTOCOL
 
 # ---------------------------------------------------------------------------
 # Inline MJCF model: table + cube + 2-finger gripper + 3 cameras
@@ -140,7 +141,7 @@ def build_grasp_phases() -> dict[str, list[np.ndarray]]:
             n_steps=500,
         ),
         # Phase 2: Lower onto cube, fingers still open
-        "contact": make_action_sequence(
+        "approach": make_action_sequence(
             target_z=-0.24,
             finger_left=left_open,
             finger_right=right_open,
@@ -242,12 +243,12 @@ def main() -> None:
         except ImportError:
             print("      Meshcat not installed — skipping interactive 3D export.")
 
-    # 2. Set up harness with checkpoints
-    print("[2/4] Setting up harness with checkpoints ...")
+    # 2. Set up harness with semantic grasp protocol
+    print("[2/4] Setting up harness with grasp protocol ...")
     harness = Harness(backend, output_dir=str(output_dir), task_name="mujoco_grasp")
     phases = build_grasp_phases()
-    for phase_name in phases:
-        harness.add_checkpoint(phase_name, cameras=cameras)
+    harness.load_protocol(GRASP_PROTOCOL, phases=["pre_grasp", "approach", "grasp", "lift"])
+    print(f"      Protocol: {harness.active_protocol.name}")
     print(f"      Checkpoints: {harness.list_checkpoints()}")
 
     # 3. Run the grasp sequence

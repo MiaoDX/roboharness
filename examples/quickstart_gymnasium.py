@@ -10,6 +10,7 @@ Run:
 
 import gymnasium as gym
 
+from roboharness.core.protocol import TaskPhase, TaskProtocol
 from roboharness.wrappers import RobotHarnessWrapper
 
 
@@ -17,14 +18,20 @@ def main() -> None:
     # 1. Create any Gymnasium environment with rgb_array rendering
     env = gym.make("CartPole-v1", render_mode="rgb_array")
 
-    # 2. Wrap with RobotHarnessWrapper — zero changes to environment code
+    # 2. Wrap with RobotHarnessWrapper using a semantic task protocol
+    balance_protocol = TaskProtocol(
+        name="balance_monitor",
+        description="CartPole balance monitoring across episode stages",
+        phases=[
+            TaskPhase("early", "Early balance — controller settling"),
+            TaskPhase("mid", "Mid-episode — sustained balance test"),
+            TaskPhase("late", "Late-episode — long-horizon stability"),
+        ],
+    )
     env = RobotHarnessWrapper(
         env,
-        checkpoints=[
-            {"name": "early", "step": 10},
-            {"name": "mid", "step": 50},
-            {"name": "late", "step": 100},
-        ],
+        protocol=balance_protocol,
+        phase_steps={"early": 10, "mid": 50, "late": 100},
         cameras=["default"],
         output_dir="./harness_output",
         task_name="cartpole_balance",

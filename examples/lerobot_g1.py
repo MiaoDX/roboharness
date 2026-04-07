@@ -15,9 +15,9 @@ Run:
 
 Output:
     ./harness_output/lerobot_g1/trial_001/
-        stand/    — robot in default standing pose
-        walk/     — robot walking forward
-        stop/     — robot stopped, balancing
+        initial/  — robot in default standing pose
+        steady/   — robot walking forward
+        terminal/ — robot stopped, balancing
 """
 
 from __future__ import annotations
@@ -43,6 +43,7 @@ except ImportError:
     print("ERROR: mujoco is required. Install with: pip install roboharness[demo]")
     sys.exit(1)
 
+from roboharness.core.protocol import LOCOMOTION_PROTOCOL
 from roboharness.wrappers import RobotHarnessWrapper
 
 # ---------------------------------------------------------------------------
@@ -343,20 +344,18 @@ def main() -> None:
     loco = GrootLocomotionController()
     print("      Balance + Walk ONNX policies loaded")
 
-    # 3. Wrap with RobotHarnessWrapper
+    # 3. Wrap with RobotHarnessWrapper using locomotion protocol
     print("[3/5] Wrapping with RobotHarnessWrapper ...")
-    checkpoints = [
-        {"name": "stand", "step": 300},
-        {"name": "walk", "step": 700},
-        {"name": "stop", "step": 1000},
-    ]
+    loco_protocol = LOCOMOTION_PROTOCOL.select(["initial", "steady", "terminal"])
     wrapped = RobotHarnessWrapper(
         env,
-        checkpoints=checkpoints,
+        protocol=loco_protocol,
+        phase_steps={"initial": 300, "steady": 700, "terminal": 1000},
         cameras=cameras,
         output_dir=str(output_dir),
         task_name="lerobot_g1",
     )
+    print(f"      Protocol: {wrapped.active_protocol.name}")
     print(f"      Multi-camera detected: {wrapped.has_multi_camera}")
     print(f"      Camera capability: {wrapped.camera_capability}")
 

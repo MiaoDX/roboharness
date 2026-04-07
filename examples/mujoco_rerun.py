@@ -19,7 +19,7 @@ Output:
     ./harness_output/mujoco_grasp/trial_001/
         capture.rrd      — Rerun recording with all checkpoint data
         pre_grasp/       — gripper open, above the cube
-        contact/         — gripper lowered onto the cube
+        approach/        — gripper lowered onto the cube
         lift/            — cube lifted off the table
 """
 
@@ -32,6 +32,7 @@ import numpy as np
 
 from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
 from roboharness.core.harness import Harness
+from roboharness.core.protocol import GRASP_PROTOCOL
 
 # ---------------------------------------------------------------------------
 # Inline MJCF model: table + cube + 2-finger gripper + 3 cameras
@@ -119,7 +120,7 @@ def build_grasp_phases() -> dict[str, list[np.ndarray]]:
 
     return {
         "pre_grasp": make_action_sequence(0.05, left_open, right_open, 500),
-        "contact": make_action_sequence(-0.24, left_open, right_open, 500),
+        "approach": make_action_sequence(-0.24, left_open, right_open, 500),
         "grasp": make_action_sequence(-0.24, left_closed, right_closed, 800),
         "lift": make_action_sequence(-0.10, left_closed, right_closed, 800),
     }
@@ -153,7 +154,7 @@ def main() -> None:
         render_height=args.height,
     )
 
-    # 2. Set up harness with Rerun enabled
+    # 2. Set up harness with Rerun enabled and semantic grasp protocol
     print("[2/4] Setting up harness with Rerun capture logging ...")
     harness = Harness(
         backend,
@@ -163,8 +164,8 @@ def main() -> None:
         rerun_app_id="roboharness",
     )
     phases = build_grasp_phases()
-    for phase_name in phases:
-        harness.add_checkpoint(phase_name, cameras=cameras)
+    harness.load_protocol(GRASP_PROTOCOL, phases=["pre_grasp", "approach", "grasp", "lift"])
+    print(f"      Protocol: {harness.active_protocol.name}")
     print(f"      Checkpoints: {harness.list_checkpoints()}")
 
     # 3. Run the grasp sequence — captures are logged to .rrd automatically

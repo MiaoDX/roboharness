@@ -42,6 +42,7 @@ from typing import Any, cast
 import numpy as np
 
 from roboharness._utils import save_image as _save_image
+from roboharness.core.protocol import TaskProtocol
 
 try:
     import gymnasium as gym
@@ -182,13 +183,15 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         cameras: list[str] | None = None,
         output_dir: str | Path = "./harness_output",
         task_name: str = "default",
+        protocol: TaskProtocol | None = None,
+        phase_steps: dict[str, int] | None = None,
     ):
         super().__init__(env)
-        self.cameras = cameras or ["default"]
         self.output_dir = Path(output_dir)
         self.task_name = task_name
         self._step_count = 0
         self._trial_count = 0
+        self._active_protocol: TaskProtocol | None = None
 
         # Detect multi-camera capability
         self.camera_capability = _detect_camera_capability(env)
@@ -196,16 +199,38 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
             logger.info(
                 "Multi-camera support detected: %s (cameras: %s)",
                 self.camera_capability,
-                self.cameras,
+                cameras,
             )
 
-        # Parse checkpoint definitions
+        # Build checkpoints from protocol or raw dicts
         self._checkpoints: dict[int, str] = {}
-        for cp in checkpoints or []:
-            step = cp.get("step")
-            name = cp.get("name", f"checkpoint_{step}")
-            if step is not None:
-                self._checkpoints[step] = name
+        if protocol is not None:
+            self._active_protocol = protocol
+            if phase_steps is None:
+                raise ValueError("phase_steps is required when protocol is provided")
+            for phase in protocol.phases:
+                step = phase_steps.get(phase.name)
+                if step is not None:
+                    self._checkpoints[step] = phase.name
+            # Derive cameras from protocol phases unless explicitly overridden
+            if cameras is None:
+                seen: set[str] = set()
+                cams: list[str] = []
+                for phase in protocol.phases:
+                    for cam in phase.cameras:
+                        if cam not in seen:
+                            seen.add(cam)
+                            cams.append(cam)
+                self.cameras = cams
+            else:
+                self.cameras = cameras
+        else:
+            self.cameras = cameras or ["default"]
+            for cp in checkpoints or []:
+                step = cp.get("step")
+                name = cp.get("name", f"checkpoint_{step}")
+                if step is not None:
+                    self._checkpoints[step] = name
 
         # State snapshots for restore
         self._snapshots: dict[str, Any] = {}
@@ -232,6 +257,11 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
             info["checkpoint"] = capture_info
 
         return obs, reward, terminated, truncated, info
+
+    @property
+    def active_protocol(self) -> TaskProtocol | None:
+        """The currently loaded task protocol, or None."""
+        return self._active_protocol
 
     @property
     def has_multi_camera(self) -> bool:

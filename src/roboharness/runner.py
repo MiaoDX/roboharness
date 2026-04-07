@@ -127,7 +127,7 @@ class ParallelTrialRunner:
 
         def my_trial(backend, output_dir, spec):
             harness = Harness(backend, output_dir=output_dir)
-            harness.add_checkpoint("pre_grasp", cameras=["front"])
+            harness.load_protocol(GRASP_PROTOCOL, phases=["pre_grasp", "grasp", "lift"])
             harness.reset()
             result = harness.run_to_next_checkpoint(actions)
             return TrialResult(trial_id=spec.trial_id, success=True)

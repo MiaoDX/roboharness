@@ -27,6 +27,34 @@ from pathlib import Path
 
 import numpy as np
 
+from roboharness.core.protocol import TaskPhase, TaskProtocol
+
+# ---------------------------------------------------------------------------
+# Task protocol: G1 multi-target reach
+# ---------------------------------------------------------------------------
+
+G1_REACH_PROTOCOL = TaskProtocol(
+    name="g1_reach",
+    description="G1 humanoid IK-based multi-target reaching",
+    phases=[
+        TaskPhase("stand", "Initial standing pose", cameras=["front", "side", "top", "close_up"]),
+        TaskPhase(
+            "reach_left",
+            "Left arm reaching toward target",
+            cameras=["front", "side", "top", "close_up"],
+        ),
+        TaskPhase(
+            "reach_both",
+            "Both arms reaching toward targets",
+            cameras=["front", "side", "top", "close_up"],
+        ),
+        TaskPhase(
+            "retract", "Arms retracted to rest", cameras=["front", "side", "top", "close_up"]
+        ),
+    ],
+)
+
+
 # ---------------------------------------------------------------------------
 # Scene builder: G1 + table + target objects + cameras
 # ---------------------------------------------------------------------------
@@ -417,14 +445,13 @@ def main() -> None:
     )
     print(f"      IK controller ready. EE frames: {ee_frames}")
 
-    # 4. Set up harness and run reach sequence
+    # 4. Set up harness with semantic reach protocol and run sequence
     print("[4/5] Running reach sequence ...")
     task_name = "g1_wbc_reach"
     harness = Harness(backend, output_dir=str(output_dir), task_name=task_name)
-
-    phase_names = ["stand", "reach_left", "reach_both", "retract"]
-    for name in phase_names:
-        harness.add_checkpoint(name, cameras=cameras)
+    harness.load_protocol(G1_REACH_PROTOCOL)
+    print(f"      Protocol: {harness.active_protocol.name}")
+    print(f"      Phases: {harness.list_checkpoints()}")
 
     harness.reset()
     # Re-apply standing keyframe after reset
