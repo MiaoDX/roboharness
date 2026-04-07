@@ -5,7 +5,9 @@ from __future__ import annotations
 import base64
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+MeshcatMode = Literal["iframe", "link", "none"]
 
 
 def generate_html_report(
@@ -18,7 +20,7 @@ def generate_html_report(
     summary_html: str = "",
     footer_text: str = "",
     trial_name: str = "trial_001",
-    meshcat_mode: str = "iframe",  # "iframe", "link", or "none"
+    meshcat_mode: MeshcatMode = "iframe",
 ) -> Path:
     """Generate a self-contained HTML report showing all checkpoint captures.
 
@@ -54,7 +56,7 @@ def generate_html_report(
     report_path = output_dir / f"{task_name}_report.html"
 
     if not trial_dir.exists():
-        return report_path
+        raise FileNotFoundError(f"trial directory not found: {trial_dir}")
 
     checkpoints = sorted(
         [d for d in trial_dir.iterdir() if d.is_dir()],
@@ -116,9 +118,8 @@ def generate_html_report(
         meta_parts.append(f"Step: {step}")
         sim_time = meta.get("sim_time")
         if sim_time is not None:
-            if isinstance(sim_time, float):
-                sim_time = f"{sim_time:.3f}"
-            meta_parts.append(f"Sim time: {sim_time}s")
+            sim_time_str = f"{sim_time:.3f}" if isinstance(sim_time, float) else str(sim_time)
+            meta_parts.append(f"Sim time: {sim_time_str}s")
         cameras = meta.get("cameras")
         if cameras:
             meta_parts.append(f"Cameras: {', '.join(cameras)}")

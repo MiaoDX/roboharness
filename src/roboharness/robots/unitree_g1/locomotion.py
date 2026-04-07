@@ -61,14 +61,18 @@ logger = logging.getLogger(__name__)
 NUM_BODY_JOINTS = 29
 NUM_LOWER_BODY_JOINTS = 15  # joints 0-14 (legs + waist), controlled by locomotion
 
-# Default standing angles (radians) — slight knee bend for stability
-GROOT_DEFAULT_ANGLES = np.zeros(NUM_BODY_JOINTS, dtype=np.float32)
-GROOT_DEFAULT_ANGLES[0] = -0.1  # left hip pitch
-GROOT_DEFAULT_ANGLES[6] = -0.1  # right hip pitch
-GROOT_DEFAULT_ANGLES[3] = 0.3  # left knee
-GROOT_DEFAULT_ANGLES[9] = 0.3  # right knee
-GROOT_DEFAULT_ANGLES[4] = -0.2  # left ankle pitch
-GROOT_DEFAULT_ANGLES[10] = -0.2  # right ankle pitch
+# Default standing angles (radians) — slight knee bend for stability.
+# All three controllers (GR00T, Holosoma, SONIC) use the same base pose for
+# the Unitree G1, so we define it once and copy.
+_G1_DEFAULT_STANDING = np.zeros(NUM_BODY_JOINTS, dtype=np.float32)
+_G1_DEFAULT_STANDING[0] = -0.1  # left hip pitch
+_G1_DEFAULT_STANDING[6] = -0.1  # right hip pitch
+_G1_DEFAULT_STANDING[3] = 0.3  # left knee
+_G1_DEFAULT_STANDING[9] = 0.3  # right knee
+_G1_DEFAULT_STANDING[4] = -0.2  # left ankle pitch
+_G1_DEFAULT_STANDING[10] = -0.2  # right ankle pitch
+
+GROOT_DEFAULT_ANGLES = _G1_DEFAULT_STANDING.copy()
 
 # Scaling constants (from GR00T WBC training)
 ACTION_SCALE = 0.25
@@ -110,6 +114,48 @@ def _download_onnx(repo_id: str, filename: str) -> str:
     return path
 
 
+def _load_onnx_session(repo_id: str, filename: str) -> Any:
+    """Download and load an ONNX model into an inference session."""
+    try:
+        import onnxruntime as ort
+    except ImportError as e:
+        raise ImportError(
+            "onnxruntime is required for locomotion controllers. "
+            "Install with: pip install onnxruntime"
+        ) from e
+    path = _download_onnx(repo_id, filename)
+    return ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+
+
+def _parse_imu_and_joints(
+    state: dict[str, Any],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Extract IMU data and body joint pos/vel from simulator state.
+
+    Returns ``(base_quat, ang_vel, joint_pos, joint_vel)`` with all arrays
+    padded to ``NUM_BODY_JOINTS`` length.
+    """
+    qpos = np.asarray(state["qpos"], dtype=np.float32)
+    qvel = np.asarray(state["qvel"], dtype=np.float32)
+
+    # Free joint: qpos[3:7] = quaternion, qvel[3:6] = angular velocity
+    base_quat = qpos[3:7] if len(qpos) > 7 else np.array([1, 0, 0, 0], dtype=np.float32)
+    ang_vel = qvel[3:6] if len(qvel) > 6 else np.zeros(3, dtype=np.float32)
+
+    # Body joints (skip free joint)
+    qj_offset = 7 if len(qpos) > 7 else 0
+    dqj_offset = 6 if len(qvel) > 6 else 0
+    qj = qpos[qj_offset : qj_offset + NUM_BODY_JOINTS]
+    dqj = qvel[dqj_offset : dqj_offset + NUM_BODY_JOINTS]
+
+    if len(qj) < NUM_BODY_JOINTS:
+        qj = np.pad(qj, (0, NUM_BODY_JOINTS - len(qj)))
+    if len(dqj) < NUM_BODY_JOINTS:
+        dqj = np.pad(dqj, (0, NUM_BODY_JOINTS - len(dqj)))
+
+    return base_quat, ang_vel, qj, dqj
+
+
 class GrootLocomotionController:
     """GR00T Balance + Walk locomotion controller via ONNX inference.
 
@@ -145,8 +191,8 @@ class GrootLocomotionController:
         self._default_height = default_height
 
         # Download and load ONNX models
-        self._balance_session = self._load_onnx(GROOT_BALANCE_FILE)
-        self._walk_session = self._load_onnx(GROOT_WALK_FILE)
+        self._balance_session = _load_onnx_session(repo_id, GROOT_BALANCE_FILE)
+        self._walk_session = _load_onnx_session(repo_id, GROOT_WALK_FILE)
 
         # Internal state
         self._action = np.zeros(NUM_LOWER_BODY_JOINTS, dtype=np.float32)
@@ -158,18 +204,6 @@ class GrootLocomotionController:
             self._obs_history.append(np.zeros(OBS_FRAME_DIM, dtype=np.float32))
 
         logger.info("GR00T locomotion controller loaded (Balance + Walk)")
-
-    def _load_onnx(self, filename: str) -> Any:
-        """Load an ONNX model into an inference session."""
-        try:
-            import onnxruntime as ort
-        except ImportError as e:
-            raise ImportError(
-                "onnxruntime is required for locomotion controllers. "
-                "Install with: pip install onnxruntime"
-            ) from e
-        path = _download_onnx(self._repo_id, filename)
-        return ort.InferenceSession(path, providers=["CPUExecutionProvider"])
 
     def compute(self, command: dict[str, Any], state: dict[str, Any]) -> np.ndarray:
         """Compute lower-body joint targets from velocity command and robot state.
@@ -195,33 +229,14 @@ class GrootLocomotionController:
         vel = command.get("velocity", [0.0, 0.0, 0.0])
         self._cmd[:] = vel
 
-        # Parse state — real G1 model has free joint (7 qpos, 6 qvel) then 29+14 joints
-        qpos = np.asarray(state["qpos"], dtype=np.float32)
-        qvel = np.asarray(state["qvel"], dtype=np.float32)
-
-        # Extract IMU data from free joint
-        # qpos[3:7] = quaternion (w, x, y, z) for MuJoCo free joint
-        base_quat = qpos[3:7] if len(qpos) > 7 else np.array([1, 0, 0, 0], dtype=np.float32)
-        # qvel[3:6] = angular velocity for MuJoCo free joint
-        ang_vel = qvel[3:6] if len(qvel) > 6 else np.zeros(3, dtype=np.float32)
-
-        # Body joint positions and velocities (skip free joint)
-        qj_offset = 7 if len(qpos) > 7 else 0
-        dqj_offset = 6 if len(qvel) > 6 else 0
-        qj = qpos[qj_offset : qj_offset + NUM_BODY_JOINTS]
-        dqj = qvel[dqj_offset : dqj_offset + NUM_BODY_JOINTS]
-
-        # Pad if needed (model may have fewer joints than expected)
-        if len(qj) < NUM_BODY_JOINTS:
-            qj = np.pad(qj, (0, NUM_BODY_JOINTS - len(qj)))
-        if len(dqj) < NUM_BODY_JOINTS:
-            dqj = np.pad(dqj, (0, NUM_BODY_JOINTS - len(dqj)))
+        # Parse state
+        base_quat, ang_vel, qj, dqj = _parse_imu_and_joints(state)
 
         # Build single observation frame (86-dim)
         obs = np.zeros(OBS_FRAME_DIM, dtype=np.float32)
         obs[0:3] = self._cmd * CMD_SCALE
         obs[3] = self._default_height
-        obs[4:7] = 0.0  # orientation command (zeros)
+        # obs[4:7] is already zero (orientation command)
         obs[7:10] = ang_vel * ANG_VEL_SCALE
         obs[10:13] = get_gravity_orientation(base_quat)
         obs[13:42] = (qj - GROOT_DEFAULT_ANGLES) * DOF_POS_SCALE
@@ -275,14 +290,7 @@ HOLOSOMA_MODEL_FILE = "fastsac_g1_29dof.onnx"
 # [98:100] gait phase sine (2 values)
 HOLOSOMA_OBS_DIM = 100
 
-# Default standing angles for Holosoma G1 29-DOF (same joint layout as GR00T)
-HOLOSOMA_DEFAULT_ANGLES = np.zeros(NUM_BODY_JOINTS, dtype=np.float32)
-HOLOSOMA_DEFAULT_ANGLES[0] = -0.1  # left hip pitch
-HOLOSOMA_DEFAULT_ANGLES[6] = -0.1  # right hip pitch
-HOLOSOMA_DEFAULT_ANGLES[3] = 0.3  # left knee
-HOLOSOMA_DEFAULT_ANGLES[9] = 0.3  # right knee
-HOLOSOMA_DEFAULT_ANGLES[4] = -0.2  # left ankle pitch
-HOLOSOMA_DEFAULT_ANGLES[10] = -0.2  # right ankle pitch
+HOLOSOMA_DEFAULT_ANGLES = _G1_DEFAULT_STANDING.copy()
 
 # Holosoma action scaling (same as GR00T)
 HOLOSOMA_ACTION_SCALE = 0.25
@@ -320,27 +328,14 @@ class HolosomaLocomotionController:
         self._repo_id = repo_id
 
         # Download and load ONNX model
-        self._session = self._load_onnx(HOLOSOMA_MODEL_FILE)
+        self._session = _load_onnx_session(repo_id, HOLOSOMA_MODEL_FILE)
 
         # Internal state
         self._action = np.zeros(NUM_BODY_JOINTS, dtype=np.float32)
         self._cmd = np.zeros(3, dtype=np.float32)  # [vx, vy, yaw_rate]
         self._phase = 0.0  # gait phase in [0, 2*pi)
-        self._step_count = 0
 
         logger.info("Holosoma locomotion controller loaded (FastSAC G1 29-DOF)")
-
-    def _load_onnx(self, filename: str) -> Any:
-        """Load an ONNX model into an inference session."""
-        try:
-            import onnxruntime as ort
-        except ImportError as e:
-            raise ImportError(
-                "onnxruntime is required for locomotion controllers. "
-                "Install with: pip install onnxruntime"
-            ) from e
-        path = _download_onnx(self._repo_id, filename)
-        return ort.InferenceSession(path, providers=["CPUExecutionProvider"])
 
     def compute(self, command: dict[str, Any], state: dict[str, Any]) -> np.ndarray:
         """Compute full-body joint targets from velocity command and robot state.
@@ -367,24 +362,7 @@ class HolosomaLocomotionController:
         self._cmd[:] = vel
 
         # Parse state
-        qpos = np.asarray(state["qpos"], dtype=np.float32)
-        qvel = np.asarray(state["qvel"], dtype=np.float32)
-
-        # Extract IMU data from free joint
-        base_quat = qpos[3:7] if len(qpos) > 7 else np.array([1, 0, 0, 0], dtype=np.float32)
-        ang_vel = qvel[3:6] if len(qvel) > 6 else np.zeros(3, dtype=np.float32)
-
-        # Body joint positions and velocities (skip free joint)
-        qj_offset = 7 if len(qpos) > 7 else 0
-        dqj_offset = 6 if len(qvel) > 6 else 0
-        qj = qpos[qj_offset : qj_offset + NUM_BODY_JOINTS]
-        dqj = qvel[dqj_offset : dqj_offset + NUM_BODY_JOINTS]
-
-        # Pad if needed
-        if len(qj) < NUM_BODY_JOINTS:
-            qj = np.pad(qj, (0, NUM_BODY_JOINTS - len(qj)))
-        if len(dqj) < NUM_BODY_JOINTS:
-            dqj = np.pad(dqj, (0, NUM_BODY_JOINTS - len(dqj)))
+        base_quat, ang_vel, qj, dqj = _parse_imu_and_joints(state)
 
         # Update gait phase
         self._phase += 2 * np.pi * self.control_dt / HOLOSOMA_GAIT_PERIOD
@@ -420,7 +398,6 @@ class HolosomaLocomotionController:
         self._action[:] = 0.0
         self._cmd[:] = 0.0
         self._phase = 0.0
-        self._step_count = 0
 
 
 # ---------------------------------------------------------------------------
@@ -442,14 +419,7 @@ SONIC_PLANNER_DT = 0.1  # 10 Hz planner cycle
 SONIC_OUTPUT_RATE = 30  # Hz — model output rate
 SONIC_CONTROL_RATE = 50  # Hz — control loop rate
 
-# Default standing pose (same knee-bend as GR00T for Unitree G1)
-SONIC_DEFAULT_ANGLES = np.zeros(NUM_BODY_JOINTS, dtype=np.float32)
-SONIC_DEFAULT_ANGLES[0] = -0.1  # left hip pitch
-SONIC_DEFAULT_ANGLES[6] = -0.1  # right hip pitch
-SONIC_DEFAULT_ANGLES[3] = 0.3  # left knee
-SONIC_DEFAULT_ANGLES[9] = 0.3  # right knee
-SONIC_DEFAULT_ANGLES[4] = -0.2  # left ankle pitch
-SONIC_DEFAULT_ANGLES[10] = -0.2  # right ankle pitch
+SONIC_DEFAULT_ANGLES = _G1_DEFAULT_STANDING.copy()
 
 # Default pelvis height (meters)
 SONIC_DEFAULT_HEIGHT = 0.74
@@ -639,9 +609,9 @@ class SonicLocomotionController:
         self._default_mode = default_mode
 
         # Download and load ONNX models
-        self._planner_session = self._load_onnx(SONIC_PLANNER_FILE)
-        self._encoder_session = self._load_onnx(SONIC_ENCODER_FILE)
-        self._decoder_session = self._load_onnx(SONIC_DECODER_FILE)
+        self._planner_session = _load_onnx_session(repo_id, SONIC_PLANNER_FILE)
+        self._encoder_session = _load_onnx_session(repo_id, SONIC_ENCODER_FILE)
+        self._decoder_session = _load_onnx_session(repo_id, SONIC_DECODER_FILE)
 
         # Context window: last 4 full qpos frames (36-dim each)
         self._context: deque[np.ndarray] = deque(maxlen=SONIC_CONTEXT_LEN)
@@ -680,18 +650,6 @@ class SonicLocomotionController:
         qpos[2] = SONIC_DEFAULT_HEIGHT  # root z = pelvis height
         qpos[7:36] = SONIC_DEFAULT_ANGLES
         return qpos
-
-    def _load_onnx(self, filename: str) -> Any:
-        """Load an ONNX model into an inference session."""
-        try:
-            import onnxruntime as ort
-        except ImportError as e:
-            raise ImportError(
-                "onnxruntime is required for locomotion controllers. "
-                "Install with: pip install onnxruntime"
-            ) from e
-        path = _download_onnx(self._repo_id, filename)
-        return ort.InferenceSession(path, providers=["CPUExecutionProvider"])
 
     def _run_planner(self, height: float) -> None:
         """Invoke the planner ONNX model and store the predicted trajectory."""
@@ -762,7 +720,8 @@ class SonicLocomotionController:
         Encodes the current motion reference frame into a latent token,
         then decodes it with the current robot state to produce joint targets.
         """
-        assert self._tracking_clip is not None
+        if self._tracking_clip is None:
+            raise RuntimeError("No tracking clip set — call set_tracking_clip() first")
 
         # Get 65-dim reference from the current clip frame
         ref = self._tracking_clip.reference_frame(self._tracking_frame_index)
@@ -772,18 +731,7 @@ class SonicLocomotionController:
         latent = self._encoder_session.run(None, {"motion_ref": ref_input})[0]
 
         # Build 58-dim robot state: 29 joint pos + 29 joint vel
-        qpos = np.asarray(state["qpos"], dtype=np.float32)
-        qvel = np.asarray(state.get("qvel", np.zeros(35, dtype=np.float32)), dtype=np.float32)
-
-        qj_offset = 7 if len(qpos) > 7 else 0
-        dqj_offset = 6 if len(qvel) > 6 else 0
-        qj = qpos[qj_offset : qj_offset + NUM_BODY_JOINTS]
-        dqj = qvel[dqj_offset : dqj_offset + NUM_BODY_JOINTS]
-
-        if len(qj) < NUM_BODY_JOINTS:
-            qj = np.pad(qj, (0, NUM_BODY_JOINTS - len(qj)))
-        if len(dqj) < NUM_BODY_JOINTS:
-            dqj = np.pad(dqj, (0, NUM_BODY_JOINTS - len(dqj)))
+        _base_quat, _ang_vel, qj, dqj = _parse_imu_and_joints(state)
 
         robot_state = np.concatenate([qj, dqj]).reshape(1, -1).astype(np.float32)
 

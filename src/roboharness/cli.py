@@ -27,6 +27,14 @@ def _find_files(directory: Path, pattern: str, recursive: bool = True) -> list[P
     return sorted(directory.rglob(pattern) if recursive else directory.glob(pattern))
 
 
+def _find_trial_part(rel_parts: tuple[str, ...]) -> str | None:
+    """Find the trial directory component (e.g. ``"trial_001"``) in a relative path."""
+    for p in rel_parts:
+        if p.startswith("trial_"):
+            return p
+    return None
+
+
 def _format_state_summary(state: dict[str, Any], max_items: int = 5) -> str:
     """Format a compact summary of simulator state."""
     parts = []
@@ -143,12 +151,7 @@ def report_command(output_dir: Path) -> dict[str, Any]:
         if cp not in tasks[task]["checkpoints"]:
             tasks[task]["checkpoints"].append(cp)
 
-        # Find trial part
-        trial_part = None
-        for p in rel.parts:
-            if p.startswith("trial_"):
-                trial_part = p
-                break
+        trial_part = _find_trial_part(rel.parts)
         if trial_part and trial_part not in tasks[task]["trials"]:
             tasks[task]["trials"][trial_part] = {"checkpoints_captured": []}
         if trial_part:
@@ -163,12 +166,7 @@ def report_command(output_dir: Path) -> dict[str, Any]:
         if task not in tasks:
             tasks[task] = {"trials": {}, "total_captures": 0, "checkpoints": []}
 
-        trial_part = None
-        for p in rel.parts:
-            if p.startswith("trial_"):
-                trial_part = p
-                break
-
+        trial_part = _find_trial_part(rel.parts)
         if trial_part:
             if trial_part not in tasks[task]["trials"]:
                 tasks[task]["trials"][trial_part] = {"checkpoints_captured": []}

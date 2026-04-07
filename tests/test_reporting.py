@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from roboharness.reporting import generate_html_report
 
 
@@ -51,11 +53,9 @@ def _write_tiny_png(path: Path) -> None:
 
 
 def test_generate_report_empty_trial_dir(tmp_path):
-    """Report returns path even when trial dir doesn't exist."""
-    report_path = generate_html_report(tmp_path, "my_task")
-    assert report_path == tmp_path / "my_task_report.html"
-    # File is not written when trial_dir is missing
-    assert not report_path.exists()
+    """Report raises FileNotFoundError when trial dir doesn't exist."""
+    with pytest.raises(FileNotFoundError, match="trial directory not found"):
+        generate_html_report(tmp_path, "my_task")
 
 
 def test_generate_report_with_checkpoints(tmp_path):
