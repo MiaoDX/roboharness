@@ -89,6 +89,10 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=roboharness --cov-report=term-missing --cov-fail-under=90"
+markers = [
+    "gpu: requires GPU hardware (CUDA)",
+    "slow: slow integration tests",
+]
 
 [tool.coverage.run]
 # Omit files requiring optional deps not in [dev].

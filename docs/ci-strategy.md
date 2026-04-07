@@ -156,7 +156,7 @@ Cirun.io 同时支持 AWS、GCP、Azure，接入方式统一（一个 `.cirun.ym
 | 云平台 | T4 Spot/抢占式价格 | T4 On-demand 价格 | 新用户赠金 |
 |--------|-------------------|-------------------|-----------|
 | **GCP** | ~$0.11/hr (preemptible) | ~$0.35-0.45/hr | **$300 / 90 天（注册即得）** |
-| **AWS** | ~$0.16/hr (spot) | ~$0.53/hr | 无 GPU 免费层 |
+| **AWS** | ~$0.16/hr (spot) | ~$0.53/hr | **$100 新用户 credits**；可申请 Open Source Credits |
 | **Azure** | ~$0.05-0.10/hr (spot) | ~$0.53/hr | 需单独申请 credits |
 
 #### 云平台 Credits / 免费额度
@@ -173,24 +173,62 @@ Cirun.io 同时支持 AWS、GCP、Azure，接入方式统一（一个 `.cirun.ym
 
 **阶段一（现在）**：
 - 加 pytest markers（`@pytest.mark.gpu`），CPU CI 不受影响
-- **推荐方案：Cirun.io + GCP preemptible T4**
-  - GCP 新用户 $300 赠金可支撑 ~2,700 GPU 小时（约 16,000 次 10 分钟测试）
-  - 90 天内 GPU CI 零成本
+- **采用方案：Cirun.io + AWS spot T4**
+  - AWS $100 新用户 credits 可支撑 ~625 GPU 小时（约 3,750 次 10 分钟测试）
+  - Setup 简单：Cirun Dashboard 连接 AWS，无需 GPU quota 申请
+  - GCP 虽然更便宜但 setup 复杂（quota 申请、service account 配置）
 
-**阶段二（赠金用完后）**：
-- 继续使用 GCP preemptible T4（~$0.11/hr，每月 50 次测试仅 ~$5）
-- 或切换到 AWS spot T4（~$0.16/hr，~$5/月）
-- 申请 AWS Open Source Credits 或 GCP Research Credits（如有学术背景）
+**阶段二（credits 用完后）**：
+- 继续使用 AWS spot T4（~$0.16/hr，每月 50 次测试仅 ~$8）
+- 申请 AWS Open Source Credits（$500-5k）延续免费使用
 
 **阶段三（测试变多时）**：
 - Docker 镜像固化 GPU 环境（CUDA + PyTorch + cuRobo）
 - 考虑 nightly 全量 GPU 测试 + PR 只跑关键路径
 - 如果 GPU 测试频率很高，考虑 Cirrus Runners 的无限分钟方案
 
-### Cirun.io + GCP 配置示例（推荐方案）
+### Cirun.io + AWS 配置（当前采用方案）
 
 ```yaml
 # .cirun.yml
+runners:
+  - name: gpu-runner
+    cloud: aws
+    instance_type: g4dn.xlarge  # T4 GPU, 4 vCPU, 16 GB RAM
+    machine_image: ami-0c7217cdde317cfec  # Ubuntu 22.04 LTS (us-east-1)
+    preemptible: true           # spot instance, ~$0.16/hr
+    region: us-east-1
+    labels:
+      - cirun-gpu
+```
+
+```yaml
+# .github/workflows/ci.yml 中的 GPU job
+gpu-test:
+  runs-on: [self-hosted, cirun-gpu]
+  if: |
+    github.event_name == 'push' && github.ref == 'refs/heads/main'
+    || contains(github.event.pull_request.labels.*.name, 'gpu-test')
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+    - name: Install package with dev dependencies and torch
+      run: uv pip install --system -e ".[dev]" torch --index-url https://download.pytorch.org/whl/cu121
+    - name: Verify GPU
+      run: python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPUs: {torch.cuda.device_count()}')"
+    - name: Run GPU tests
+      run: pytest -m gpu -v --no-cov
+```
+
+<details>
+<summary>备选：Cirun.io + GCP 配置</summary>
+
+```yaml
+# .cirun.yml — GCP preemptible T4 (~$0.11/hr, 更便宜但 setup 更复杂)
 runners:
   - name: gpu-runner
     cloud: gcp
@@ -198,40 +236,12 @@ runners:
     machine_image: projects/deeplearning-platform-release/global/images/family/common-cu121
     accelerator_type: nvidia-tesla-t4
     accelerator_count: 1
-    preemptible: true           # 抢占式实例, ~$0.11/hr
+    preemptible: true
     labels:
-      - gpu
+      - cirun-gpu
 ```
 
-```yaml
-# .github/workflows/ci.yml 中新增 GPU job
-gpu-test:
-  runs-on: [self-hosted, gpu]
-  if: |
-    github.event_name == 'push' && github.ref == 'refs/heads/main'
-    || contains(github.event.pull_request.labels.*.name, 'gpu-test')
-  steps:
-    - uses: actions/checkout@v4
-    - name: Run GPU tests
-      run: |
-        pip install -e ".[demo,dev]"
-        pytest -m gpu
-```
-
-<details>
-<summary>备选：Cirun.io + AWS 配置</summary>
-
-```yaml
-# .cirun.yml
-runners:
-  - name: gpu-runner
-    cloud: aws
-    instance_type: g4dn.xlarge  # T4 GPU, 4 vCPU, 16GB
-    machine_image: ami-xxxxx    # Deep Learning AMI
-    preemptible: true           # spot instance, ~$0.16/hr
-    labels:
-      - gpu
-```
+注意：GCP 需要申请 GPU quota（T4 默认为 0），通常需 1-2 个工作日。
 
 </details>
 
