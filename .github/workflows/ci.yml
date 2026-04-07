@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: gpu-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -160,19 +164,33 @@ jobs:
             harness_output/lerobot_g1_native/trial_001/**/metadata.json
           retention-days: 30
 
+  gpu-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      gpu_relevant: ${{ steps.filter.outputs.gpu }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            gpu:
+              - 'tests/test_gpu_smoke.py'
+              - 'tests/test_isaac_lab_compat.py'
+              - 'src/roboharness/wrappers/gymnasium_wrapper.py'
+              - '.cirun.yml'
+              - 'Dockerfile.gpu'
+              - '.github/workflows/ci.yml'
+
   gpu-test:
+    needs: [gpu-changes]
     runs-on: [self-hosted, cirun-gpu]
     if: |
       github.event_name == 'push' && github.ref == 'refs/heads/main'
       || contains(github.event.pull_request.labels.*.name, 'gpu-test')
+      || needs.gpu-changes.outputs.gpu_relevant == 'true'
     steps:
       - uses: actions/checkout@v4
-      - name: Install NVIDIA drivers
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends nvidia-driver-535
-          sudo modprobe nvidia || true
-          nvidia-smi
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
