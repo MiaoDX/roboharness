@@ -171,23 +171,104 @@ Cirun.io 同时支持 AWS、GCP、Azure，接入方式统一（一个 `.cirun.ym
 
 ### 推荐路径（2026-04-06 更新）
 
-**阶段一（现在）**：
+**阶段一（现在 ✅ 已完成）**：
 - 加 pytest markers（`@pytest.mark.gpu`），CPU CI 不受影响
-- **采用方案：Cirun.io + AWS spot T4**
-  - AWS $100 新用户 credits 可支撑 ~625 GPU 小时（约 3,750 次 10 分钟测试）
-  - Setup 简单：Cirun Dashboard 连接 AWS，无需 GPU quota 申请
-  - GCP 虽然更便宜但 setup 复杂（quota 申请、service account 配置）
+- **采用方案：Cirun.io + GCP T4 + 自定义镜像**
+  - GCP $300 新用户赠金可支撑大量 GPU CI
+  - 使用 GCP Deep Learning VM 构建自定义镜像，NVIDIA 驱动预装，消除驱动安装问题
+  - 构建脚本：[`scripts/build-cirun-gpu-image.sh`](../scripts/build-cirun-gpu-image.sh)
 
 **阶段二（credits 用完后）**：
-- 继续使用 AWS spot T4（~$0.16/hr，每月 50 次测试仅 ~$8）
-- 申请 AWS Open Source Credits（$500-5k）延续免费使用
+- 继续使用 GCP on-demand T4（~$0.35-0.45/hr，每月 50 次测试仅 ~$30）
+- 申请 GCP / AWS Open Source Credits 延续免费使用
 
 **阶段三（测试变多时）**：
 - Docker 镜像固化 GPU 环境（CUDA + PyTorch + cuRobo）
 - 考虑 nightly 全量 GPU 测试 + PR 只跑关键路径
 - 如果 GPU 测试频率很高，考虑 Cirrus Runners 的无限分钟方案
 
-### Cirun.io + AWS 配置（当前采用方案）
+### Cirun.io + GCP 配置（当前采用方案 ✅）
+
+#### 踩坑记录：为什么需要自定义镜像
+
+Cirun 的 `gpu:` 字段声称会自动安装 NVIDIA 驱动，但在 GCP 上**实际不工作**：
+- 普通 Ubuntu 镜像没有 GPU 驱动
+- 运行时安装驱动需要**重启**才能加载内核模块（`nvidia-smi` 才可用）
+- Cirun 在 provisioning 和运行 job 之间不会重启 VM
+- 结果：`nvidia-smi` 报 exit code 127（command not found）
+
+**解决方案**：从 GCP Deep Learning VM（驱动预装）构建自定义镜像到自己的 GCP 项目中。
+这也是 [sgkit](https://github.com/pystatgen/sgkit)（Cirun GPU CI 最成功的案例）的做法。
+
+> **对比 AWS**：AWS 上 Cirun 推荐使用 Marketplace 的 NVIDIA Deep Learning AMI，一行配置就行。
+> GCP 没有等价的 Marketplace 镜像，需要手动构建。我们提供了脚本自动化这个过程。
+
+#### 一次性配置：构建 GPU 镜像
+
+```bash
+# 前置条件：gcloud CLI 已认证，T4 GPU quota >= 1
+# 脚本会：创建临时 VM → 验证 nvidia-smi → 停机 → 保存为镜像 → 删除临时 VM
+GCP_PROJECT=your-project GCP_ZONE=asia-east1-c ./scripts/build-cirun-gpu-image.sh
+```
+
+详见 [`scripts/build-cirun-gpu-image.sh`](../scripts/build-cirun-gpu-image.sh)，支持配置：
+
+| 环境变量 | 默认值 | 说明 |
+|---------|-------|------|
+| `GCP_PROJECT` | gcloud 默认 | 你的 GCP 项目 ID |
+| `GCP_ZONE` | asia-east1-a | 有 T4 quota 的 zone |
+| `IMAGE_NAME` | cirun-nvidia-gpu | 镜像名 |
+| `DL_IMAGE_FAMILY` | common-cu128-ubuntu-2204-nvidia-570 | 基础 Deep Learning VM |
+
+#### 生效的 .cirun.yml
+
+```yaml
+# .cirun.yml
+runners:
+  - name: gpu-runner
+    cloud: gcp
+    instance_type: n1-standard-4  # 4 vCPU, 15 GB RAM
+    machine_image: "gitci-no-org:cirun-nvidia-gpu"  # 自定义镜像，驱动预装
+    gpu: nvidia-tesla-t4
+    preemptible: false             # preemptible GPU 实例可靠性差
+    region: asia-east1-c           # 有 T4 可用的 zone
+    labels:
+      - cirun-gpu
+```
+
+#### CI Workflow 中的 GPU job
+
+```yaml
+# .github/workflows/ci.yml
+gpu-test:
+  runs-on: [self-hosted, cirun-gpu]
+  if: |
+    github.event_name == 'push' && github.ref == 'refs/heads/main'
+    || contains(github.event.pull_request.labels.*.name, 'gpu-test')
+    || needs.gpu-changes.outputs.gpu_relevant == 'true'
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+    - name: Install package with dev dependencies and torch
+      run: |
+        uv pip install --system -e ".[dev]"
+        uv pip install --system torch --index-url https://download.pytorch.org/whl/cu121
+    - name: Verify GPU
+      run: |
+        nvidia-smi
+        python -c 'import torch; print(f"CUDA: {torch.cuda.is_available()}, GPUs: {torch.cuda.device_count()}")'
+    - name: Run GPU tests
+      run: pytest -m gpu -v --no-cov
+```
+
+<details>
+<summary>备选：Cirun.io + AWS 配置</summary>
+
+AWS 上 Cirun 的 GPU 体验更简单（不需要自定义镜像），但价格略贵：
 
 ```yaml
 # .cirun.yml
@@ -202,46 +283,7 @@ runners:
       - cirun-gpu
 ```
 
-```yaml
-# .github/workflows/ci.yml 中的 GPU job
-gpu-test:
-  runs-on: [self-hosted, cirun-gpu]
-  if: |
-    github.event_name == 'push' && github.ref == 'refs/heads/main'
-    || contains(github.event.pull_request.labels.*.name, 'gpu-test')
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-    - name: Install package with dev dependencies and torch
-      run: uv pip install --system -e ".[dev]" torch --index-url https://download.pytorch.org/whl/cu121
-    - name: Verify GPU
-      run: python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPUs: {torch.cuda.device_count()}')"
-    - name: Run GPU tests
-      run: pytest -m gpu -v --no-cov
-```
-
-<details>
-<summary>备选：Cirun.io + GCP 配置</summary>
-
-```yaml
-# .cirun.yml — GCP preemptible T4 (~$0.11/hr, 更便宜但 setup 更复杂)
-runners:
-  - name: gpu-runner
-    cloud: gcp
-    instance_type: n1-standard-4
-    machine_image: projects/deeplearning-platform-release/global/images/family/common-cu121
-    accelerator_type: nvidia-tesla-t4
-    accelerator_count: 1
-    preemptible: true
-    labels:
-      - cirun-gpu
-```
-
-注意：GCP 需要申请 GPU quota（T4 默认为 0），通常需 1-2 个工作日。
+注意：AWS 上 Cirun 推荐使用 NVIDIA Deep Learning AMI，驱动预装，无需手动构建镜像。
 
 </details>
 
