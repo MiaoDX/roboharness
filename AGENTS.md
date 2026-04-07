@@ -135,3 +135,6 @@ pytest -q
 - Keep commits scoped and descriptive (`docs: ...`, `fix: ...`, etc.).
 - When changing workflow/docs, ensure instructions match actual repo configuration.
 - Do not claim UT success unless `pytest -q` has been run in the current environment.
+- If user requests AI attribution, include a Git trailer in commit messages, e.g.:
+  - `Co-authored-by: Codex <codex@users.noreply.github.com>`
+  - If you maintain a dedicated bot/user account, prefer that account's verified noreply email.
