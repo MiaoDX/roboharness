@@ -143,6 +143,11 @@ class Harness:
         """The currently loaded task protocol, or None."""
         return self._active_protocol
 
+    @property
+    def step_count(self) -> int:
+        """Number of simulation steps executed since last reset."""
+        return self._step_count
+
     # ---- Core loop ----
 
     def reset(self) -> dict[str, Any]:
