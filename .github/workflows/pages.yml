@@ -60,10 +60,14 @@ jobs:
           MUJOCO_GL: osmesa
         run: python examples/lerobot_g1_native.py --report --output-dir ./harness_output
 
-      - name: Build Pages site
+      - name: Build static pages (landing + SONIC)
         run: |
-          mkdir -p _site
+          mkdir -p _site _site/sonic
+          cp .github/pages/index.html _site/index.html
+          cp .github/pages/sonic.html _site/sonic/index.html
 
+      - name: Build demo reports
+        run: |
           # --- Demo 1: Simple Grasp (with Meshcat 3D) ---
           mkdir -p _site/grasp
           cp harness_output/report.html _site/grasp/index.html
@@ -112,20 +116,15 @@ jobs:
             cp "${cp_dir}"state.json "_site/g1-native/${cp_name}/" 2>/dev/null || true
           done
 
-          # --- Demo 5: SONIC Motion Tracking (static page, requires GPU) ---
-          mkdir -p _site/sonic
-          cp .github/pages/sonic.html _site/sonic/index.html
-
-          # --- Landing page ---
-          cp .github/pages/index.html _site/index.html
-
       - name: Upload Pages artifact
+        if: always()
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
     needs: build
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
