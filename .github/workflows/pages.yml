@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
   pages: write
   id-token: write
 
@@ -18,16 +17,28 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/miaodx/roboharness/ci:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install package (editable, deps already in image)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install system dependencies (OSMesa for headless rendering)
+        run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
+
+      - name: Install package with demo + WBC dependencies
         run: uv pip install --system -e ".[demo,wbc]"
+
+      - name: Install unitree SDK, CPU PyTorch, and lerobot
+        run: |
+          uv pip install --system -e ".[unitree]"
+          uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --system lerobot
+          uv pip install --system loguru pygame scipy pyyaml
 
       - name: Run MuJoCo grasp example
         env:
@@ -81,7 +92,7 @@ jobs:
 
           # --- Demo 3: LeRobot G1 Locomotion ---
           mkdir -p _site/g1-loco
-          cp harness_output/lerobot_g1_report.html _site/g1-loco/index.html 2>/dev/null || true
+          cp harness_output/lerobot_g1_report.html _site/g1-loco/index.html
           for cp_dir in harness_output/lerobot_g1/trial_001/*/; do
             cp_name=$(basename "$cp_dir")
             mkdir -p "_site/g1-loco/${cp_name}"
@@ -92,7 +103,7 @@ jobs:
 
           # --- Demo 4: Native LeRobot G1 ---
           mkdir -p _site/g1-native
-          cp harness_output/lerobot_g1_native_report.html _site/g1-native/index.html 2>/dev/null || true
+          cp harness_output/lerobot_g1_native_report.html _site/g1-native/index.html
           for cp_dir in harness_output/lerobot_g1_native/trial_001/*/; do
             cp_name=$(basename "$cp_dir")
             mkdir -p "_site/g1-native/${cp_name}"
