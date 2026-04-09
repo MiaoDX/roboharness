@@ -181,8 +181,8 @@ result = harness.run_to_next_checkpoint(actions)
 | MuJoCo + Meshcat | ✅ Implemented | Native backend adapter |
 | LeRobot (G1 MuJoCo) | ✅ Implemented | Gymnasium Wrapper + Controllers |
 | LeRobot Native (`make_env`) | ✅ Implemented | `make_env()` + VectorEnvAdapter |
-| Isaac Lab | 🚧 Planned | Gymnasium Wrapper |
-| ManiSkill | 🚧 Planned | Gymnasium Wrapper |
+| Isaac Lab | ✅ Implemented | Gymnasium Wrapper (GPU required for E2E) |
+| ManiSkill | ✅ Implemented | Gymnasium Wrapper |
 | LocoMuJoCo / MuJoCo Playground / unitree_rl_gym | 📋 Roadmap | Various |
 
 ## Design Principles

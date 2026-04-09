@@ -144,15 +144,14 @@ def main() -> None:
             print(f"  Checkpoint '{cp['name']}' at step {cp['step']}")
             print(f"  Captures saved to: {cp['capture_dir']}")
 
+        # Isaac Lab returns tensors for terminated/truncated; extract scalar
+        if hasattr(terminated, "item"):
+            terminated = terminated.item()
+        if hasattr(truncated, "item"):
+            truncated = truncated.item()
         if terminated or truncated:
-            # Isaac Lab vectorized envs auto-reset, but single-env may terminate
-            if hasattr(terminated, "item"):
-                terminated = terminated.item()
-            if hasattr(truncated, "item"):
-                truncated = truncated.item()
-            if terminated or truncated:
-                print(f"  Episode ended at step {step + 1}, total reward: {total_reward:.2f}")
-                break
+            print(f"  Episode ended at step {step + 1}, total reward: {total_reward:.2f}")
+            break
 
     env.close()
     launcher.app.close()

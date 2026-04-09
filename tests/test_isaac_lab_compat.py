@@ -487,3 +487,23 @@ def test_to_numpy_rgb_with_uint8_tensor():
     assert isinstance(result, np.ndarray)
     assert result.dtype == np.uint8
     assert result[0, 0, 0] == 200
+
+
+def test_checkpoint_records_obs_shape_dtype_for_tensor(tmp_path):
+    """state.json should record obs_shape and obs_dtype for torch tensor observations on CPU."""
+    env = MockIsaacLabEnv(num_envs=1)
+    wrapped = RobotHarnessWrapper(
+        env,
+        checkpoints=[{"name": "cp1", "step": 1}],
+        output_dir=tmp_path,
+        task_name="obs_meta",
+    )
+    wrapped.reset()
+    _, _, _, _, _info = wrapped.step(torch.zeros(1, *env.action_space.shape))
+
+    import json
+
+    state_path = tmp_path / "obs_meta" / "trial_001" / "cp1" / "state.json"
+    state = json.loads(state_path.read_text())
+    assert state["obs_shape"] == [1, 12]
+    assert "float32" in state["obs_dtype"]
