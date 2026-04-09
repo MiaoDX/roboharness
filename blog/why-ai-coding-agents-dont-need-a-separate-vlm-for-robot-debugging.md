@@ -41,15 +41,18 @@ In [Roboharness](https://github.com/MiaoDX/roboharness), we built a visual testi
 
 ```python
 from roboharness import Harness
-from roboharness.core.protocol import GRASP_PROTOCOL
 
 harness = Harness(backend, output_dir="./output", task_name="grasp")
-harness.load_protocol(GRASP_PROTOCOL, phases=["pre_grasp", "approach", "grasp", "lift"])
+cameras = ["front", "side", "top"]
+harness.add_checkpoint("pre_grasp", cameras=cameras, trigger_step=500)
+harness.add_checkpoint("approach", cameras=cameras, trigger_step=1000)
+harness.add_checkpoint("grasp", cameras=cameras, trigger_step=1800)
+harness.add_checkpoint("lift", cameras=cameras, trigger_step=2600)
 
 harness.reset()
-for phase_name, actions in grasp_phases.items():
+for actions in grasp_phases:
     result = harness.run_to_next_checkpoint(actions)
-    # result.views → multi-view PNG images (front, side, top)
+    # result.views → list of CameraView objects (front, side, top)
     # result.state → joint angles, contact forces, object poses
     # The coding agent inspects BOTH and decides what to do next
 ```
@@ -141,7 +144,7 @@ pip install roboharness[demo]
 python examples/mujoco_grasp.py --report
 ```
 
-This runs a complete grasp sequence with multi-view checkpoint captures and generates an HTML report you can inspect. The framework supports MuJoCo, Isaac Lab, and ManiSkill out of the box, with Gymnasium wrappers for drop-in integration.
+This runs a complete grasp sequence with multi-view checkpoint captures and generates an HTML report you can inspect. MuJoCo is supported as a built-in backend; Isaac Lab and ManiSkill environments work through the included Gymnasium wrapper for drop-in integration.
 
 The [interactive visual reports](https://miaodx.com/roboharness/) are auto-generated from CI on every push — MuJoCo grasping, G1 humanoid locomotion, whole-body reaching, and more.
 
