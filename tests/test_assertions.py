@@ -595,3 +595,154 @@ class TestEvaluateBatchCLI:
 
         ret = main(["evaluate-batch", "/nonexistent/dir"])
         assert ret == 1
+
+
+# ---------------------------------------------------------------------------
+# End-to-end: YAML constraints -> evaluate -> HTML report with verdict
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluateToReportEndToEnd:
+    """Full workflow: load YAML constraints, evaluate report, generate HTML with verdict."""
+
+    @pytest.fixture
+    def grasp_output(self, tmp_path: Path) -> Path:
+        """Create a realistic harness output with checkpoints and a report."""
+        import base64
+
+        tiny_png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4"
+            "nGP4z8BQDwAEgAF/pooBPQAAAABJRU5ErkJggg=="
+        )
+        trial_dir = tmp_path / "grasp" / "trial_001"
+
+        for cp_name, step, sim_time in [
+            ("01_pregrasp", 0, 0.0),
+            ("02_contact", 50, 0.5),
+            ("03_grasp", 100, 1.0),
+            ("04_lift", 150, 1.5),
+        ]:
+            cp_dir = trial_dir / cp_name
+            cp_dir.mkdir(parents=True)
+            (cp_dir / "metadata.json").write_text(
+                json.dumps({"step": step, "sim_time": sim_time, "cameras": ["front"]})
+            )
+            (cp_dir / "front_rgb.png").write_bytes(tiny_png)
+
+        # Write autonomous_report.json (what the evaluator reads)
+        report = {
+            "summary_metrics": {
+                "grip_center_error_mm": 8.2,
+                "pinch_gap_error_mm": 6.1,
+                "pinch_elevation_deg": 12.0,
+                "index_middle_vertical_deg": 18.5,
+            },
+            "snapshot_metrics": {
+                "03_grasp": {
+                    "grip_center_error_mm": 7.5,
+                    "pinch_gap_error_mm": 5.8,
+                },
+            },
+        }
+        (trial_dir / "autonomous_report.json").write_text(json.dumps(report))
+
+        return tmp_path
+
+    def test_yaml_to_evaluate_to_html_pass(self, grasp_output: Path) -> None:
+        """End-to-end: load grasp_default.yaml, evaluate passing report, HTML shows PASS."""
+        from roboharness.evaluate.assertions import AssertionEngine
+        from roboharness.evaluate.constraints import load_constraints
+        from roboharness.reporting import generate_html_report
+
+        # Step 1: Load constraints from the project's actual YAML file
+        constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
+        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")  # noqa: F841
+        assertions = load_constraints(constraints_path)
+        assert len(assertions) == 4
+
+        # Step 2: Evaluate the report
+        report_path = grasp_output / "grasp" / "trial_001" / "autonomous_report.json"
+        report_data = json.loads(report_path.read_text())
+        engine = AssertionEngine(assertions)
+        result = engine.evaluate(report_data, report_path=str(report_path))
+
+        # All metrics are within thresholds
+        assert result.verdict == Verdict.PASS
+
+        # Step 3: Generate HTML report with evaluation
+        html_path = generate_html_report(
+            grasp_output,
+            "grasp",
+            title="Grasp Evaluation",
+            evaluation_result=result,
+        )
+        html = html_path.read_text()
+
+        # Verify verdict banner
+        assert "verdict-pass" in html
+        assert "PASS" in html
+        assert "4/4 constraints satisfied" in html
+
+        # Verify constraint summary table
+        assert "grip_center_error_mm" in html
+        assert "pinch_gap_error_mm" in html
+        assert "Constraint Evaluation" in html
+
+        # Verify checkpoints are still rendered
+        assert "01_pregrasp" in html
+        assert "04_lift" in html
+
+    def test_yaml_to_evaluate_to_html_fail(self, grasp_output: Path) -> None:
+        """End-to-end: evaluate failing report, HTML shows FAIL with red indicators."""
+        from roboharness.evaluate.assertions import AssertionEngine
+        from roboharness.evaluate.constraints import load_constraints
+        from roboharness.reporting import generate_html_report
+
+        constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
+        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")  # noqa: F841
+        assertions = load_constraints(constraints_path)
+
+        # Override report with failing metrics
+        failing_report = {
+            "summary_metrics": {
+                "grip_center_error_mm": 60.0,  # > 50.0 critical threshold
+                "pinch_gap_error_mm": 20.0,  # > 15.0 critical threshold
+                "pinch_elevation_deg": 5.0,
+                "index_middle_vertical_deg": 10.0,
+            },
+            "snapshot_metrics": {},
+        }
+        report_path = grasp_output / "grasp" / "trial_001" / "autonomous_report.json"
+        report_path.write_text(json.dumps(failing_report))
+
+        engine = AssertionEngine(assertions)
+        result = engine.evaluate(failing_report, report_path=str(report_path))
+        assert result.verdict == Verdict.FAIL
+
+        html_path = generate_html_report(
+            grasp_output,
+            "grasp",
+            title="Grasp Evaluation - Failure",
+            evaluation_result=result,
+        )
+        html = html_path.read_text()
+
+        # Verify fail verdict
+        assert "verdict-fail" in html
+        assert "FAIL" in html
+        assert "2/4 constraints satisfied" in html
+
+        # Verify failing metrics shown
+        body = html.split("</style>")[1]
+        assert "badge-fail" in body
+
+    def test_cli_evaluate_with_yaml_constraints(self, grasp_output: Path) -> None:
+        """End-to-end: CLI evaluate command with real YAML constraints."""
+        from roboharness.cli import main
+
+        constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
+        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")  # noqa: F841
+        report_path = grasp_output / "grasp" / "trial_001" / "autonomous_report.json"
+
+        ret = main(["evaluate", str(report_path), "--constraints", str(constraints_path)])
+        assert ret == 0  # All pass

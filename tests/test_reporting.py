@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion
+from roboharness.evaluate.result import EvaluationResult, Operator, Severity
 from roboharness.reporting import generate_html_report
 
 
@@ -216,3 +218,255 @@ def test_generate_report_accent_color(tmp_path):
     report_path = generate_html_report(tmp_path, "task", accent_color="#ff0000")
     html = report_path.read_text()
     assert "#ff0000" in html
+
+
+# ---------------------------------------------------------------------------
+# Evaluation integration tests
+# ---------------------------------------------------------------------------
+
+
+def _make_passing_result() -> EvaluationResult:
+    """Create an EvaluationResult where all assertions pass."""
+    assertions = [
+        MetricAssertion("grip_center_error_mm", Operator.LT, 50.0, Severity.CRITICAL),
+        MetricAssertion("pinch_gap_error_mm", Operator.LT, 15.0, Severity.CRITICAL),
+    ]
+    report = {
+        "summary_metrics": {
+            "grip_center_error_mm": 5.0,
+            "pinch_gap_error_mm": 8.0,
+        }
+    }
+    return AssertionEngine(assertions).evaluate(report)
+
+
+def _make_failing_result() -> EvaluationResult:
+    """Create an EvaluationResult with critical failures."""
+    assertions = [
+        MetricAssertion("grip_center_error_mm", Operator.LT, 50.0, Severity.CRITICAL),
+        MetricAssertion("pinch_gap_error_mm", Operator.LT, 15.0, Severity.CRITICAL),
+    ]
+    report = {
+        "summary_metrics": {
+            "grip_center_error_mm": 60.0,
+            "pinch_gap_error_mm": 20.0,
+        }
+    }
+    return AssertionEngine(assertions).evaluate(report)
+
+
+def _make_degraded_result() -> EvaluationResult:
+    """Create an EvaluationResult with major (not critical) failures."""
+    assertions = [
+        MetricAssertion("grip_center_error_mm", Operator.LT, 50.0, Severity.CRITICAL),
+        MetricAssertion("pinch_elevation_deg", Operator.LT, 15.0, Severity.MAJOR),
+    ]
+    report = {
+        "summary_metrics": {
+            "grip_center_error_mm": 5.0,
+            "pinch_elevation_deg": 20.0,
+        }
+    }
+    return AssertionEngine(assertions).evaluate(report)
+
+
+def _make_phase_result() -> EvaluationResult:
+    """Create an EvaluationResult with phase-specific assertions."""
+    assertions = [
+        MetricAssertion("grip_center_error_mm", Operator.LT, 50.0, Severity.CRITICAL),
+        MetricAssertion(
+            "grip_center_error_mm", Operator.LT, 10.0, Severity.CRITICAL, phase="02_grasp"
+        ),
+    ]
+    report = {
+        "summary_metrics": {"grip_center_error_mm": 5.0},
+        "snapshot_metrics": {"02_grasp": {"grip_center_error_mm": 9.0}},
+    }
+    return AssertionEngine(assertions).evaluate(report)
+
+
+class TestReportWithEvaluation:
+    def test_no_evaluation_unchanged(self, tmp_path):
+        """Report without evaluation_result produces no verdict elements."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "cp1", step=1)
+
+        report_path = generate_html_report(tmp_path, "task")
+        html = report_path.read_text()
+        assert "verdict" not in html.split("<style>")[0]  # not in body
+        assert "Constraint Evaluation" not in html
+
+    def test_pass_verdict_banner(self, tmp_path):
+        """Passing evaluation shows green PASS banner."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "cp1", step=1)
+
+        result = _make_passing_result()
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        assert "verdict-pass" in html
+        assert "PASS" in html
+        assert "2/2 constraints satisfied" in html
+
+    def test_fail_verdict_banner(self, tmp_path):
+        """Failing evaluation shows red FAIL banner."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "cp1", step=1)
+
+        result = _make_failing_result()
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        assert "verdict-fail" in html
+        assert "FAIL" in html
+        assert "0/2 constraints satisfied" in html
+
+    def test_degraded_verdict_banner(self, tmp_path):
+        """Degraded evaluation shows yellow DEGRADED banner."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "cp1", step=1)
+
+        result = _make_degraded_result()
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        assert "verdict-degraded" in html
+        assert "DEGRADED" in html
+        assert "1/2 constraints satisfied" in html
+
+    def test_eval_summary_table(self, tmp_path):
+        """Evaluation summary table shows metric details."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "cp1", step=1)
+
+        result = _make_failing_result()
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        assert "Constraint Evaluation" in html
+        assert "grip_center_error_mm" in html
+        assert "pinch_gap_error_mm" in html
+        assert "lt 50.0" in html
+        assert "60.0" in html
+        assert "badge-fail" in html
+        assert "severity-critical" in html
+
+    def test_eval_summary_pass_badges(self, tmp_path):
+        """Passing assertions show PASS badges in summary, no FAIL badges in body."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "cp1", step=1)
+
+        result = _make_passing_result()
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        body = html.split("</style>")[1]
+        assert "badge-pass" in body
+        assert "badge-fail" not in body
+
+    def test_phase_specific_badge(self, tmp_path):
+        """Checkpoint with phase-specific assertions gets a badge."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "01_start", step=0)
+        _create_checkpoint(trial_dir, "02_grasp", step=100)
+
+        result = _make_phase_result()
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        # 02_grasp should have a PASS badge (9.0 < 10.0)
+        assert "02_grasp" in html
+        # The phase badge should appear next to the checkpoint name
+        assert 'badge badge-pass">PASS</span>' in html
+
+    def test_phase_badge_not_on_unrelated_checkpoint(self, tmp_path):
+        """Checkpoints without phase-specific assertions get no badge."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "01_start", step=0)
+        _create_checkpoint(trial_dir, "02_grasp", step=100)
+
+        result = _make_phase_result()
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        # 01_start should NOT have a badge — extract just that section
+        start_idx = html.index("01_start")
+        grasp_idx = html.index("02_grasp")
+        start_section = html[start_idx:grasp_idx]
+        assert "badge" not in start_section
+
+    def test_phase_badge_fail(self, tmp_path):
+        """Checkpoint with critical phase failure shows FAIL badge."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "02_grasp", step=100)
+
+        assertions = [
+            MetricAssertion(
+                "grip_center_error_mm",
+                Operator.LT,
+                10.0,
+                Severity.CRITICAL,
+                phase="02_grasp",
+            ),
+        ]
+        result = AssertionEngine(assertions).evaluate(
+            {"snapshot_metrics": {"02_grasp": {"grip_center_error_mm": 50.0}}}
+        )
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        assert 'badge badge-fail">FAIL</span>' in html
+
+    def test_phase_badge_degraded(self, tmp_path):
+        """Checkpoint with major (non-critical) phase failure shows DEGRADED badge."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "02_grasp", step=100)
+
+        assertions = [
+            MetricAssertion(
+                "elevation_deg",
+                Operator.LT,
+                15.0,
+                Severity.MAJOR,
+                phase="02_grasp",
+            ),
+        ]
+        result = AssertionEngine(assertions).evaluate(
+            {"snapshot_metrics": {"02_grasp": {"elevation_deg": 20.0}}}
+        )
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        assert 'badge badge-degraded">DEGRADED</span>' in html
+
+    def test_missing_metric_shown(self, tmp_path):
+        """Missing metric value is displayed as 'missing' in summary."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "cp1", step=1)
+
+        assertions = [
+            MetricAssertion("nonexistent_metric", Operator.LT, 10.0, Severity.CRITICAL),
+        ]
+        result = AssertionEngine(assertions).evaluate({"summary_metrics": {}})
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        assert "missing" in html
+        assert "nonexistent_metric" in html
+
+    def test_in_range_assertion_display(self, tmp_path):
+        """In-range assertion shows threshold range correctly."""
+        trial_dir = tmp_path / "task" / "trial_001"
+        trial_dir.mkdir(parents=True)
+        _create_checkpoint(trial_dir, "cp1", step=1)
+
+        assertions = [
+            MetricAssertion("force", Operator.IN_RANGE, (1.0, 10.0), Severity.MAJOR),
+        ]
+        result = AssertionEngine(assertions).evaluate({"summary_metrics": {"force": 5.0}})
+        report_path = generate_html_report(tmp_path, "task", evaluation_result=result)
+        html = report_path.read_text()
+        assert "in [1.0, 10.0]" in html
+        assert "5.0" in html

@@ -7,7 +7,83 @@ import json
 from pathlib import Path
 from typing import Any, Literal
 
+from roboharness.evaluate.result import EvaluationResult, Severity, Verdict
+
 MeshcatMode = Literal["iframe", "link", "none"]
+
+_VERDICT_CSS = {
+    Verdict.PASS: "verdict-pass",
+    Verdict.DEGRADED: "verdict-degraded",
+    Verdict.FAIL: "verdict-fail",
+}
+
+_VERDICT_LABEL = {
+    Verdict.PASS: "PASS",
+    Verdict.DEGRADED: "DEGRADED",
+    Verdict.FAIL: "FAIL",
+}
+
+
+def _build_verdict_banner(result: EvaluationResult) -> str:
+    """Build the HTML verdict banner shown at the top of the report."""
+    css_class = _VERDICT_CSS[result.verdict]
+    label = _VERDICT_LABEL[result.verdict]
+    passed_count = len(result.passed)
+    total = len(result.results)
+    return (
+        f'<div class="verdict {css_class}">'
+        f"{label} &mdash; {passed_count}/{total} constraints satisfied"
+        f"</div>"
+    )
+
+
+def _build_eval_summary(result: EvaluationResult) -> str:
+    """Build the constraint evaluation summary table."""
+    rows: list[str] = []
+    for r in result.results:
+        if r.passed:
+            icon = '<span class="badge badge-pass">PASS</span>'
+        else:
+            icon = '<span class="badge badge-fail">FAIL</span>'
+
+        if isinstance(r.threshold, tuple):
+            expected = f"in [{r.threshold[0]}, {r.threshold[1]}]"
+        else:
+            expected = f"{r.operator.value} {r.threshold}"
+
+        actual = f"{r.actual_value}" if r.actual_value is not None else "missing"
+        severity_cls = f"severity-{r.severity.value}"
+        rows.append(
+            f"<tr>"
+            f"<td>{r.metric}</td>"
+            f"<td>{expected}</td>"
+            f"<td>{actual}</td>"
+            f'<td><span class="severity {severity_cls}">{r.severity.value}</span></td>'
+            f"<td>{icon}</td>"
+            f"</tr>"
+        )
+
+    return (
+        '<div class="eval-summary">'
+        "<h3>Constraint Evaluation</h3>"
+        '<table class="eval-table">'
+        "<tr><th>Metric</th><th>Expected</th><th>Actual</th>"
+        "<th>Severity</th><th>Result</th></tr>" + "".join(rows) + "</table></div>"
+    )
+
+
+def _phase_badge(result: EvaluationResult, checkpoint_name: str) -> str:
+    """Build a pass/fail badge for a checkpoint if phase-specific assertions exist."""
+    phase_results = [r for r in result.results if r.phase == checkpoint_name]
+    if not phase_results:
+        return ""
+    all_passed = all(r.passed for r in phase_results)
+    if all_passed:
+        return ' <span class="badge badge-pass">PASS</span>'
+    has_critical = any(not r.passed and r.severity == Severity.CRITICAL for r in phase_results)
+    if has_critical:
+        return ' <span class="badge badge-fail">FAIL</span>'
+    return ' <span class="badge badge-degraded">DEGRADED</span>'
 
 
 def generate_html_report(
@@ -21,6 +97,7 @@ def generate_html_report(
     footer_text: str = "",
     trial_name: str = "trial_001",
     meshcat_mode: MeshcatMode = "iframe",
+    evaluation_result: EvaluationResult | None = None,
 ) -> Path:
     """Generate a self-contained HTML report showing all checkpoint captures.
 
@@ -46,6 +123,10 @@ def generate_html_report(
         Trial subdirectory name.
     meshcat_mode:
         How to embed Meshcat scenes: "iframe" (embedded), "link" (new tab), or "none".
+    evaluation_result:
+        Optional constraint evaluation result. When provided, the report includes
+        a verdict banner (green/yellow/red), a constraint summary table, and
+        per-checkpoint pass/fail badges for phase-specific assertions.
 
     Returns
     -------
@@ -136,9 +217,11 @@ def generate_html_report(
             else f'<div class="views">{"".join(images_html)}</div>'
         )
 
+        checkpoint_badge = _phase_badge(evaluation_result, cp_name) if evaluation_result else ""
+
         rows_html.append(
             f'<div class="checkpoint">'
-            f"<h2>{cp_name}</h2>"
+            f"<h2>{cp_name}{checkpoint_badge}</h2>"
             f"<p>{' | '.join(meta_parts)}</p>"
             f"{views_wrap}"
             f"</div>"
@@ -149,6 +232,9 @@ def generate_html_report(
 
     subtitle_html = f"<p>{subtitle}</p>" if subtitle else ""
     summary_block = f'<div class="summary">{summary_html}</div>' if summary_html else ""
+
+    verdict_banner = _build_verdict_banner(evaluation_result) if evaluation_result else ""
+    eval_summary = _build_eval_summary(evaluation_result) if evaluation_result else ""
 
     html = f"""\
 <!DOCTYPE html>
@@ -178,12 +264,37 @@ def generate_html_report(
   .meshcat-link:hover {{ opacity: 0.85; }}
   .meshcat-viewer p {{ margin: 8px 0 0; font-size: 13px; color: #888; }}
   .footer {{ margin-top: 30px; color: #999; font-size: 12px; }}
+  .verdict {{ padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 18px;
+              margin: 20px 0; text-align: center; }}
+  .verdict-pass {{ background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }}
+  .verdict-degraded {{ background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }}
+  .verdict-fail {{ background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }}
+  .eval-summary {{ background: white; border-radius: 8px; padding: 20px; margin: 20px 0;
+                   box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+  .eval-summary h3 {{ color: {accent_color}; margin-top: 0; }}
+  .eval-table {{ width: 100%; border-collapse: collapse; }}
+  .eval-table th, .eval-table td {{ padding: 8px 12px; text-align: left;
+                                    border-bottom: 1px solid #eee; }}
+  .eval-table th {{ background: #f8f9fa; font-weight: 600; }}
+  .badge {{ display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 12px; font-weight: bold; text-transform: uppercase; }}
+  .badge-pass {{ background: #d4edda; color: #155724; }}
+  .badge-degraded {{ background: #fff3cd; color: #856404; }}
+  .badge-fail {{ background: #f8d7da; color: #721c24; }}
+  .severity {{ display: inline-block; padding: 1px 6px; border-radius: 3px;
+               font-size: 11px; text-transform: uppercase; }}
+  .severity-critical {{ background: #f8d7da; color: #721c24; }}
+  .severity-major {{ background: #fff3cd; color: #856404; }}
+  .severity-minor {{ background: #e2e3e5; color: #383d41; }}
+  .severity-info {{ background: #d1ecf1; color: #0c5460; }}
 </style>
 </head>
 <body>
 <h1>{title}</h1>
 {subtitle_html}
+{verdict_banner}
 {summary_block}
+{eval_summary}
 {"".join(rows_html)}
 <div class="footer">
   {footer_text}
