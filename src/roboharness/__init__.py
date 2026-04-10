@@ -24,6 +24,13 @@ from roboharness.core.protocol import (
     TaskProtocol,
 )
 from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion
+from roboharness.evaluate.lerobot_plugin import (
+    EpisodeResult,
+    LeRobotEvalConfig,
+    LeRobotEvalReport,
+    check_eval_threshold,
+    evaluate_policy,
+)
 from roboharness.evaluate.result import EvaluationResult, Operator, Severity, Verdict
 from roboharness.runner import BatchResult, ParallelTrialRunner, TrialSpec
 from roboharness.storage.history import EvaluationHistory, EvaluationRecord, TrendResult
@@ -43,11 +50,14 @@ __all__ = [
     "ComponentAssumption",
     "ComponentLifecycle",
     "Controller",
+    "EpisodeResult",
     "EvaluationHistory",
     "EvaluationRecord",
     "EvaluationResult",
     "ExpirationHorizon",
     "Harness",
+    "LeRobotEvalConfig",
+    "LeRobotEvalReport",
     "LifecycleRegistry",
     "MetricAssertion",
     "Operator",
@@ -58,5 +68,7 @@ __all__ = [
     "TrendResult",
     "TrialSpec",
     "Verdict",
+    "check_eval_threshold",
     "default_registry",
+    "evaluate_policy",
 ]
