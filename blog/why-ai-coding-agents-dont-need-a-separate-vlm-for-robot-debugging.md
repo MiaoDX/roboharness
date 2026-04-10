@@ -52,6 +52,8 @@ harness.add_checkpoint("lift", cameras=cameras, trigger_step=2600)
 harness.reset()
 for actions in grasp_phases:
     result = harness.run_to_next_checkpoint(actions)
+    if result is None:
+        break  # all checkpoints captured
     # result.views → list of CameraView objects (front, side, top)
     # result.state → joint angles, contact forces, object poses
     # The coding agent inspects BOTH and decides what to do next
@@ -62,7 +64,7 @@ At each checkpoint, the harness captures multi-view screenshots and saves them a
 The output on disk looks like this:
 
 ```
-harness_output/grasp/trial_001/
+output/grasp/trial_001/
   pre_grasp/
     front_rgb.png      ← agent sees the gripper is open, positioned above the cube
     side_rgb.png       ← confirms approach angle from a perpendicular view
