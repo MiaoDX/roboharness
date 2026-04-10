@@ -61,10 +61,15 @@ jobs:
           MUJOCO_GL: osmesa
         run: python examples/lerobot_g1.py --report --output-dir ./harness_output
 
-      - name: Run native LeRobot G1 example
+      - name: Run native LeRobot G1 (GR00T) example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/lerobot_g1_native.py --report --output-dir ./harness_output
+        run: python examples/lerobot_g1_native.py --controller groot --report --output-dir ./harness_output
+
+      - name: Run native LeRobot G1 (SONIC) example
+        env:
+          MUJOCO_GL: osmesa
+        run: python examples/lerobot_g1_native.py --controller sonic --report --output-dir ./harness_output
 
       - name: Run SONIC locomotion example
         env:
@@ -115,15 +120,26 @@ jobs:
             cp "${cp_dir}"state.json "_site/g1-loco/${cp_name}/" 2>/dev/null || true
           done
 
-          # --- Demo 4: Native LeRobot G1 ---
-          mkdir -p _site/g1-native
-          cp harness_output/lerobot_g1_native_report.html _site/g1-native/index.html
-          for cp_dir in harness_output/lerobot_g1_native/trial_001/*/; do
+          # --- Demo 4a: Native LeRobot G1 (GR00T) ---
+          mkdir -p _site/g1-native-groot
+          cp harness_output/lerobot_g1_native_groot_report.html _site/g1-native-groot/index.html
+          for cp_dir in harness_output/lerobot_g1_native_groot/trial_001/*/; do
             cp_name=$(basename "$cp_dir")
-            mkdir -p "_site/g1-native/${cp_name}"
-            cp "${cp_dir}"*_rgb.png "_site/g1-native/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"metadata.json "_site/g1-native/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"state.json "_site/g1-native/${cp_name}/" 2>/dev/null || true
+            mkdir -p "_site/g1-native-groot/${cp_name}"
+            cp "${cp_dir}"*_rgb.png "_site/g1-native-groot/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"metadata.json "_site/g1-native-groot/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"state.json "_site/g1-native-groot/${cp_name}/" 2>/dev/null || true
+          done
+
+          # --- Demo 4b: Native LeRobot G1 (SONIC) ---
+          mkdir -p _site/g1-native-sonic
+          cp harness_output/lerobot_g1_native_sonic_report.html _site/g1-native-sonic/index.html
+          for cp_dir in harness_output/lerobot_g1_native_sonic/trial_001/*/; do
+            cp_name=$(basename "$cp_dir")
+            mkdir -p "_site/g1-native-sonic/${cp_name}"
+            cp "${cp_dir}"*_rgb.png "_site/g1-native-sonic/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"metadata.json "_site/g1-native-sonic/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"state.json "_site/g1-native-sonic/${cp_name}/" 2>/dev/null || true
           done
 
           # --- Demo 5: SONIC Locomotion ---
