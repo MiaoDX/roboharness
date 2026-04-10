@@ -50,6 +50,10 @@ wbc = [
 unitree = [
     "unitree-sdk2py @ git+https://github.com/MiaoDX-fork-and-pruning/unitree_sdk2_python_uv.git",
 ]
+lerobot = [
+    "gymnasium>=0.29",
+    "Pillow",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=5.0",

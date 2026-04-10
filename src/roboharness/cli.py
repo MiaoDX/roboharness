@@ -249,6 +249,41 @@ def trend_command(
     return trends
 
 
+def lerobot_eval_command(
+    report_path: Path,
+    constraints_path: Path | None = None,
+    min_success_rate: float | None = None,
+) -> tuple[dict[str, Any], int]:
+    """Evaluate a LeRobot evaluation report.
+
+    Loads ``autonomous_report.json`` produced by :class:`LeRobotEvaluator`,
+    evaluates against constraints (or default LeRobot thresholds), and returns
+    ``(result_dict, exit_code)``.  Exit codes: 0=pass, 1=fail, 2=degraded.
+
+    When *min_success_rate* is given the ``success_rate`` summary metric is
+    checked directly — exit 1 if below.
+    """
+    from roboharness.lerobot.evaluator import LEROBOT_EVAL_DEFAULTS
+
+    if not report_path.exists():
+        raise FileNotFoundError(f"report not found: {report_path}")
+
+    assertions = load_constraints(constraints_path) if constraints_path else LEROBOT_EVAL_DEFAULTS
+    engine = AssertionEngine(assertions)
+    report = _load_json(report_path)
+    result = engine.evaluate(report, report_path=str(report_path))
+
+    exit_code = {"pass": 0, "fail": 1, "degraded": 2}[result.verdict.value]
+
+    # Override exit code if min_success_rate is given and not met
+    if min_success_rate is not None:
+        actual_rate = report.get("summary_metrics", {}).get("success_rate", 0.0)
+        if actual_rate < min_success_rate:
+            exit_code = 1
+
+    return result.to_dict(), exit_code
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -362,6 +397,36 @@ def main(argv: list[str] | None = None) -> int:
         help="Minimum success rate (0.0-1.0) for CI pass/fail. Exit 1 if below.",
     )
 
+    # lerobot-eval
+    lerobot_parser = subparsers.add_parser(
+        "lerobot-eval",
+        help="Evaluate a LeRobot evaluation report against constraints.",
+    )
+    lerobot_parser.add_argument(
+        "report_path",
+        type=Path,
+        help="Path to autonomous_report.json from LeRobotEvaluator.",
+    )
+    lerobot_parser.add_argument(
+        "--constraints",
+        type=Path,
+        default=None,
+        help="Path to constraint definition file (YAML or JSON).",
+    )
+    lerobot_parser.add_argument(
+        "--min-success-rate",
+        type=float,
+        default=None,
+        help="Minimum success rate (0.0-1.0) for CI pass/fail. Exit 1 if below.",
+    )
+    lerobot_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["human", "json"],
+        default="human",
+        help="Output format (default: human).",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -460,6 +525,33 @@ def main(argv: list[str] | None = None) -> int:
                     exit_code = 1
             elif batch.total_trials > 0 and batch.success_rate == 0.0:
                 exit_code = 1
+        return exit_code
+
+    if args.command == "lerobot-eval":
+        try:
+            result_dict, exit_code = lerobot_eval_command(
+                args.report_path, args.constraints, args.min_success_rate
+            )
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        if args.output_format == "json":
+            print(json.dumps(result_dict, indent=2))
+        else:
+            verdict = result_dict["verdict"]
+            print(f"LeRobot Eval — Verdict: {verdict}")
+            summary = _load_json(args.report_path).get("summary_metrics", {})
+            rate = summary.get("success_rate")
+            reward = summary.get("mean_reward")
+            n_ep = summary.get("num_episodes")
+            if rate is not None:
+                print(f"  Success rate: {rate:.0%} ({n_ep} episodes)")
+            if reward is not None:
+                print(f"  Mean reward:  {reward:.2f}")
+            print(f"  Assertions: {result_dict['passed']}/{result_dict['total_assertions']} passed")
+            for r in result_dict["results"]:
+                if not r["passed"]:
+                    print(f"  FAIL [{r['severity']}] {r['message']}")
         return exit_code
 
     return 1

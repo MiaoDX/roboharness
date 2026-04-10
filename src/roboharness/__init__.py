@@ -28,6 +28,18 @@ from roboharness.evaluate.result import EvaluationResult, Operator, Severity, Ve
 from roboharness.runner import BatchResult, ParallelTrialRunner, TrialSpec
 from roboharness.storage.history import EvaluationHistory, EvaluationRecord, TrendResult
 
+# Lazy imports for optional lerobot module — only available when gymnasium is installed.
+# Import directly from roboharness.lerobot for full API access.
+
+
+def __getattr__(name: str) -> object:
+    if name == "LeRobotEvaluator":
+        from roboharness.lerobot.evaluator import LeRobotEvaluator
+
+        return LeRobotEvaluator
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "BUILTIN_PROTOCOLS",
     "DANCE_PROTOCOL",
@@ -48,6 +60,7 @@ __all__ = [
     "EvaluationResult",
     "ExpirationHorizon",
     "Harness",
+    "LeRobotEvaluator",
     "LifecycleRegistry",
     "MetricAssertion",
     "Operator",
