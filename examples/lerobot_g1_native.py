@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any
 
 import gymnasium as gym  # noqa: TC002 — used at runtime inside create_native_env
-import numpy as np
+import numpy as np  # noqa: TC002 — used at runtime in _add_mujoco_rendering
 
 from roboharness.core.protocol import TaskPhase, TaskProtocol
 from roboharness.wrappers import RobotHarnessWrapper
@@ -123,23 +123,16 @@ def create_native_env(
 
     env = hub_make_env(n_envs=n_envs)
 
-    # Fix observation_space to match actual obs shape (upstream declares (97,)
-    # but _get_obs() returns (100,) due to floating_base_acc being 6-D not 3-D)
-    obs, _ = env.reset()
-    actual_shape = np.asarray(obs).shape
-    declared_shape = env.observation_space.shape
-    if actual_shape != declared_shape:
-        from gymnasium import spaces
-
-        print(f"      Fixing obs space: declared {declared_shape} -> actual {actual_shape}")
-        env.observation_space = spaces.Box(-np.inf, np.inf, shape=actual_shape, dtype=np.float32)
+    # Obs-space shape mismatch (upstream declares (97,) but returns (100,) due to
+    # floating_base_acc being 6-D not 3-D) is handled automatically by
+    # RobotHarnessWrapper(auto_fix_obs_space=True). See issue #110.
 
     # Add MuJoCo rendering capability — the hub env has a MuJoCo model but
     # doesn't expose render_camera(), so the wrapper can't capture screenshots.
     _add_mujoco_rendering(env)
 
     print(f"      Env type: {type(env).__name__}")
-    print(f"      Obs space: {env.observation_space}")
+    print(f"      Obs space (declared): {env.observation_space}")
     print(f"      Act space: {env.action_space}")
 
     return env
@@ -303,6 +296,7 @@ def main() -> None:
         cameras=cameras,
         output_dir=str(output_dir),
         task_name="lerobot_g1_native",
+        auto_fix_obs_space=True,
     )
     print(f"      Protocol: {wrapped.active_protocol.name}")
     print(f"      Multi-camera: {wrapped.has_multi_camera}")

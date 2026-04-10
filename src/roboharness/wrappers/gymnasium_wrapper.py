@@ -185,6 +185,7 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         task_name: str = "default",
         protocol: TaskProtocol | None = None,
         phase_steps: dict[str, int] | None = None,
+        auto_fix_obs_space: bool = False,
     ):
         super().__init__(env)
         self.output_dir = Path(output_dir)
@@ -192,6 +193,8 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         self._step_count = 0
         self._trial_count = 0
         self._active_protocol: TaskProtocol | None = None
+        self._auto_fix_obs_space = auto_fix_obs_space
+        self._obs_space_fixed = False
 
         # Detect multi-camera capability
         self.camera_capability = _detect_camera_capability(env)
@@ -242,8 +245,42 @@ class RobotHarnessWrapper(Wrapper):  # type: ignore[type-arg]
         result = self.env.reset(**kwargs)
         # Handle both old gym (obs) and new gymnasium (obs, info) return
         if isinstance(result, tuple):
-            return result
-        return result, {}
+            obs, info = result
+        else:
+            obs, info = result, {}
+
+        if self._auto_fix_obs_space and not self._obs_space_fixed:
+            self._maybe_fix_obs_space(obs)
+
+        return obs, info
+
+    def _maybe_fix_obs_space(self, obs: Any) -> None:
+        """Auto-fix observation_space if actual obs shape doesn't match declared shape.
+
+        Some environments (e.g. lerobot/unitree-g1-mujoco) declare an incorrect
+        observation space shape due to upstream bugs. This detects the mismatch
+        on first reset and corrects the observation_space to match actual observations.
+
+        See: https://github.com/MiaoDX/roboharness/issues/110
+        """
+        from gymnasium import spaces
+
+        if isinstance(obs, dict):
+            self._obs_space_fixed = True
+            return
+
+        actual_shape = np.asarray(obs).shape
+        declared = getattr(self.observation_space, "shape", None)
+        if declared is not None and actual_shape != declared:
+            logger.warning(
+                "Obs-space shape mismatch: declared %s vs actual %s — auto-fixing.",
+                declared,
+                actual_shape,
+            )
+            self.env.observation_space = spaces.Box(
+                -np.inf, np.inf, shape=actual_shape, dtype=np.float32
+            )
+        self._obs_space_fixed = True
 
     def step(self, action: Any) -> tuple[Any, float, bool, bool, dict[str, Any]]:
         """Step environment. Captures screenshots at checkpoint steps."""
