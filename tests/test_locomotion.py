@@ -723,8 +723,16 @@ class TestSonicTrackingMode:
         # Clip reference should still be set (reset doesn't remove the clip)
         assert ctrl._tracking_clip is clip
 
-    def test_encoder_decoder_sessions_loaded(self) -> None:
+    def test_encoder_decoder_sessions_lazy_loaded(self) -> None:
         ctrl = self._make_controller()
+        # Encoder/decoder are lazy-loaded on first tracking call
+        assert ctrl._encoder_session is None
+        assert ctrl._decoder_session is None
+        # After a tracking call, they should be loaded
+        clip = self._make_clip(n_frames=10)
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        ctrl.compute(command={"tracking": True}, state=state)
         assert ctrl._encoder_session is not None
         assert ctrl._decoder_session is not None
 

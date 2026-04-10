@@ -608,10 +608,11 @@ class SonicLocomotionController:
         self._default_height = default_height
         self._default_mode = default_mode
 
-        # Download and load ONNX models
+        # Download and load planner ONNX model eagerly (always needed)
         self._planner_session = _load_onnx_session(repo_id, SONIC_PLANNER_FILE)
-        self._encoder_session = _load_onnx_session(repo_id, SONIC_ENCODER_FILE)
-        self._decoder_session = _load_onnx_session(repo_id, SONIC_DECODER_FILE)
+        # Encoder/decoder are lazy-loaded on first tracking call
+        self._encoder_session: Any = None
+        self._decoder_session: Any = None
 
         # Context window: last 4 full qpos frames (36-dim each)
         self._context: deque[np.ndarray] = deque(maxlen=SONIC_CONTEXT_LEN)
@@ -640,7 +641,7 @@ class SonicLocomotionController:
         for _ in range(SONIC_CONTEXT_LEN):
             self._context.append(standing.copy())
 
-        logger.info("SONIC locomotion controller loaded (planner + encoder/decoder)")
+        logger.info("SONIC locomotion controller loaded (planner; encoder/decoder lazy)")
 
     @staticmethod
     def _make_standing_qpos() -> np.ndarray:
@@ -722,6 +723,12 @@ class SonicLocomotionController:
         """
         if self._tracking_clip is None:
             raise RuntimeError("No tracking clip set — call set_tracking_clip() first")
+
+        # Lazy-load encoder/decoder on first tracking call
+        if self._encoder_session is None:
+            self._encoder_session = _load_onnx_session(self._repo_id, SONIC_ENCODER_FILE)
+        if self._decoder_session is None:
+            self._decoder_session = _load_onnx_session(self._repo_id, SONIC_DECODER_FILE)
 
         # Get 65-dim reference from the current clip frame
         ref = self._tracking_clip.reference_frame(self._tracking_frame_index)

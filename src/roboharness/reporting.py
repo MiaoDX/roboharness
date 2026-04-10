@@ -86,6 +86,16 @@ def _phase_badge(result: EvaluationResult, checkpoint_name: str) -> str:
     return ' <span class="badge badge-degraded">DEGRADED</span>'
 
 
+def _checkpoint_sort_key(cp_path: Path) -> tuple[int, str]:
+    """Sort checkpoints by step number (from metadata.json), falling back to name."""
+    meta_file = cp_path / "metadata.json"
+    if meta_file.exists():
+        with meta_file.open() as fh:
+            meta = json.load(fh)
+        return (meta.get("step", 0), cp_path.name)
+    return (0, cp_path.name)
+
+
 def generate_html_report(
     output_dir: Path,
     task_name: str,
@@ -141,7 +151,7 @@ def generate_html_report(
 
     checkpoints = sorted(
         [d for d in trial_dir.iterdir() if d.is_dir()],
-        key=lambda p: p.name,
+        key=_checkpoint_sort_key,
     )
 
     rows_html = []
