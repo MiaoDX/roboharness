@@ -86,6 +86,7 @@ class Harness:
         self._step_count: int = 0
         self._trial_count: int = 0
         self._checkpoint_store = CheckpointStore(self.output_dir / "snapshots")
+        self._checkpoint_step_counts: dict[str, int] = {}
         self._rerun_logger = RerunCaptureLogger(app_id=rerun_app_id) if enable_rerun else None
         self._active_protocol: TaskProtocol | None = None
 
@@ -191,6 +192,7 @@ class Harness:
         # Save checkpoint state
         sim_state = self.backend.save_state()
         self._checkpoint_store.save(checkpoint.name, sim_state)
+        self._checkpoint_step_counts[checkpoint.name] = self._step_count
 
         self._current_checkpoint_idx += 1
         return result
@@ -234,9 +236,17 @@ class Harness:
         return result
 
     def restore_checkpoint(self, name: str) -> None:
-        """Restore simulation to a previously saved checkpoint."""
+        """Restore simulation to a previously saved checkpoint.
+
+        Restores both the simulator physics state and the harness step count
+        so that ``trigger_step`` logic works correctly after a restore.
+        """
         sim_state = self._checkpoint_store.restore(name)
         self.backend.restore_state(sim_state)
+
+        # Restore step count to the value when this checkpoint was captured
+        if name in self._checkpoint_step_counts:
+            self._step_count = self._checkpoint_step_counts[name]
 
         # Reset checkpoint index to the restored one
         for i, cp in enumerate(self._checkpoints):
