@@ -196,13 +196,13 @@ See [docs/context.en.md](docs/context.en.md) for full background and motivation.
 
 ## Related Work
 
-Projects and papers exploring AI agents, visual evaluation, and benchmarks for robot manipulation:
+Roboharness builds on ideas from several research efforts in AI-driven robot evaluation and code-as-policy:
 
-- **FAEA** — LLM agent framework for embodied manipulation, evaluated on LIBERO, ManiSkill3, and MetaWorld ([arXiv:2601.20334](https://arxiv.org/abs/2601.20334))
-- **CaP-X** — Benchmark suite (CaP-Gym + CaP-Bench) for coding agents in robot manipulation, covering agent scaffolding and sim-to-real transfer ([arXiv:2603.22435](https://arxiv.org/abs/2603.22435))
-- **StepEval** — VLM-based subgoal evaluation producing per-subgoal success vectors instead of binary episode outcomes ([arXiv:2509.19524](https://arxiv.org/abs/2509.19524))
-- **SOLE-R1** — Video-language model for dense per-timestep reward signals across manipulation tasks in simulation and real hardware ([arXiv:2603.28730](https://arxiv.org/abs/2603.28730))
-- **AOR** — Multimodal coding agents that iteratively rewrite robot control code guided by visual episode outcomes ([arXiv:2603.04466](https://arxiv.org/abs/2603.04466))
+- **FAEA** — LLM agents as embodied manipulation controllers without demonstrations or fine-tuning ([Tsui et al., 2026](https://arxiv.org/abs/2601.20334))
+- **CaP-X** — Benchmark framework for coding agents that program robot manipulation tasks ([Fu et al., 2026](https://arxiv.org/abs/2603.22435))
+- **StepEval** — VLM-based subgoal evaluation for scoring intermediate robot manipulation steps ([ElMallah et al., 2025](https://arxiv.org/abs/2509.19524))
+- **SOLE-R1** — Video-language reasoning as the sole reward signal for on-robot RL ([Schroeder et al., 2026](https://arxiv.org/abs/2603.28730))
+- **AOR** — Multimodal coding agents that iteratively rewrite control code from visual observations ([Kumar, 2026](https://arxiv.org/abs/2603.04466))
 
 ## Citing
 
