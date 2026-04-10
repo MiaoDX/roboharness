@@ -47,6 +47,12 @@ wbc = [
     "pin-pink>=0.11",
     "qpsolvers[quadprog]",
 ]
+lerobot = [
+    "lerobot",
+    "gymnasium>=0.29",
+    "mujoco>=3.0",
+    "Pillow",
+]
 unitree = [
     "unitree-sdk2py @ git+https://github.com/MiaoDX-fork-and-pruning/unitree_sdk2_python_uv.git",
 ]
