@@ -63,9 +63,9 @@
   <h2>Architecture: Encoder + Decoder Pipeline</h2>
   <div class="pipeline">
     <div class="pipeline-step">MoCap Clip<div class="sub">CSV joint angles</div></div>
-    <div class="pipeline-step">Encoder<div class="sub">encoder_sonic.onnx</div></div>
+    <div class="pipeline-step">Encoder<div class="sub">model_encoder.onnx</div></div>
     <div class="pipeline-step">Latent Space<div class="sub">z &isin; R<sup>d</sup></div></div>
-    <div class="pipeline-step">Decoder<div class="sub">decoder_sonic.onnx</div></div>
+    <div class="pipeline-step">Decoder<div class="sub">model_decoder.onnx</div></div>
     <div class="pipeline-step">Joint Targets<div class="sub">29-DOF output</div></div>
   </div>
 </div>
@@ -75,8 +75,8 @@
   <table>
     <tr><th>Model</th><th>File</th><th>Purpose</th></tr>
     <tr><td>Planner</td><td>planner_sonic.onnx</td><td>Velocity &rarr; full-body trajectory</td></tr>
-    <tr><td>Encoder</td><td>encoder_sonic.onnx</td><td>MoCap clip &rarr; latent code</td></tr>
-    <tr><td>Decoder</td><td>decoder_sonic.onnx</td><td>Latent code &rarr; joint targets</td></tr>
+    <tr><td>Encoder</td><td>model_encoder.onnx</td><td>MoCap clip &rarr; latent code</td></tr>
+    <tr><td>Decoder</td><td>model_decoder.onnx</td><td>Latent code &rarr; joint targets</td></tr>
   </table>
   <p>Models are downloaded from <code>nvidia/GEAR-SONIC</code> on HuggingFace on first use.</p>
 </div>

@@ -135,7 +135,7 @@ action = ctrl.compute(
 )
 ```
 
-Models (`planner_sonic.onnx`, `encoder_sonic.onnx`, `decoder_sonic.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
+Models (`planner_sonic.onnx`, `model_encoder.onnx`, `model_decoder.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
 
 </details>
 

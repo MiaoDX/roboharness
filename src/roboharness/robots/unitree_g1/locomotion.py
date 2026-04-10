@@ -428,8 +428,8 @@ SONIC_DEFAULT_HEIGHT = 0.74
 SONIC_DEFAULT_NUM_TOKENS = 11
 
 # Phase 2: Encoder+Decoder model files
-SONIC_ENCODER_FILE = "encoder_sonic.onnx"
-SONIC_DECODER_FILE = "decoder_sonic.onnx"
+SONIC_ENCODER_FILE = "model_encoder.onnx"
+SONIC_DECODER_FILE = "model_decoder.onnx"
 
 # Encoder input: 29 joint pos + 29 joint vel + 1 root height + 6D rotation = 65
 SONIC_ENCODER_INPUT_DIM = 65
@@ -566,8 +566,8 @@ class SonicLocomotionController:
     full-body pose trajectories from velocity commands. Between planner calls the
     controller interpolates the 30 Hz output to 50 Hz for smooth control.
 
-    **Tracking mode** (Phase 2): Uses ``encoder_sonic.onnx`` and
-    ``decoder_sonic.onnx`` to track reference motion clips. The encoder converts
+    **Tracking mode** (Phase 2): Uses ``model_encoder.onnx`` and
+    ``model_decoder.onnx`` to track reference motion clips. The encoder converts
     a 65-dim motion reference into a 64-dim latent token, and the decoder maps
     the latent plus the current 58-dim robot state into 29-DOF joint targets.
 

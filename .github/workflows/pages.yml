@@ -40,6 +40,12 @@ jobs:
           uv pip install --system lerobot
           uv pip install --system loguru pygame scipy pyyaml
 
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-models-${{ runner.os }}-v1
+
       - name: Run MuJoCo grasp example
         env:
           MUJOCO_GL: osmesa

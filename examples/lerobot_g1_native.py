@@ -155,18 +155,33 @@ def _add_mujoco_rendering(
     unwrapped = getattr(env, "unwrapped", env)
 
     # Find the MuJoCo model and data on the env (attribute names vary by env)
+    # Search the unwrapped env and one level deeper (e.g. env.sim_env.mj_model
+    # for the lerobot/unitree-g1-mujoco hub env).
     model = None
     data = None
-    for attr in ("model", "_model", "mj_model"):
-        model = getattr(unwrapped, attr, None)
-        if model is not None and hasattr(model, "ncam"):
+    search_targets = [unwrapped]
+    for nested in ("sim_env", "simulator", "sim"):
+        obj = getattr(unwrapped, nested, None)
+        if obj is not None:
+            search_targets.append(obj)
+
+    for target in search_targets:
+        for attr in ("model", "_model", "mj_model"):
+            candidate = getattr(target, attr, None)
+            if candidate is not None and hasattr(candidate, "ncam"):
+                model = candidate
+                break
+        if model is not None:
             break
-        model = None
-    for attr in ("data", "_data", "mj_data"):
-        data = getattr(unwrapped, attr, None)
-        if data is not None and hasattr(data, "qpos"):
+
+    for target in search_targets:
+        for attr in ("data", "_data", "mj_data"):
+            candidate = getattr(target, attr, None)
+            if candidate is not None and hasattr(candidate, "qpos"):
+                data = candidate
+                break
+        if data is not None:
             break
-        data = None
 
     if model is None or data is None:
         print("      Warning: could not find MuJoCo model/data — no screenshots")
