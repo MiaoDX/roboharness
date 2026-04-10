@@ -134,11 +134,64 @@ def create_native_env(
         print(f"      Fixing obs space: declared {declared_shape} -> actual {actual_shape}")
         env.observation_space = spaces.Box(-np.inf, np.inf, shape=actual_shape, dtype=np.float32)
 
+    # Add MuJoCo rendering capability — the hub env has a MuJoCo model but
+    # doesn't expose render_camera(), so the wrapper can't capture screenshots.
+    _add_mujoco_rendering(env)
+
     print(f"      Env type: {type(env).__name__}")
     print(f"      Obs space: {env.observation_space}")
     print(f"      Act space: {env.action_space}")
 
     return env
+
+
+def _add_mujoco_rendering(
+    env: gym.Env,
+    width: int = 640,
+    height: int = 480,
+) -> None:
+    """Patch the env to support render_camera() using MuJoCo's renderer.
+
+    The hub env has a MuJoCo model/data underneath but doesn't expose camera
+    rendering. We find the model/data, create a mujoco.Renderer, and add
+    render_camera() + cameras property so RobotHarnessWrapper can capture
+    multi-view screenshots.
+    """
+    import mujoco
+
+    unwrapped = getattr(env, "unwrapped", env)
+
+    # Find the MuJoCo model and data on the env (attribute names vary by env)
+    model = None
+    data = None
+    for attr in ("model", "_model", "mj_model"):
+        model = getattr(unwrapped, attr, None)
+        if model is not None and hasattr(model, "ncam"):
+            break
+        model = None
+    for attr in ("data", "_data", "mj_data"):
+        data = getattr(unwrapped, attr, None)
+        if data is not None and hasattr(data, "qpos"):
+            break
+        data = None
+
+    if model is None or data is None:
+        print("      Warning: could not find MuJoCo model/data — no screenshots")
+        return
+
+    renderer = mujoco.Renderer(model, height, width)
+    camera_names = [model.camera(i).name for i in range(model.ncam)]
+
+    def render_camera(camera_name: str) -> np.ndarray:
+        if camera_name not in camera_names:
+            raise ValueError(f"Unknown camera: {camera_name}. Available: {camera_names}")
+        renderer.update_scene(data, camera=camera_name)
+        return renderer.render()
+
+    # Patch the unwrapped env so the wrapper detects render_camera capability
+    unwrapped.render_camera = render_camera  # type: ignore[attr-defined]
+    unwrapped.cameras = camera_names  # type: ignore[attr-defined]
+    print(f"      Added MuJoCo rendering: {len(camera_names)} cameras {camera_names}")
 
 
 # ---------------------------------------------------------------------------
@@ -236,13 +289,12 @@ def main() -> None:
     )
     cp_steps = [1, n_steps // 2, n_steps]
 
-    # Detect available cameras — try render_camera if available
+    # Detect available cameras (added by _add_mujoco_rendering or native env)
     cameras = ["default"]
     unwrapped = getattr(env, "unwrapped", env)
-    if hasattr(unwrapped, "cameras"):
-        cameras = list(unwrapped.cameras)
-    elif hasattr(unwrapped, "_cameras"):
-        cameras = list(unwrapped._cameras)
+    env_cameras = getattr(unwrapped, "cameras", None) or getattr(unwrapped, "_cameras", None)
+    if env_cameras:
+        cameras = list(env_cameras)
 
     wrapped = RobotHarnessWrapper(
         env,
