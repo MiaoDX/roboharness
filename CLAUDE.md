@@ -80,11 +80,9 @@ The project uses a tiered development workflow. Choose the right environment for
 | **Claude Code CLI + local GPU** | Yes | Demo debugging, visual QA, ONNX/rendering, locomotion controllers |
 | **CI (GitHub Actions + Cirun)** | CPU + T4 | Automated gating, regression detection |
 
-**Use web sessions** for anything that doesn't need GPU or real rendering: writing/refactoring `src/roboharness/`, adding tests with mocked backends, fixing lint/type/CI issues, updating docs.
+**Rule of thumb:** if you need to _see_ what the robot is doing, use local CLI + GPU. If you're writing logic and tests, use web.
 
-**Use local CLI + GPU** when you need to see what the robot is doing: debugging locomotion controllers (GR00T, SONIC), fixing visual report rendering, developing new backends or camera configs, Isaac Lab integration.
-
-Local GPU setup: run `scripts/gpu-dev-setup.sh` or see `docs/development-workflow.md` for manual steps.
+Local GPU setup: run `scripts/gpu-dev-setup.sh` or see `docs/development-workflow.md` for manual steps. Use `make check-gpu` to verify the setup, `make demos` to run all demos.
 
 ## Tools & environment
 
