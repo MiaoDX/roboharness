@@ -58,3 +58,36 @@ Checkpoints save to `harness_output/<task>/trial_001/<checkpoint>/`:
 | `metadata.json` | Checkpoint name, step number, timestamp, camera list, file paths |
 
 **Decision loop:** capture checkpoint images -> inspect visually or programmatically -> if wrong, `restore_checkpoint()` and retry with adjusted actions.
+
+## MCP server (optional)
+
+When roboharness runs as a tool service alongside other MCP tools, three tools are exposed:
+
+| Tool | Purpose |
+|------|---------|
+| `capture_checkpoint` | Pause simulation, capture multi-view screenshots + state |
+| `evaluate_constraints` | Run constraint evaluator on a report, return verdict |
+| `compare_baselines` | Compare current success rate against evaluation history |
+
+```bash
+pip install mcp                        # additional dependency
+```
+
+```python
+from roboharness import Harness
+from roboharness.mcp.server import create_server
+
+harness = Harness(backend, output_dir="./output")
+server = create_server(harness)
+server.run()                           # blocks, listens on stdio
+```
+
+### Tool parameters
+
+**`capture_checkpoint`** — `checkpoint_name` (string, optional), `cameras` (list of strings, default `["front"]`).
+
+**`evaluate_constraints`** — `report` (object with `summary_metrics` / `snapshot_metrics`), `assertions` (list of `{metric, operator, threshold}` dicts; operators: `lt`, `le`, `eq`, `gt`, `ge`, `in_range`).
+
+**`compare_baselines`** — `task` (string), `current_rate` (float 0–1), `window` (int, default 5), `threshold` (float, default 0.1).
+
+Business logic lives in `roboharness.mcp.tools.HarnessTools` and can be called directly without the MCP SDK.
