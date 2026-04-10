@@ -70,7 +70,7 @@ jobs:
         run: |
           # --- Demo 1: Simple Grasp (with Meshcat 3D) ---
           mkdir -p _site/grasp
-          cp harness_output/report.html _site/grasp/index.html
+          cp harness_output/mujoco_grasp_report.html _site/grasp/index.html
           for cp_dir in harness_output/mujoco_grasp/trial_001/*/; do
             cp_name=$(basename "$cp_dir")
             mkdir -p "_site/grasp/${cp_name}"
