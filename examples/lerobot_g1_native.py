@@ -42,7 +42,7 @@ import gymnasium as gym  # noqa: TC002 — used at runtime inside create_native_
 import numpy as np
 
 from roboharness.core.protocol import TaskPhase, TaskProtocol
-from roboharness.wrappers import RobotHarnessWrapper
+from roboharness.wrappers import RobotHarnessWrapper, VectorEnvAdapter
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -110,14 +110,18 @@ def create_native_env(
     *,
     n_envs: int = 1,
 ) -> gym.Env:
-    """Create a LeRobot environment by importing the hub env module directly.
+    """Create a LeRobot environment, preferring the official ``make_env()`` factory.
 
-    We import the hub's ``env.py`` directly rather than going through
-    lerobot's ``make_env()`` factory, which wraps in ``SyncVectorEnv``
-    and breaks due to an obs-space shape mismatch in the upstream env.
+    Strategy (in order):
+      1. Try LeRobot's ``make_env()`` — wraps the hub env in ``SyncVectorEnv``.
+         We unwrap the batch dimension via ``VectorEnvAdapter`` so downstream
+         wrappers see a standard single-env interface.
+      2. Fall back to importing the hub's ``env.py`` directly (works without
+         the full LeRobot install; avoids the ``SyncVectorEnv`` obs-space
+         mismatch that the upstream env has).
     """
     try:
-        from huggingface_hub import snapshot_download
+        from huggingface_hub import snapshot_download  # noqa: F401 — used below
     except ImportError:
         print(
             "ERROR: huggingface_hub is required for native integration.\n"
@@ -128,9 +132,49 @@ def create_native_env(
     # Patch config for headless CI environments before importing env module
     _patch_config_for_headless(env_id)
 
-    # Import the hub env module directly to avoid lerobot's VectorEnv wrapping.
-    # lerobot's make_env() wraps in SyncVectorEnv which breaks when the hub env's
-    # observation_space shape doesn't match actual obs (upstream bug in g1 env).
+    env = _try_lerobot_make_env(env_id, n_envs=n_envs)
+    if env is None:
+        env = _fallback_hub_make_env(env_id, n_envs=n_envs)
+
+    # Add MuJoCo rendering capability — the hub env has a MuJoCo model but
+    # doesn't expose render_camera(), so the wrapper can't capture screenshots.
+    _add_mujoco_rendering(env)
+
+    print(f"      Env type: {type(env).__name__}")
+    print(f"      Obs space (declared): {env.observation_space}")
+    print(f"      Act space: {env.action_space}")
+
+    return env
+
+
+def _try_lerobot_make_env(env_id: str, *, n_envs: int = 1) -> gym.Env | None:
+    """Try creating the env via LeRobot's official ``make_env()`` factory.
+
+    Returns a ``VectorEnvAdapter``-wrapped env on success, or ``None`` if
+    LeRobot is not installed or ``make_env()`` fails.
+    """
+    try:
+        from lerobot.common.envs.factory import make_env  # type: ignore[import-untyped]
+    except ImportError:
+        print("      LeRobot not installed — falling back to hub env import")
+        return None
+
+    try:
+        vec_env = make_env(env_id, n_envs=n_envs)
+    except Exception as exc:
+        print(f"      LeRobot make_env() failed ({exc}) — falling back to hub env import")
+        return None
+
+    # make_env() wraps in SyncVectorEnv; adapt to standard gym.Env.
+    env = VectorEnvAdapter(vec_env)
+    print("      Created via LeRobot make_env() + VectorEnvAdapter")
+    return env
+
+
+def _fallback_hub_make_env(env_id: str, *, n_envs: int = 1) -> gym.Env:
+    """Import the hub's ``env.py`` directly (no LeRobot dependency)."""
+    from huggingface_hub import snapshot_download
+
     repo_dir = Path(snapshot_download(env_id, repo_type="model"))
     sys.path.insert(0, str(repo_dir))
     try:
@@ -145,14 +189,7 @@ def create_native_env(
     # floating_base_acc being 6-D not 3-D) is handled automatically by
     # RobotHarnessWrapper(auto_fix_obs_space=True). See issue #110.
 
-    # Add MuJoCo rendering capability — the hub env has a MuJoCo model but
-    # doesn't expose render_camera(), so the wrapper can't capture screenshots.
-    _add_mujoco_rendering(env)
-
-    print(f"      Env type: {type(env).__name__}")
-    print(f"      Obs space (declared): {env.observation_space}")
-    print(f"      Act space: {env.action_space}")
-
+    print("      Created via direct hub env import (fallback)")
     return env
 
 
