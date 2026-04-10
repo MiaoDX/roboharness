@@ -107,6 +107,39 @@ class DictObsEnv(gym.Env):
         return np.zeros((480, 640, 3), dtype=np.uint8)
 
 
+class MismatchedObsSpaceEnv(gym.Env):
+    """Env that declares obs space (97,) but returns (100,) — mimics upstream G1 bug.
+
+    The lerobot/unitree-g1-mujoco env declares shape=(num_joints * 3 + 10,) = (97,)
+    but _get_obs() returns 100 elements because floating_base_acc is 6-D not 3-D.
+    See: https://github.com/MiaoDX/roboharness/issues/110
+    """
+
+    metadata: ClassVar[dict[str, Any]] = {"render_modes": ["rgb_array"], "render_fps": 50}
+
+    def __init__(self, render_mode: str = "rgb_array"):
+        super().__init__()
+        self.render_mode = render_mode
+        # Deliberately wrong: declares 97 but returns 100
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(97,), dtype=np.float64)
+        self.action_space = spaces.Box(low=-np.pi, high=np.pi, shape=(29,), dtype=np.float64)
+        self._step_count = 0
+
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        super().reset(seed=seed, options=options)
+        self._step_count = 0
+        return np.zeros(100, dtype=np.float64), {}
+
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
+        self._step_count += 1
+        return np.zeros(100, dtype=np.float64), 1.0, False, False, {}
+
+    def render(self) -> np.ndarray:
+        return np.zeros((480, 640, 3), dtype=np.uint8)
+
+
 # ---------------------------------------------------------------------------
 # Fixture: import the example module
 # ---------------------------------------------------------------------------
@@ -219,6 +252,101 @@ class TestWrapperWithG1Env:
         capture_dir = tmp_path / "render_test" / "trial_001" / "cp"
         image_files = list(capture_dir.glob("*_rgb.*"))
         assert len(image_files) > 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: obs-space mismatch auto-fix (issue #110)
+# ---------------------------------------------------------------------------
+
+
+class TestObsSpaceAutoFix:
+    """RobotHarnessWrapper auto_fix_obs_space for upstream shape mismatches."""
+
+    def test_mismatch_fixed_on_first_reset(self, tmp_path):
+        """With auto_fix_obs_space=True, obs space is corrected on first reset."""
+        env = MismatchedObsSpaceEnv()
+        assert env.observation_space.shape == (97,)
+
+        wrapped = RobotHarnessWrapper(
+            env,
+            checkpoints=[{"name": "cp", "step": 1}],
+            output_dir=tmp_path,
+            auto_fix_obs_space=True,
+        )
+        assert wrapped.observation_space.shape == (97,)  # Before reset: still wrong
+
+        obs, _ = wrapped.reset()
+        assert obs.shape == (100,)
+        assert wrapped.observation_space.shape == (100,)  # After reset: corrected
+
+    def test_mismatch_not_fixed_without_flag(self, tmp_path):
+        """Without auto_fix_obs_space, obs space stays at declared (wrong) shape."""
+        env = MismatchedObsSpaceEnv()
+        wrapped = RobotHarnessWrapper(
+            env,
+            checkpoints=[{"name": "cp", "step": 1}],
+            output_dir=tmp_path,
+        )
+        wrapped.reset()
+        assert wrapped.observation_space.shape == (97,)  # Still wrong — no auto-fix
+
+    def test_no_fix_when_shapes_match(self, tmp_path):
+        """When declared and actual shapes match, no fix is applied."""
+        env = SimpleG1Env()
+        wrapped = RobotHarnessWrapper(
+            env,
+            checkpoints=[{"name": "cp", "step": 1}],
+            output_dir=tmp_path,
+            auto_fix_obs_space=True,
+        )
+        wrapped.reset()
+        assert wrapped.observation_space.shape == (99,)  # Unchanged
+
+    def test_dict_obs_skipped(self, tmp_path):
+        """Dict observations are skipped by auto-fix (no shape to compare)."""
+        env = DictObsEnv()
+        wrapped = RobotHarnessWrapper(
+            env,
+            checkpoints=[{"name": "cp", "step": 1}],
+            output_dir=tmp_path,
+            auto_fix_obs_space=True,
+        )
+        obs, _ = wrapped.reset()
+        assert isinstance(obs, dict)
+        # No crash, observation_space unchanged
+        assert isinstance(wrapped.observation_space, spaces.Dict)
+
+    def test_fix_persists_across_resets(self, tmp_path):
+        """The fix is applied once and persists across subsequent resets."""
+        env = MismatchedObsSpaceEnv()
+        wrapped = RobotHarnessWrapper(
+            env,
+            checkpoints=[{"name": "cp", "step": 1}],
+            output_dir=tmp_path,
+            auto_fix_obs_space=True,
+        )
+        wrapped.reset()
+        assert wrapped.observation_space.shape == (100,)
+
+        wrapped.reset()
+        assert wrapped.observation_space.shape == (100,)
+
+    def test_checkpoint_captures_correct_shape(self, tmp_path):
+        """Checkpoints record the actual obs shape after auto-fix."""
+        env = MismatchedObsSpaceEnv()
+        wrapped = RobotHarnessWrapper(
+            env,
+            checkpoints=[{"name": "cp", "step": 1}],
+            output_dir=tmp_path,
+            task_name="shape_fix",
+            auto_fix_obs_space=True,
+        )
+        wrapped.reset()
+        _, _, _, _, _info = wrapped.step(np.zeros(29))
+
+        state_path = tmp_path / "shape_fix" / "trial_001" / "cp" / "state.json"
+        state = json.loads(state_path.read_text())
+        assert state["obs_shape"] == [100]
 
 
 # ---------------------------------------------------------------------------
