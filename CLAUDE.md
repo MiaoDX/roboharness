@@ -70,6 +70,22 @@ Skipping step 2 leads to guessing — which wastes time and misses the real issu
 - Isaac Lab integration (`examples/isaac_lab_integration.py`) **requires NVIDIA RTX GPU** — cannot run in current CPU-only CI. Tests in `test_isaac_lab_compat.py` use mock envs to validate on CPU.
 - Version is defined in both `pyproject.toml` and `src/roboharness/__init__.py` — keep them in sync.
 
+## Development environments
+
+The project uses a tiered development workflow. Choose the right environment for the task:
+
+| Environment | GPU | Best for |
+|-------------|-----|----------|
+| **claude.ai/code (web)** | No | Core logic, tests, refactors, CI config, docs |
+| **Claude Code CLI + local GPU** | Yes | Demo debugging, visual QA, ONNX/rendering, locomotion controllers |
+| **CI (GitHub Actions + Cirun)** | CPU + T4 | Automated gating, regression detection |
+
+**Use web sessions** for anything that doesn't need GPU or real rendering: writing/refactoring `src/roboharness/`, adding tests with mocked backends, fixing lint/type/CI issues, updating docs.
+
+**Use local CLI + GPU** when you need to see what the robot is doing: debugging locomotion controllers (GR00T, SONIC), fixing visual report rendering, developing new backends or camera configs, Isaac Lab integration.
+
+Local GPU setup: run `scripts/gpu-dev-setup.sh` or see `docs/development-workflow.md` for manual steps.
+
 ## Tools & environment
 
 - IMPORTANT: GitHub MCP tools are available (prefixed `mcp__github__`). Use them for all GitHub interactions (issues, PRs, comments). In **cloud/web environments** (Claude Code on the web), do NOT use `gh` CLI — it cannot be authorized; always use GitHub MCP tools. If an MCP tool call fails due to temporary unavailability, wait ~2 minutes and retry. In **local environments** (CLI/IDE), `gh` CLI is available and can be used normally.
