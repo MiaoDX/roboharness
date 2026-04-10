@@ -194,6 +194,11 @@ result = harness.run_to_next_checkpoint(actions)
 
 See [docs/context.en.md](docs/context.en.md) for full background and motivation.
 
+## Citing
+
+If you use Roboharness in academic work, please cite it using the metadata in
+[`CITATION.cff`](CITATION.cff) or the "Cite this repository" button on GitHub.
+
 ## Contributing
 
 Contributions welcome — including from AI coding agents! See [CONTRIBUTING.md](CONTRIBUTING.md).

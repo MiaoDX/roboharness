@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Roboharness: A Visual Testing Harness for AI Coding Agents in Robot Simulation"
+type: software
+authors:
+  - name: MiaoDX
+    email: miaodx@hotmail.com
+  - name: WLB
+    email: wlb@floatinglife.ai
+repository-code: "https://github.com/MiaoDX/RobotHarness"
+url: "https://miaodx.com/roboharness/"
+license: MIT
+version: "0.1.1"
+date-released: "2026-04-02"
+keywords:
+  - robotics
+  - simulation
+  - testing
+  - visual-feedback
+  - ai-agent
+  - mujoco
+abstract: >-
+  Roboharness is a visual testing harness that lets AI coding agents
+  see what a robot is doing, judge if it is working, and iterate
+  autonomously. It provides checkpoint capture, multi-view rendering,
+  and constraint evaluation for robot simulation environments including
+  MuJoCo, Isaac Lab, ManiSkill, and LeRobot.
