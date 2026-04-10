@@ -159,6 +159,13 @@ jobs:
         with:
           path: _site
 
+      - name: Upload site content for downstream workflows
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-content
+          path: _site
+
   deploy:
     needs: build
     if: ${{ !cancelled() }}

@@ -1,0 +1,66 @@
+name: Sync to HuggingFace Space
+
+on:
+  workflow_run:
+    workflows: ["Deploy Visual Report to GitHub Pages"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: hf-space
+
+      # When triggered by the Pages workflow, download its build artifact
+      - name: Download site artifact
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: site-content
+          path: _site
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      # When triggered manually, fetch the published site
+      - name: Fetch published site
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p _site/grasp _site/g1-reach _site/g1-loco _site/g1-native _site/sonic
+          BASE=https://miaodx.com/roboharness
+          curl -fsSL "$BASE/"           -o _site/index.html
+          curl -fsSL "$BASE/grasp/"     -o _site/grasp/index.html
+          curl -fsSL "$BASE/g1-reach/"  -o _site/g1-reach/index.html
+          curl -fsSL "$BASE/g1-loco/"   -o _site/g1-loco/index.html
+          curl -fsSL "$BASE/g1-native/" -o _site/g1-native/index.html
+          curl -fsSL "$BASE/sonic/"     -o _site/sonic/index.html
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install huggingface_hub
+        run: pip install huggingface_hub
+
+      - name: Add Space metadata
+        run: cp hf-space/README.md _site/README.md
+
+      - name: Push to HuggingFace Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -c "
+          from huggingface_hub import HfApi
+          api = HfApi()
+          api.upload_folder(
+              folder_path='_site',
+              repo_id='MiaoDX/roboharness-demo',
+              repo_type='space',
+          )
+          "
