@@ -142,12 +142,17 @@ class MuJoCoMeshcatBackend:
         return self.get_state()
 
     def get_state(self) -> dict[str, Any]:
-        """Get current simulation state."""
+        """Get current simulation state.
+
+        Returns numpy arrays for ``qpos``, ``qvel``, and ``ctrl`` so callers
+        can use them directly in numeric computations without conversion.
+        JSON serialization is handled by :class:`~roboharness._utils.NumpyEncoder`.
+        """
         return {
             "time": float(self._data.time),
-            "qpos": self._data.qpos.copy().tolist(),
-            "qvel": self._data.qvel.copy().tolist(),
-            "ctrl": self._data.ctrl.copy().tolist(),
+            "qpos": self._data.qpos.copy(),
+            "qvel": self._data.qvel.copy(),
+            "ctrl": self._data.ctrl.copy(),
         }
 
     def save_state(self) -> dict[str, Any]:

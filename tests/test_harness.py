@@ -79,3 +79,27 @@ def test_harness_no_more_checkpoints(tmp_path):
 
     result2 = harness.run_to_next_checkpoint([None])
     assert result2 is None
+
+
+def test_harness_restore_checkpoint_resets_step_count(tmp_path):
+    """Verify that restoring a checkpoint also restores _step_count.
+
+    Without this fix, trigger_step logic would use a stale count after restore.
+    """
+    harness = Harness(MockBackend(), output_dir=tmp_path)
+    harness.add_checkpoint("cp1", cameras=["front"])
+    harness.add_checkpoint("cp2", cameras=["front"])
+    harness.reset()
+
+    # Run 5 steps to cp1
+    harness.run_to_next_checkpoint([None] * 5)
+    step_at_cp1 = harness.step_count
+    assert step_at_cp1 == 5
+
+    # Run 5 more steps to cp2
+    harness.run_to_next_checkpoint([None] * 5)
+    assert harness.step_count == 10
+
+    # Restore to cp1 — step_count should revert to 5
+    harness.restore_checkpoint("cp1")
+    assert harness.step_count == step_at_cp1
