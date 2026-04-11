@@ -137,6 +137,11 @@ New simulators only need to implement these 7 methods — **no base class inheri
 - **MuJoCoMeshcatBackend** — MuJoCo physics + Meshcat 3D visualization export
 - **MeshcatVisualizer** — Standalone Meshcat interactive scene exporter
 
+Planned future backends (see `docs/spike-newton-backend.md` and `docs/spike-roboverse-metasim.md`):
+
+- **NewtonBackend** — NVIDIA Newton 1.0 (Warp-based GPU physics, 475× faster than MJX for manipulation). Awaiting API stabilisation and community adoption. Fastest path to Newton coverage today: use `RobotHarnessWrapper` with Isaac Lab's Newton-backed environments.
+- **RoboVerseBackend** — Single adapter for 8+ simulators via RoboVerse MetaSim (MuJoCo, Isaac Lab, SAPIEN, Genesis, Newton, …).
+
 ### `evaluate/` — Evaluation Engine
 
 Automated constraint checking and evaluation:

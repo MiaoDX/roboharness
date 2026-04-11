@@ -148,6 +148,11 @@ NVIDIA released Newton 1.0 at GTC 2026, built on Warp, claiming 475x faster than
 
 **Not urgent.** Newton just hit 1.0 and the API may still be changing. Monitor community adoption first. Roboharness's MuJoCo support + Gymnasium wrapper already covers most scenarios.
 
+**Spike complete:** `docs/spike-newton-backend.md` documents the integration plan,
+SimulatorBackend protocol mapping, CI requirements, and concrete adoption criteria
+for when to begin implementation. Isaac Lab users already get Newton coverage today
+via `RobotHarnessWrapper` (Isaac Lab's Newton backend exposes a Gymnasium interface).
+
 ### F. RoboVerse MetaSim Evaluation
 
 RoboVerse provides a unified API across 8+ simulators (Isaac Lab, MuJoCo, SAPIEN, Genesis, PyBullet). If the API is stable, one integration = support for 8 simulators.
