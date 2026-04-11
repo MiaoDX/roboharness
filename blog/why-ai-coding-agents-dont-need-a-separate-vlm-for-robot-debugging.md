@@ -40,23 +40,28 @@ The agent writes the control code, triggers the simulation, looks at the resulti
 In [Roboharness](https://github.com/MiaoDX/roboharness), we built a visual testing harness that makes this loop concrete. Here's a typical grasping workflow:
 
 ```python
-from roboharness import Harness
+from roboharness import Harness, GRASP_PROTOCOL
 
 harness = Harness(backend, output_dir="./harness_output", task_name="grasp")
-cameras = ["front", "side", "top"]
-harness.add_checkpoint("pre_grasp", cameras=cameras, trigger_step=500)
-harness.add_checkpoint("approach", cameras=cameras, trigger_step=1000)
-harness.add_checkpoint("grasp", cameras=cameras, trigger_step=1800)
-harness.add_checkpoint("lift", cameras=cameras, trigger_step=2600)
+# Built-in semantic protocol: plan → pre_grasp → approach → grasp → lift → place → home
+# Each phase becomes a checkpoint with appropriate camera configurations.
+harness.load_protocol(GRASP_PROTOCOL)
 
 harness.reset()
-for actions in grasp_phases:
-    result = harness.run_to_next_checkpoint(actions)
+for phase_actions in grasp_phases:
+    result = harness.run_to_next_checkpoint(phase_actions)
     if result is None:
-        break  # all checkpoints captured
-    # result.views → list of CameraView objects (front, side, top)
+        break  # all phases captured
+    # result.views → list of CameraView objects
     # result.state → joint angles, contact forces, object poses
     # The coding agent inspects BOTH and decides what to do next
+```
+
+You can also register checkpoints manually for finer control — for example, to trigger on a specific simulation step count or to use custom camera names:
+
+```python
+harness.add_checkpoint("pre_grasp", cameras=["front", "side", "top"], trigger_step=500)
+harness.add_checkpoint("approach", cameras=["front", "wrist"], trigger_step=1000)
 ```
 
 At each checkpoint, the harness captures multi-view screenshots and saves them as standard PNG files alongside structured state data (JSON). The agent reads the images directly — no VLM API call, no separate inference pipeline, no translation layer between visual understanding and code modification.
@@ -64,7 +69,7 @@ At each checkpoint, the harness captures multi-view screenshots and saves them a
 The output on disk looks like this:
 
 ```
-output/grasp/trial_001/
+harness_output/grasp/trial_001/
   pre_grasp/
     front_rgb.png      ← agent sees the gripper is open, positioned above the cube
     side_rgb.png       ← confirms approach angle from a perpendicular view
@@ -149,6 +154,8 @@ python examples/mujoco_grasp.py --report
 ```
 
 This runs a complete grasp sequence with multi-view checkpoint captures and generates an HTML report you can inspect. MuJoCo is supported as a built-in backend; Isaac Lab and ManiSkill environments work through the included Gymnasium wrapper for drop-in integration.
+
+Beyond grasping, roboharness ships built-in protocols for locomotion, mobile manipulation, reaching, and whole-body control — all following the same pattern. The harness also includes an evaluation module for writing constraint-based pass/fail assertions against captured state data, which closes the loop from "agent looks at screenshots" to "CI verifies task success automatically."
 
 The [interactive visual reports](https://miaodx.com/roboharness/) are auto-generated from CI on every push — MuJoCo grasping, G1 humanoid locomotion, whole-body reaching, and more.
 
