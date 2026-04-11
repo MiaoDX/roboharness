@@ -38,8 +38,8 @@ demo = [
     "gymnasium>=0.29",
     "huggingface_hub>=0.20",
     "onnxruntime>=1.16",
-    "Pillow",
-    "robot_descriptions",
+    "Pillow>=9.0",
+    "robot_descriptions>=1.0",
     "rerun-sdk>=0.18",
 ]
 wbc = [
@@ -63,7 +63,7 @@ dev = [
     "mypy>=1.0",
     "pre-commit>=3.0",
     "gymnasium>=0.29",
-    "Pillow",
+    "Pillow>=9.0",
 ]
 
 [project.scripts]
