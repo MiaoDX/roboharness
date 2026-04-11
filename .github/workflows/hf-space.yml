@@ -46,7 +46,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install huggingface_hub
-        run: pip install huggingface_hub
+        run: pip install "huggingface_hub>=0.20"
 
       - name: Add Space metadata
         run: cp hf-space/README.md _site/README.md
