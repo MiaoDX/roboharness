@@ -86,11 +86,17 @@ jobs:
           echo "pyproject.toml version:"
           grep '^version' pyproject.toml
 
+      - name: Update __init__.py version to match pyproject.toml
+        run: |
+          sed -i "s/^__version__ = \".*\"/__version__ = \"${{ steps.version.outputs.new_version }}\"/" src/roboharness/__init__.py
+          echo "__init__.py version:"
+          grep '^__version__' src/roboharness/__init__.py
+
       - name: Commit version bump if needed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml
+          git add pyproject.toml src/roboharness/__init__.py
           if git diff --cached --quiet; then
             echo "No version change needed"
           else
