@@ -95,14 +95,16 @@ class VectorEnvAdapter(gym.Env):  # type: ignore[type-arg]
             _squeeze_info(info),
         )
 
-    def render(self) -> np.ndarray | None:
-        frames = self._vec_env.render()
+    def render(self) -> Any:
+        frames: Any = self._vec_env.render()
         if frames is None:
             return None
         # SyncVectorEnv.render() returns a tuple of frames (one per env)
         # or a stacked ndarray with shape (num_envs, H, W, C).
-        if isinstance(frames, (tuple, list)) and len(frames) >= 1:
-            return frames[0]
+        if isinstance(frames, tuple):
+            return frames[0] if frames else None
+        if isinstance(frames, list):
+            return frames[0] if frames else None
         if isinstance(frames, np.ndarray) and frames.ndim == 4:
             return frames[0]
         return frames

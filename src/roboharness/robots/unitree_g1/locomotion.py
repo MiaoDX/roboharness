@@ -43,9 +43,10 @@ import enum
 import logging
 import pathlib
 from collections import deque
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -481,21 +482,25 @@ class MotionClip:
         """Clip duration in seconds."""
         return self.num_frames / self.fps
 
-    def reference_frame(self, index: int) -> np.ndarray:
+    def reference_frame(self, index: int) -> npt.NDArray[np.float32]:
         """Build a 65-dim encoder input vector for the given frame index.
 
         Layout: [29 joint_pos, 29 joint_vel, 1 root_height, 6 root_rotation_6d].
         Clamps ``index`` to valid range.
         """
         i = max(0, min(index, self.num_frames - 1))
-        return np.concatenate(
-            [
-                self.joint_positions[i],
-                self.joint_velocities[i],
-                self.root_height[i : i + 1],
-                self.root_rotation_6d[i],
-            ]
-        ).astype(np.float32)
+        frame = cast(
+            "npt.NDArray[np.float32]",
+            np.concatenate(
+                [
+                    self.joint_positions[i],
+                    self.joint_velocities[i],
+                    self.root_height[i : i + 1],
+                    self.root_rotation_6d[i],
+                ]
+            ).astype(np.float32),
+        )
+        return frame
 
 
 class MotionClipLoader:

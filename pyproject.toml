@@ -96,7 +96,10 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=roboharness --cov-report=term-missing --cov-fail-under=90"
+# Disable third-party pytest plugin autoload so host ROS installs do not
+# break this repo's default test command. Load pytest-cov explicitly because
+# coverage is part of the project's default test contract.
+addopts = "--disable-plugin-autoload -p pytest_cov --cov=roboharness --cov-report=term-missing --cov-fail-under=90"
 markers = [
     "gpu: requires GPU hardware (CUDA)",
     "slow: slow integration tests",
@@ -129,17 +132,11 @@ module = [
     "gymnasium.*",
     "gym.*",
     "PIL.*",
-    "rerun_sdk.*",
-    "rerun.*",
-    "mani_skill.*",
     "pinocchio.*",
     "pink.*",
-    "qpsolvers.*",
     "yaml.*",
     "onnxruntime.*",
     "huggingface_hub.*",
-    "unitree_sdk2py.*",
-    "lerobot.*",
     "mcp.*",
 ]
 ignore_missing_imports = true

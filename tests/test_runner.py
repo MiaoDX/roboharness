@@ -166,14 +166,16 @@ def test_parallel_runner_multiple_trials(tmp_path: Path):
 
 def test_parallel_runner_isolation(tmp_path: Path):
     """Each trial must get its own backend instance."""
-    backend_ids: list[int] = []
+    seen_backends: list[SimulatorBackend] = []
     lock = threading.Lock()
 
     def tracking_trial_fn(
         backend: SimulatorBackend, output_dir: Path, spec: TrialSpec
     ) -> TrialResult:
         with lock:
-            backend_ids.append(id(backend))
+            # Keep strong references so CPython cannot recycle object IDs
+            # between completed trials and make this test flaky.
+            seen_backends.append(backend)
         backend.reset()
         return TrialResult(trial_id=spec.trial_id, success=True)
 
@@ -187,7 +189,8 @@ def test_parallel_runner_isolation(tmp_path: Path):
     runner.run(specs, tracking_trial_fn)
 
     # All backend instances should be unique objects
-    assert len(set(backend_ids)) == 4
+    assert len(seen_backends) == 4
+    assert len({id(backend) for backend in seen_backends}) == 4
 
 
 def test_parallel_runner_output_dirs_isolated(tmp_path: Path):
