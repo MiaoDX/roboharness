@@ -80,8 +80,6 @@ jobs:
         run: |
           mkdir -p _site
           cp .github/pages/index.html _site/index.html
-          mkdir -p _site/g1-native
-          cp .github/pages/g1-native.html _site/g1-native/index.html
 
       - name: Build demo reports
         run: |
