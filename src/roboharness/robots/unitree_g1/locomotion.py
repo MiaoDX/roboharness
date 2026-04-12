@@ -102,6 +102,94 @@ def get_gravity_orientation(quaternion: np.ndarray) -> np.ndarray:
     return grav
 
 
+def _normalize_quaternion(quaternion: np.ndarray) -> np.ndarray:
+    """Return a unit quaternion, falling back to identity for degenerate input."""
+    quat = np.asarray(quaternion, dtype=np.float32)
+    norm = float(np.linalg.norm(quat))
+    if norm < 1e-6:
+        return np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+    normalized: np.ndarray = (quat / norm).astype(np.float32)
+    return normalized
+
+
+def _rotation_matrix_from_quaternion(quaternion: np.ndarray) -> np.ndarray:
+    """Convert a quaternion ``[w, x, y, z]`` into a 3x3 rotation matrix."""
+    qw, qx, qy, qz = _normalize_quaternion(quaternion)
+    matrix = np.array(
+        [
+            [1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qw * qz), 2 * (qx * qz + qw * qy)],
+            [2 * (qx * qy + qw * qz), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qw * qx)],
+            [2 * (qx * qz - qw * qy), 2 * (qy * qz + qw * qx), 1 - 2 * (qx * qx + qy * qy)],
+        ],
+        dtype=np.float32,
+    )
+    return matrix
+
+
+def _normalize_vector(vector: np.ndarray, fallback: np.ndarray) -> np.ndarray:
+    """Return a unit vector, falling back to a provided direction if needed."""
+    vec = np.asarray(vector, dtype=np.float32)
+    norm = float(np.linalg.norm(vec))
+    if norm < 1e-6:
+        return np.asarray(fallback, dtype=np.float32)
+    normalized: np.ndarray = (vec / norm).astype(np.float32)
+    return normalized
+
+
+def _rotation_matrix_from_sixd(rotation_6d: np.ndarray) -> np.ndarray:
+    """Decode a row-wise 6D rotation representation into a 3x3 rotation matrix."""
+    rot = np.asarray(rotation_6d, dtype=np.float32).reshape(6)
+    first_col = np.array([rot[0], rot[2], rot[4]], dtype=np.float32)
+    second_col = np.array([rot[1], rot[3], rot[5]], dtype=np.float32)
+
+    basis_x = _normalize_vector(first_col, np.array([1.0, 0.0, 0.0], dtype=np.float32))
+    second_col = second_col - np.dot(second_col, basis_x) * basis_x
+    if float(np.linalg.norm(second_col)) < 1e-6:
+        fallback = np.array([0.0, 1.0, 0.0], dtype=np.float32)
+        if abs(float(np.dot(fallback, basis_x))) > 0.9:
+            fallback = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+        second_col = fallback - np.dot(fallback, basis_x) * basis_x
+    basis_y = _normalize_vector(second_col, np.array([0.0, 1.0, 0.0], dtype=np.float32))
+    basis_z = np.cross(basis_x, basis_y).astype(np.float32)
+
+    matrix = np.stack([basis_x, basis_y, basis_z], axis=1).astype(np.float32)
+    return matrix
+
+
+def _rotation_matrix_to_sixd(rotation_matrix: np.ndarray) -> np.ndarray:
+    """Encode a 3x3 rotation matrix into SONIC's row-wise 6D representation."""
+    matrix = np.asarray(rotation_matrix, dtype=np.float32).reshape(3, 3)
+    sixd = np.array(
+        [
+            matrix[0, 0],
+            matrix[0, 1],
+            matrix[1, 0],
+            matrix[1, 1],
+            matrix[2, 0],
+            matrix[2, 1],
+        ],
+        dtype=np.float32,
+    )
+    return sixd
+
+
+def _yaw_rotation_matrix_from_rotation(rotation_matrix: np.ndarray) -> np.ndarray:
+    """Extract the yaw-only rotation from a full 3D rotation matrix."""
+    matrix = np.asarray(rotation_matrix, dtype=np.float32).reshape(3, 3)
+    yaw = float(np.arctan2(matrix[1, 0], matrix[0, 0]))
+    cy = np.cos(yaw)
+    sy = np.sin(yaw)
+    yaw_matrix = np.array(
+        [
+            [cy, -sy, 0.0],
+            [sy, cy, 0.0],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=np.float32,
+    )
+    return yaw_matrix
+
+
 def _download_onnx(repo_id: str, filename: str) -> str:
     """Download an ONNX model from HuggingFace, returning the local path."""
     try:
@@ -434,14 +522,160 @@ SONIC_DEFAULT_NUM_TOKENS = 11
 SONIC_ENCODER_FILE = "model_encoder.onnx"
 SONIC_DECODER_FILE = "model_decoder.onnx"
 
-# Encoder input: 29 joint pos + 29 joint vel + 1 root height + 6D rotation = 65
-SONIC_ENCODER_INPUT_DIM = 65
-# Encoder output / decoder latent input
+# Raw clip frame: 29 joint pos + 29 joint vel + 1 root height + 6D root rotation.
+SONIC_CLIP_FRAME_DIM = 65
+
+# Real SONIC encoder/decoder contracts, matching the published ONNX models.
+SONIC_TRACKING_HISTORY_LEN = 10
+SONIC_TRACKING_FUTURE_FRAMES = 10
+SONIC_TRACKING_FUTURE_STEP = 5
+SONIC_ENCODER_INPUT_DIM = 1762
+SONIC_DECODER_INPUT_DIM = 994
 SONIC_LATENT_DIM = 64
-# Decoder robot state input: 29 joint pos + 29 joint vel = 58
-SONIC_ROBOT_STATE_DIM = 58
-# Decoder output: 29-DOF joint targets
+# Backward-compatible alias: the decoder no longer takes a bare 58D robot state,
+# but some callers still import this constant by name.
+SONIC_ROBOT_STATE_DIM = SONIC_DECODER_INPUT_DIM
+# Decoder output: 29 normalized IsaacLab-order actions, later decoded to targets.
 SONIC_DECODER_OUTPUT_DIM = NUM_BODY_JOINTS
+
+SONIC_MUJOCO_TO_ISAACLAB = np.array(
+    [
+        0,
+        6,
+        12,
+        1,
+        7,
+        13,
+        2,
+        8,
+        14,
+        3,
+        9,
+        15,
+        22,
+        4,
+        10,
+        16,
+        23,
+        5,
+        11,
+        17,
+        24,
+        18,
+        25,
+        19,
+        26,
+        20,
+        27,
+        21,
+        28,
+    ],
+    dtype=np.int64,
+)
+SONIC_ISAACLAB_TO_MUJOCO = np.array(
+    [
+        0,
+        3,
+        6,
+        9,
+        13,
+        17,
+        1,
+        4,
+        7,
+        10,
+        14,
+        18,
+        2,
+        5,
+        8,
+        11,
+        15,
+        19,
+        21,
+        23,
+        25,
+        27,
+        12,
+        16,
+        20,
+        22,
+        24,
+        26,
+        28,
+    ],
+    dtype=np.int64,
+)
+
+SONIC_TRACKING_DEFAULT_ANGLES = np.array(
+    [
+        -0.312,
+        0.0,
+        0.0,
+        0.669,
+        -0.363,
+        0.0,
+        -0.312,
+        0.0,
+        0.0,
+        0.669,
+        -0.363,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.2,
+        0.2,
+        0.0,
+        0.6,
+        0.0,
+        0.0,
+        0.0,
+        0.2,
+        -0.2,
+        0.0,
+        0.6,
+        0.0,
+        0.0,
+        0.0,
+    ],
+    dtype=np.float32,
+)
+
+SONIC_TRACKING_ACTION_SCALE = np.array(
+    [
+        0.350661466359,
+        0.350661466359,
+        0.547546465183,
+        0.350661466359,
+        0.438577313898,
+        0.438577313898,
+        0.350661466359,
+        0.350661466359,
+        0.547546465183,
+        0.350661466359,
+        0.438577313898,
+        0.438577313898,
+        0.547546465183,
+        0.438577313898,
+        0.438577313898,
+        0.438577313898,
+        0.438577313898,
+        0.438577313898,
+        0.438577313898,
+        0.438577313898,
+        0.074500870325,
+        0.074500870325,
+        0.438577313898,
+        0.438577313898,
+        0.438577313898,
+        0.438577313898,
+        0.438577313898,
+        0.074500870325,
+        0.074500870325,
+    ],
+    dtype=np.float32,
+)
 
 
 class SonicMode(enum.IntEnum):
@@ -483,10 +717,15 @@ class MotionClip:
         return self.num_frames / self.fps
 
     def reference_frame(self, index: int) -> npt.NDArray[np.float32]:
-        """Build a 65-dim encoder input vector for the given frame index.
+        """Build the raw 65D clip frame payload for the given frame index.
+
+        This is the clip storage format used by :class:`MotionClipLoader`, not the
+        published SONIC encoder ONNX input. The controller expands these raw clip
+        frames into the full 1762D ``obs_dict`` tensor expected by
+        ``model_encoder.onnx``.
 
         Layout: [29 joint_pos, 29 joint_vel, 1 root_height, 6 root_rotation_6d].
-        Clamps ``index`` to valid range.
+        Joint data is stored in MuJoCo order. Clamps ``index`` to valid range.
         """
         i = max(0, min(index, self.num_frames - 1))
         frame = cast(
@@ -509,10 +748,10 @@ class MotionClipLoader:
     Expected directory layout::
 
         clip_dir/
-            joint_positions.csv    # (N, 29)
-            joint_velocities.csv   # (N, 29)
+            joint_positions.csv    # (N, 29) MuJoCo joint order
+            joint_velocities.csv   # (N, 29) MuJoCo joint order
             root_height.csv        # (N, 1)
-            root_rotation_6d.csv   # (N, 6)
+            root_rotation_6d.csv   # (N, 6) row-wise first-two-columns rotation 6D
 
     All CSV files are comma-delimited with no header row.
     """
@@ -574,9 +813,11 @@ class SonicLocomotionController:
     controller interpolates the 30 Hz output to 50 Hz for smooth control.
 
     **Tracking mode** (Phase 2): Uses ``model_encoder.onnx`` and
-    ``model_decoder.onnx`` to track reference motion clips. The encoder converts
-    a 65-dim motion reference into a 64-dim latent token, and the decoder maps
-    the latent plus the current 58-dim robot state into 29-DOF joint targets.
+    ``model_decoder.onnx`` to track reference motion clips. The encoder consumes
+    a 1762D ``obs_dict`` built from a 10-frame future clip window and produces a
+    64D latent token. The decoder consumes a 994D ``obs_dict`` built from the
+    token plus 10-frame robot histories and produces 29 normalized actions,
+    which are then decoded into MuJoCo-order joint targets.
 
     Implements the ``Controller`` protocol::
 
@@ -642,6 +883,18 @@ class SonicLocomotionController:
         # Phase 2: tracking state
         self._tracking_clip: MotionClip | None = None
         self._tracking_frame_index: int = 0
+        self._tracking_frame_cursor: float = 0.0
+        self._tracking_heading_alignment: np.ndarray | None = None
+        self._tracking_last_action_isaaclab = np.zeros(NUM_BODY_JOINTS, dtype=np.float32)
+        self._tracking_ang_vel_history: deque[np.ndarray] = deque(maxlen=SONIC_TRACKING_HISTORY_LEN)
+        self._tracking_joint_pos_history: deque[np.ndarray] = deque(
+            maxlen=SONIC_TRACKING_HISTORY_LEN
+        )
+        self._tracking_joint_vel_history: deque[np.ndarray] = deque(
+            maxlen=SONIC_TRACKING_HISTORY_LEN
+        )
+        self._tracking_action_history: deque[np.ndarray] = deque(maxlen=SONIC_TRACKING_HISTORY_LEN)
+        self._tracking_gravity_history: deque[np.ndarray] = deque(maxlen=SONIC_TRACKING_HISTORY_LEN)
 
         # Initialise context with default standing pose
         standing = self._make_standing_qpos()
@@ -715,18 +968,167 @@ class SonicLocomotionController:
             ``command={"tracking": True}`` to use it.
         """
         self._tracking_clip = clip
-        self._tracking_frame_index = 0
+        self._reset_tracking_runtime_state()
 
     def clear_tracking_clip(self) -> None:
         """Remove the current tracking clip and reset tracking state."""
         self._tracking_clip = None
+        self._reset_tracking_runtime_state()
+
+    def _reset_tracking_runtime_state(self) -> None:
+        """Reset tracking-only runtime state without clearing the active clip."""
         self._tracking_frame_index = 0
+        self._tracking_frame_cursor = 0.0
+        self._tracking_heading_alignment = None
+        self._tracking_last_action_isaaclab[:] = 0.0
+        self._tracking_ang_vel_history.clear()
+        self._tracking_joint_pos_history.clear()
+        self._tracking_joint_vel_history.clear()
+        self._tracking_action_history.clear()
+        self._tracking_gravity_history.clear()
+
+    def _tracking_future_indices(self) -> list[int]:
+        """Return SONIC's future-motion window indices for the active clip."""
+        if self._tracking_clip is None:
+            return []
+        frame_step = max(
+            1,
+            round(SONIC_TRACKING_FUTURE_STEP * self._tracking_clip.fps / SONIC_CONTROL_RATE),
+        )
+        return [
+            min(self._tracking_frame_index + i * frame_step, self._tracking_clip.num_frames - 1)
+            for i in range(SONIC_TRACKING_FUTURE_FRAMES)
+        ]
+
+    def _ensure_tracking_heading_alignment(self, base_quat: np.ndarray) -> None:
+        """Align the clip's initial heading to the robot heading on first use."""
+        if self._tracking_heading_alignment is not None or self._tracking_clip is None:
+            return
+        base_rot = _rotation_matrix_from_quaternion(base_quat)
+        base_heading = _yaw_rotation_matrix_from_rotation(base_rot)
+        clip_root_rot = _rotation_matrix_from_sixd(self._tracking_clip.root_rotation_6d[0])
+        clip_heading = _yaw_rotation_matrix_from_rotation(clip_root_rot)
+        self._tracking_heading_alignment = (base_heading @ clip_heading.T).astype(np.float32)
+
+    def _build_tracking_anchor_orientation_window(self, base_quat: np.ndarray) -> np.ndarray:
+        """Build the 10-frame future anchor-orientation window expected by the encoder."""
+        if self._tracking_clip is None:
+            raise RuntimeError("No tracking clip set — call set_tracking_clip() first")
+        self._ensure_tracking_heading_alignment(base_quat)
+        assert self._tracking_heading_alignment is not None
+
+        base_rot = _rotation_matrix_from_quaternion(base_quat)
+        windows: list[np.ndarray] = []
+        for clip_index in self._tracking_future_indices():
+            ref_rot = _rotation_matrix_from_sixd(self._tracking_clip.root_rotation_6d[clip_index])
+            aligned_ref_rot = self._tracking_heading_alignment @ ref_rot
+            base_to_ref_rot = base_rot.T @ aligned_ref_rot
+            windows.append(_rotation_matrix_to_sixd(base_to_ref_rot))
+        return np.concatenate(windows).astype(np.float32)
+
+    def _append_tracking_history_sample(
+        self,
+        ang_vel: np.ndarray,
+        joint_pos_isaaclab: np.ndarray,
+        joint_vel_isaaclab: np.ndarray,
+        gravity_dir: np.ndarray,
+    ) -> None:
+        """Append one robot-state sample using the previous policy action."""
+        self._tracking_ang_vel_history.append(np.asarray(ang_vel, dtype=np.float32).copy())
+        self._tracking_joint_pos_history.append(
+            np.asarray(joint_pos_isaaclab, dtype=np.float32).copy()
+        )
+        self._tracking_joint_vel_history.append(
+            np.asarray(joint_vel_isaaclab, dtype=np.float32).copy()
+        )
+        self._tracking_action_history.append(self._tracking_last_action_isaaclab.copy())
+        self._tracking_gravity_history.append(np.asarray(gravity_dir, dtype=np.float32).copy())
+
+    def _ensure_tracking_histories(
+        self,
+        ang_vel: np.ndarray,
+        joint_pos_isaaclab: np.ndarray,
+        joint_vel_isaaclab: np.ndarray,
+        gravity_dir: np.ndarray,
+    ) -> None:
+        """Ensure the decoder history buffers are populated oldest-to-newest."""
+        if not self._tracking_joint_pos_history:
+            for _ in range(SONIC_TRACKING_HISTORY_LEN):
+                self._append_tracking_history_sample(
+                    ang_vel,
+                    joint_pos_isaaclab,
+                    joint_vel_isaaclab,
+                    gravity_dir,
+                )
+            return
+        self._append_tracking_history_sample(
+            ang_vel,
+            joint_pos_isaaclab,
+            joint_vel_isaaclab,
+            gravity_dir,
+        )
+
+    def _build_tracking_encoder_obs(self, base_quat: np.ndarray) -> np.ndarray:
+        """Pack the real SONIC encoder ``obs_dict`` tensor for mode 0 (g1)."""
+        if self._tracking_clip is None:
+            raise RuntimeError("No tracking clip set — call set_tracking_clip() first")
+
+        encoder_obs = np.zeros(SONIC_ENCODER_INPUT_DIM, dtype=np.float32)
+        future_indices = self._tracking_future_indices()
+
+        joint_positions = np.concatenate(
+            [
+                self._tracking_clip.joint_positions[idx][SONIC_MUJOCO_TO_ISAACLAB]
+                for idx in future_indices
+            ]
+        ).astype(np.float32)
+        joint_velocities = np.concatenate(
+            [
+                self._tracking_clip.joint_velocities[idx][SONIC_MUJOCO_TO_ISAACLAB]
+                for idx in future_indices
+            ]
+        ).astype(np.float32)
+        anchor_orientation = self._build_tracking_anchor_orientation_window(base_quat)
+
+        encoder_obs[4:294] = joint_positions
+        encoder_obs[294:584] = joint_velocities
+        encoder_obs[601:661] = anchor_orientation
+        return encoder_obs.reshape(1, -1)
+
+    def _build_tracking_decoder_obs(
+        self,
+        latent: np.ndarray,
+        ang_vel: np.ndarray,
+        joint_pos_isaaclab: np.ndarray,
+        joint_vel_isaaclab: np.ndarray,
+        gravity_dir: np.ndarray,
+    ) -> np.ndarray:
+        """Pack the real SONIC decoder ``obs_dict`` tensor."""
+        self._ensure_tracking_histories(
+            ang_vel, joint_pos_isaaclab, joint_vel_isaaclab, gravity_dir
+        )
+        decoder_obs = np.zeros(SONIC_DECODER_INPUT_DIM, dtype=np.float32)
+        decoder_obs[0:SONIC_LATENT_DIM] = latent.reshape(-1)[:SONIC_LATENT_DIM]
+        decoder_obs[64:94] = np.concatenate(list(self._tracking_ang_vel_history)).astype(np.float32)
+        decoder_obs[94:384] = np.concatenate(list(self._tracking_joint_pos_history)).astype(
+            np.float32
+        )
+        decoder_obs[384:674] = np.concatenate(list(self._tracking_joint_vel_history)).astype(
+            np.float32
+        )
+        decoder_obs[674:964] = np.concatenate(list(self._tracking_action_history)).astype(
+            np.float32
+        )
+        decoder_obs[964:994] = np.concatenate(list(self._tracking_gravity_history)).astype(
+            np.float32
+        )
+        return decoder_obs.reshape(1, -1)
 
     def _run_tracking(self, state: dict[str, Any]) -> np.ndarray:
         """Run the encoder+decoder pipeline for one tracking step.
 
-        Encodes the current motion reference frame into a latent token,
-        then decodes it with the current robot state to produce joint targets.
+        Encodes the current motion window into a latent token, then decodes it
+        with recent robot-state histories to produce MuJoCo-order joint targets.
         """
         if self._tracking_clip is None:
             raise RuntimeError("No tracking clip set — call set_tracking_clip() first")
@@ -737,29 +1139,41 @@ class SonicLocomotionController:
         if self._decoder_session is None:
             self._decoder_session = _load_onnx_session(self._repo_id, SONIC_DECODER_FILE)
 
-        # Get 65-dim reference from the current clip frame
-        ref = self._tracking_clip.reference_frame(self._tracking_frame_index)
-        ref_input = ref.reshape(1, -1).astype(np.float32)
+        base_quat, ang_vel, qj_mujoco, dqj_mujoco = _parse_imu_and_joints(state)
+        qj_isaaclab = qj_mujoco[SONIC_MUJOCO_TO_ISAACLAB].astype(np.float32)
+        dqj_isaaclab = dqj_mujoco[SONIC_MUJOCO_TO_ISAACLAB].astype(np.float32)
+        gravity_dir = get_gravity_orientation(base_quat).astype(np.float32)
 
-        # Encoder: 65-dim → 64-dim latent
-        latent = self._encoder_session.run(None, {"motion_ref": ref_input})[0]
+        encoder_obs = self._build_tracking_encoder_obs(base_quat)
+        latent = self._encoder_session.run(None, {"obs_dict": encoder_obs})[0]
 
-        # Build 58-dim robot state: 29 joint pos + 29 joint vel
-        _base_quat, _ang_vel, qj, dqj = _parse_imu_and_joints(state)
+        decoder_obs = self._build_tracking_decoder_obs(
+            latent.reshape(-1),
+            ang_vel.astype(np.float32),
+            qj_isaaclab,
+            dqj_isaaclab,
+            gravity_dir,
+        )
+        actions_isaaclab = self._decoder_session.run(None, {"obs_dict": decoder_obs})[0]
+        raw_action = actions_isaaclab.reshape(-1)[:NUM_BODY_JOINTS].astype(np.float32)
+        self._tracking_last_action_isaaclab[:] = raw_action
 
-        robot_state = np.concatenate([qj, dqj]).reshape(1, -1).astype(np.float32)
+        targets_mujoco = SONIC_TRACKING_DEFAULT_ANGLES + (
+            raw_action[SONIC_ISAACLAB_TO_MUJOCO] * SONIC_TRACKING_ACTION_SCALE
+        )
 
-        # Decoder: (64-dim latent, 58-dim state) → 29-DOF targets
-        targets = self._decoder_session.run(None, {"latent": latent, "robot_state": robot_state})[0]
-
-        # Advance tracking frame (at control rate relative to clip fps)
-        step_frames = self._tracking_clip.fps / SONIC_CONTROL_RATE
+        # Advance the clip cursor in wall-clock time, then publish the integer frame
+        # index used for future-window gathering and external inspection.
+        self._tracking_frame_cursor = min(
+            self._tracking_frame_cursor + (self._tracking_clip.fps / SONIC_CONTROL_RATE),
+            self._tracking_clip.num_frames - 1,
+        )
         self._tracking_frame_index = min(
-            int(self._tracking_frame_index + step_frames),
+            int(self._tracking_frame_cursor),
             self._tracking_clip.num_frames - 1,
         )
 
-        result: np.ndarray = targets.flatten()[:NUM_BODY_JOINTS]
+        result: np.ndarray = targets_mujoco.astype(np.float32)
         return result
 
     def compute(self, command: dict[str, Any], state: dict[str, Any]) -> np.ndarray:
@@ -853,7 +1267,7 @@ class SonicLocomotionController:
         self._traj_index = 0
         self._interp_phase = 0.0
         self._steps_since_plan = 0
-        self._tracking_frame_index = 0
+        self._reset_tracking_runtime_state()
         self._context.clear()
         standing = self._make_standing_qpos()
         for _ in range(SONIC_CONTEXT_LEN):

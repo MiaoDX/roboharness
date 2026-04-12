@@ -7,7 +7,7 @@ run without those heavy optional dependencies.
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import pytest
@@ -19,14 +19,22 @@ import pytest
 class _FakeInput:
     """Mimics an ONNX input descriptor."""
 
-    def __init__(self, name: str = "obs") -> None:
+    def __init__(
+        self,
+        name: str = "obs",
+        shape: list[int] | None = None,
+        dtype: str = "tensor(float)",
+    ) -> None:
         self.name = name
+        self.shape = shape
+        self.type = dtype
 
 
 class _FakeSession:
     """Mimics ``onnxruntime.InferenceSession``."""
 
     call_count: int = 0  # class-level call counter for verification
+    instances: ClassVar[dict[str, _FakeSession]] = {}
 
     def __init__(self, path: str, providers: list[str] | None = None) -> None:
         self.path = path
@@ -36,19 +44,22 @@ class _FakeSession:
         self._is_encoder = "encoder" in path
         self._is_decoder = "decoder" in path
         self._run_count = 0
+        self.last_feed: dict[str, Any] | None = None
+        _FakeSession.instances[path] = self
 
     def get_inputs(self) -> list[_FakeInput]:
         if self._is_planner:
-            return [_FakeInput("context_mujoco_qpos")]
+            return [_FakeInput("context_mujoco_qpos", [1, 4, 36])]
         if self._is_encoder:
-            return [_FakeInput("motion_ref")]
+            return [_FakeInput("obs_dict", [1, 1762])]
         if self._is_decoder:
-            return [_FakeInput("latent"), _FakeInput("robot_state")]
+            return [_FakeInput("obs_dict", [1, 994])]
         return [_FakeInput(self._input_name)]
 
     def run(self, output_names: list[str] | None, feed: dict[str, Any]) -> list[np.ndarray]:
         """Return deterministic outputs matching the model type."""
         self._run_count += 1
+        self.last_feed = feed
         if self._is_planner:
             # SONIC planner: return [mujoco_qpos [1, N, 36], num_pred_frames]
             num_frames = 6
@@ -59,11 +70,11 @@ class _FakeSession:
                 qpos[0, i, 2] = 0.74  # root height
             return [qpos, np.array(num_frames, dtype=np.int64)]
         if self._is_encoder:
-            # Encoder: 65-dim input → 64-dim latent token
+            # Encoder: obs_dict → 64-dim latent token
             return [np.zeros((1, 64), dtype=np.float32)]
         if self._is_decoder:
-            # Decoder: (64 + 58)-dim input → 29-DOF joint targets
-            return [np.zeros((1, 29), dtype=np.float32)]
+            # Decoder: obs_dict → 29 normalized IsaacLab-order actions
+            return [np.arange(29, dtype=np.float32).reshape(1, 29)]
         # GR00T / Holosoma: single action output
         inp = next(iter(feed.values()))
         batch = inp.shape[0]
@@ -92,10 +103,12 @@ def _patch_onnx_deps(monkeypatch: pytest.MonkeyPatch) -> None:
     """Inject fake onnxruntime and huggingface_hub into sys.modules."""
     fake_ort = _FakeOrt()
     fake_hf = _FakeHfHub()
+    _FakeSession.instances = {}
     monkeypatch.setitem(sys.modules, "onnxruntime", fake_ort)  # type: ignore[arg-type]
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)  # type: ignore[arg-type]
     # Also invalidate any cached imports in the locomotion module
     monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
+    monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
 
 
 def _make_g1_state(nq: int = 36, nv: int = 35) -> dict[str, np.ndarray]:
@@ -547,7 +560,7 @@ class TestMotionClip:
         assert clip.duration == pytest.approx(2.0)
 
     def test_reference_frame(self) -> None:
-        """reference_frame(i) should return a 65-dim vector."""
+        """reference_frame(i) should return the raw 65-dim clip payload."""
         from roboharness.robots.unitree_g1.locomotion import MotionClip
 
         joint_pos = np.random.randn(10, 29).astype(np.float32)
@@ -656,7 +669,10 @@ class TestSonicTrackingMode:
             joint_positions=np.random.randn(n_frames, 29).astype(np.float32) * 0.1,
             joint_velocities=np.random.randn(n_frames, 29).astype(np.float32) * 0.1,
             root_height=np.full(n_frames, 0.74, dtype=np.float32),
-            root_rotation_6d=np.zeros((n_frames, 6), dtype=np.float32),
+            root_rotation_6d=np.tile(
+                np.array([1.0, 0.0, 0.0, 1.0, 0.0, 0.0], dtype=np.float32),
+                (n_frames, 1),
+            ),
             fps=50.0,
             name="test_clip",
         )
@@ -745,6 +761,53 @@ class TestSonicTrackingMode:
             action = ctrl.compute(command={"tracking": True}, state=state)
             assert np.all(np.isfinite(action))
 
+    def test_tracking_uses_real_encoder_obs_contract(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import SONIC_ENCODER_INPUT_DIM
+
+        ctrl = self._make_controller()
+        clip = self._make_clip(n_frames=50)
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        ctrl.compute(command={"tracking": True}, state=state)
+
+        assert ctrl._encoder_session is not None
+        assert ctrl._encoder_session.last_feed is not None
+        assert set(ctrl._encoder_session.last_feed) == {"obs_dict"}
+        assert ctrl._encoder_session.last_feed["obs_dict"].shape == (1, SONIC_ENCODER_INPUT_DIM)
+        np.testing.assert_array_equal(ctrl._encoder_session.last_feed["obs_dict"][0, :4], 0.0)
+
+    def test_tracking_uses_real_decoder_obs_contract(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import SONIC_DECODER_INPUT_DIM
+
+        ctrl = self._make_controller()
+        clip = self._make_clip(n_frames=50)
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        ctrl.compute(command={"tracking": True}, state=state)
+
+        assert ctrl._decoder_session is not None
+        assert ctrl._decoder_session.last_feed is not None
+        assert set(ctrl._decoder_session.last_feed) == {"obs_dict"}
+        assert ctrl._decoder_session.last_feed["obs_dict"].shape == (1, SONIC_DECODER_INPUT_DIM)
+
+    def test_tracking_decodes_isaaclab_actions_to_mujoco_targets(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import (
+            SONIC_ISAACLAB_TO_MUJOCO,
+            SONIC_TRACKING_ACTION_SCALE,
+            SONIC_TRACKING_DEFAULT_ANGLES,
+        )
+
+        ctrl = self._make_controller()
+        clip = self._make_clip(n_frames=10)
+        ctrl.set_tracking_clip(clip)
+        state = _make_g1_state()
+        action = ctrl.compute(command={"tracking": True}, state=state)
+
+        expected = SONIC_TRACKING_DEFAULT_ANGLES + (
+            np.arange(29, dtype=np.float32)[SONIC_ISAACLAB_TO_MUJOCO] * SONIC_TRACKING_ACTION_SCALE
+        )
+        np.testing.assert_allclose(action, expected, rtol=1e-6, atol=1e-6)
+
     def test_planner_mode_still_works_with_encoder_decoder(self) -> None:
         """Existing planner mode should be unaffected by Phase 2 additions."""
         ctrl = self._make_controller()
@@ -754,10 +817,10 @@ class TestSonicTrackingMode:
         assert np.all(np.isfinite(action))
 
     def test_encoder_input_dimensions(self) -> None:
-        """Encoder should receive 65-dim motion reference."""
+        """Encoder should receive the full 1762D obs_dict tensor."""
         from roboharness.robots.unitree_g1.locomotion import SONIC_ENCODER_INPUT_DIM
 
-        assert SONIC_ENCODER_INPUT_DIM == 65
+        assert SONIC_ENCODER_INPUT_DIM == 1762
 
     def test_decoder_output_dimensions(self) -> None:
         from roboharness.robots.unitree_g1.locomotion import SONIC_DECODER_OUTPUT_DIM
@@ -769,7 +832,11 @@ class TestSonicTrackingMode:
 
         assert SONIC_LATENT_DIM == 64
 
-    def test_robot_state_dimension(self) -> None:
-        from roboharness.robots.unitree_g1.locomotion import SONIC_ROBOT_STATE_DIM
+    def test_decoder_input_dimensions(self) -> None:
+        from roboharness.robots.unitree_g1.locomotion import (
+            SONIC_DECODER_INPUT_DIM,
+            SONIC_ROBOT_STATE_DIM,
+        )
 
-        assert SONIC_ROBOT_STATE_DIM == 58
+        assert SONIC_DECODER_INPUT_DIM == 994
+        assert SONIC_ROBOT_STATE_DIM == SONIC_DECODER_INPUT_DIM

@@ -60,6 +60,8 @@ dev = [
     "mypy>=1.0",
     "pre-commit>=3.0",
     "gymnasium>=0.29",
+    "huggingface_hub>=0.20",
+    "onnxruntime>=1.16",
     "Pillow>=9.0",
 ]
 

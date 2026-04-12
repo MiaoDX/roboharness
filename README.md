@@ -45,7 +45,7 @@
 pip install roboharness                  # core (numpy only)
 pip install roboharness[demo]            # demo dependencies (MuJoCo, Meshcat, Gymnasium, Rerun, etc.)
 pip install roboharness[demo,wbc]        # + whole-body control (Pinocchio, Pink)
-pip install roboharness[dev]             # development (pytest, ruff, mypy)
+pip install roboharness[dev]             # development + SONIC real-model test deps
 ```
 
 ## Quick Start
@@ -125,10 +125,10 @@ action = ctrl.compute(
 **Tracking mode** — reproduce motion capture clips via encoder+decoder pipeline:
 
 ```python
-from roboharness.robots.unitree_g1 import SonicLocomotionController, MotionClip
+from roboharness.robots.unitree_g1 import MotionClipLoader, SonicLocomotionController
 
 ctrl = SonicLocomotionController()
-clip = MotionClip.from_csv_dir("path/to/dance_clip/")
+clip = MotionClipLoader.load("path/to/dance_clip/")
 ctrl.set_tracking_clip(clip)
 
 action = ctrl.compute(
@@ -137,7 +137,7 @@ action = ctrl.compute(
 )
 ```
 
-Models (`planner_sonic.onnx`, `model_encoder.onnx`, `model_decoder.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
+Models (`planner_sonic.onnx`, `model_encoder.onnx`, `model_decoder.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. The planner path and the encoder+decoder tracking path are different inference stacks with different ONNX contracts; see [docs/sonic-inference-stacks.md](docs/sonic-inference-stacks.md) for the exact split, validation policy, and joint-order conventions. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
 
 </details>
 
