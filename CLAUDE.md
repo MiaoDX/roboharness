@@ -72,6 +72,17 @@ Releases are cut by pushing to the `release` branch, which triggers `.github/wor
 
 If a duplicate PR targeting `release` was auto-created on push, close it — the `main`-targeted PR is the canonical one.
 
+**Environment protection:** The PyPI publish step uses the `pypi` GitHub environment. Its **Deployment branches and tags** rule must allow the `release` branch (and `v*` tag pattern if we ever switch to tag-triggered deploys). If this rule is missing, the workflow fails with `Branch 'release' is not allowed to deploy to pypi due to environment protection rules` in 1–2 seconds. Fix in Settings → Environments → pypi, then re-run the failed job.
+
+**No git-based direct references in `pyproject.toml`:** PyPI rejects uploads that declare dependencies like `pkg @ git+https://...`, even inside optional extras, with `400 Can't have direct dependency`. The `allow-direct-references = true` hatch setting only silences the *build-time* check — PyPI still refuses on upload. Any fork/git dep must be installed via a separate step (Dockerfile, CI workflow, docs) rather than through `[project.optional-dependencies]`. See the `unitree-sdk2py` handling in `Dockerfile` and `.github/workflows/pages.yml` for the pattern.
+
+**Validating a release end-to-end:** A successful GitHub Release + tag does **not** imply PyPI publication. The workflow creates the tag and release *before* building and uploading the wheel, so a PyPI failure still leaves a tag behind. Always confirm all three:
+1. `vX.Y.Z` tag at https://github.com/MiaoDX/roboharness/tags
+2. GitHub Release at https://github.com/MiaoDX/roboharness/releases/tag/vX.Y.Z
+3. PyPI artifact at https://pypi.org/project/roboharness/X.Y.Z/ (or via `curl -s https://pypi.org/pypi/roboharness/json | jq -r .info.version`)
+
+If PyPI publish fails mid-flow, do **not** reuse the broken version number — bump to the next patch (e.g. `0.2.0` broken → release as `0.2.1`). The broken version's tag and GitHub Release can stay as historical markers.
+
 ## CI failure investigation
 
 When a CI check fails, **always read the actual logs/error messages** before diagnosing. Do not stop at the status summary (`conclusion: failure`). Specifically:

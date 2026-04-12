@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "roboharness"
-version = "0.2.0"
+version = "0.2.1"
 description = "A Visual Testing Harness for AI Coding Agents in Robot Simulation"
 readme = "README.md"
 license = "MIT"
@@ -52,9 +52,6 @@ lerobot = [
     "gymnasium>=0.29",
     "mujoco>=3.0",
     "Pillow",
-]
-unitree = [
-    "unitree-sdk2py @ git+https://github.com/MiaoDX-fork-and-pruning/unitree_sdk2_python_uv.git",
 ]
 dev = [
     "pytest>=7.0",

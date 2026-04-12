@@ -35,7 +35,9 @@ jobs:
 
       - name: Install unitree SDK, CPU PyTorch, and lerobot
         run: |
-          uv pip install --system -e ".[unitree]"
+          # unitree-sdk2py is installed directly from the fork (not a pyproject
+          # extra — PyPI rejects packages with git-based direct references).
+          uv pip install --system "unitree-sdk2py @ git+https://github.com/MiaoDX-fork-and-pruning/unitree_sdk2_python_uv.git"
           uv pip install --system torch --index-url https://download.pytorch.org/whl/cpu
           uv pip install --system lerobot
           uv pip install --system loguru pygame scipy pyyaml
