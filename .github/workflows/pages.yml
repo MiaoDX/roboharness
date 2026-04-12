@@ -76,7 +76,7 @@ jobs:
       - name: Run SONIC locomotion example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/sonic_locomotion.py --report --output-dir ./harness_output
+        run: python examples/sonic_locomotion.py --report --assert-success --output-dir ./harness_output
 
       - name: Build static pages (landing)
         run: |
