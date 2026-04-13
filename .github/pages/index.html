@@ -38,7 +38,7 @@
 <body>
 <h1>Roboharness: Visual Reports</h1>
 <p class="subtitle">Auto-generated from CI on every push to <code>main</code>.
-Each demo runs headless in GitHub Actions and produces visual checkpoint captures.</p>
+Each demo runs headless in GitHub Actions and produces visual checkpoint captures for planner, tracking, and integration paths.</p>
 <div class="demos">
   <a class="demo-card" href="grasp/">
     <h2>MuJoCo Grasp</h2>
@@ -96,16 +96,27 @@ Each demo runs headless in GitHub Actions and produces visual checkpoint capture
     the SONIC planner for a controller-level comparison report.</p>
     <div class="meta">LeRobot native &middot; SONIC planner &middot; DDS-ready</div>
   </a>
+  <a class="demo-card sonic" href="sonic-planner/">
+    <h2>SONIC Planner</h2>
+    <div>
+      <span class="tag tag-humanoid">Humanoid</span>
+      <span class="tag tag-cpu">CPU</span>
+      <span class="tag tag-loco">Planner</span>
+    </div>
+    <p>Standalone GEAR-SONIC planner demo on the Unitree G1. Velocity commands
+    drive full-body pose trajectories through <code>planner_sonic.onnx</code>.</p>
+    <div class="meta">1 ONNX model &middot; 29-DOF &middot; SonicLocomotionController</div>
+  </a>
   <a class="demo-card sonic" href="sonic/">
     <h2>SONIC Motion Tracking</h2>
     <div>
       <span class="tag tag-humanoid">Humanoid</span>
       <span class="tag tag-mocap">MoCap</span>
-      <span class="tag tag-api">API</span>
+      <span class="tag tag-api">Tracking</span>
     </div>
-    <p>NVIDIA GEAR-SONIC encoder+decoder pipeline. Replay motion capture
-    clips on the G1 via latent-space tracking. Planner + tracking modes.</p>
-    <div class="meta">3 ONNX models &middot; 29-DOF &middot; SonicLocomotionController</div>
+    <p>GEAR-SONIC encoder+decoder tracking on the G1. Replay motion clips via
+    latent-space tracking with real checkpoint metrics and visual captures.</p>
+    <div class="meta">2 ONNX models &middot; 29-DOF &middot; SonicLocomotionController</div>
   </a>
 </div>
 <div class="footer">

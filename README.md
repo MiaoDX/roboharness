@@ -24,7 +24,7 @@
 
 ### **[View Interactive Visual Reports →](https://miaodx.com/roboharness/)**
 
-*Auto-generated from CI on every push to main — MuJoCo grasp, G1 WBC reach, G1 locomotion, native LeRobot G1 (GR00T + SONIC planner), and SONIC tracking.*
+*Auto-generated from CI on every push to main — MuJoCo grasp, G1 WBC reach, G1 locomotion, native LeRobot G1 (GR00T + SONIC planner), standalone SONIC planner, and SONIC tracking.*
 
 </div>
 
@@ -37,7 +37,7 @@
 | **[G1 Locomotion](#lerobot-g1-locomotion)** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/lerobot_g1.py --report` |
 | **[G1 Native LeRobot (GR00T)](#native-lerobot-integration)** | Official `make_env()` factory + GR00T Balance + Walk | [Live](https://miaodx.com/roboharness/g1-native-groot/) | `python examples/lerobot_g1_native.py --controller groot --report` |
 | **[G1 Native LeRobot (SONIC)](#native-lerobot-integration)** | Official `make_env()` factory + SONIC planner | [Live](https://miaodx.com/roboharness/g1-native-sonic/) | `python examples/lerobot_g1_native.py --controller sonic --report` |
-| **[SONIC Planner](#sonic-planner)** | Standalone GEAR-SONIC planner demo on G1 | Local only | `python examples/sonic_locomotion.py --report` |
+| **[SONIC Planner](#sonic-planner)** | Standalone GEAR-SONIC planner demo on G1 | [Live](https://miaodx.com/roboharness/sonic-planner/) | `python examples/sonic_locomotion.py --report` |
 | **[SONIC Motion Tracking](#sonic-motion-tracking)** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/sonic_tracking.py --report` |
 
 ## Installation
@@ -115,7 +115,7 @@ pip install roboharness[demo]
 MUJOCO_GL=osmesa python examples/sonic_locomotion.py --report --assert-success
 ```
 
-Standalone NVIDIA GEAR-SONIC planner demo on the real Unitree G1 MuJoCo model. This path uses `planner_sonic.onnx` only: velocity commands go in, full-body pose trajectories come out, and the example uses a lightweight virtual torso harness for stable visual debugging.
+Standalone NVIDIA GEAR-SONIC planner demo on the real Unitree G1 MuJoCo model. This path uses `planner_sonic.onnx` only: velocity commands go in, full-body pose trajectories come out, and the example uses a lightweight virtual torso harness for stable visual debugging. This is the same standalone planner path published at `/sonic-planner/`.
 
 ```python
 from roboharness.robots.unitree_g1 import SonicLocomotionController, SonicMode

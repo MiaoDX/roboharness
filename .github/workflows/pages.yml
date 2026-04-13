@@ -73,6 +73,11 @@ jobs:
           MUJOCO_GL: osmesa
         run: python examples/lerobot_g1_native.py --controller sonic --report --output-dir ./harness_output
 
+      - name: Run SONIC planner example
+        env:
+          MUJOCO_GL: osmesa
+        run: python examples/sonic_locomotion.py --report --assert-success --output-dir ./harness_output
+
       - name: Run SONIC motion tracking example
         env:
           MUJOCO_GL: osmesa
@@ -144,7 +149,18 @@ jobs:
             cp "${cp_dir}"state.json "_site/g1-native-sonic/${cp_name}/" 2>/dev/null || true
           done
 
-          # --- Demo 5: SONIC Motion Tracking ---
+          # --- Demo 5: SONIC Planner ---
+          mkdir -p _site/sonic-planner
+          cp harness_output/sonic_locomotion_report.html _site/sonic-planner/index.html
+          for cp_dir in harness_output/sonic_locomotion/trial_001/*/; do
+            cp_name=$(basename "$cp_dir")
+            mkdir -p "_site/sonic-planner/${cp_name}"
+            cp "${cp_dir}"*_rgb.png "_site/sonic-planner/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"metadata.json "_site/sonic-planner/${cp_name}/" 2>/dev/null || true
+            cp "${cp_dir}"state.json "_site/sonic-planner/${cp_name}/" 2>/dev/null || true
+          done
+
+          # --- Demo 6: SONIC Motion Tracking ---
           mkdir -p _site/sonic
           cp harness_output/sonic_tracking_report.html _site/sonic/index.html
           for cp_dir in harness_output/sonic_tracking/trial_001/*/; do
