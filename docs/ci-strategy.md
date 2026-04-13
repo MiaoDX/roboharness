@@ -169,25 +169,33 @@ Cirun.io 同时支持 AWS、GCP、Azure，接入方式统一（一个 `.cirun.ym
 | AWS Open Source Credits | $500-5k | 邮件 `awsopen@amazon.com`，需多组织贡献者 | 中期目标 |
 | AWS Activate Founders | $1,000 | 需公司实体 | 有 LLC 可申请 |
 
-### 推荐路径（2026-04-06 更新）
+### 推荐路径（2026-04-14 更新）
 
 **阶段一（现在 ✅ 已完成）**：
 - 加 pytest markers（`@pytest.mark.gpu`），CPU CI 不受影响
-- **采用方案：Cirun.io + GCP T4 + 自定义镜像**
-  - GCP $300 新用户赠金可支撑大量 GPU CI
-  - 使用 GCP Deep Learning VM 构建自定义镜像，NVIDIA 驱动预装，消除驱动安装问题
-  - 构建脚本：[`scripts/build-cirun-gpu-image.sh`](../scripts/build-cirun-gpu-image.sh)
+- **采用方案：Cirun.io + AWS T4（g4dn.xlarge, ap-southeast-2 Sydney）**
+  - 使用官方 **NVIDIA GPU-Optimized AMI**（Marketplace），驱动 + Docker + NVIDIA Container Toolkit 预装，**不需要自建镜像**
+  - 实测 GPU job 端到端 ~1m19s（含 provisioning），容量充裕
+  - AWS G-instance quota 在 Sydney region 已预先申请
+
+**GCP 暂停（2026-04-14）**：
+- 原因：T4 在 GCP 被 AI 训练 workload 持续占满。依次试过 `asia-east1-c`、`us-central1-a`、最后落在 `us-east1-c` 才跑通，可用性不稳定
+- 不是 quota 问题，是**物理库存**问题（`ZONE_RESOURCE_POOL_EXHAUSTED`），开 support case 没用
+- 配置没删，只是在 `.cirun.yml` 和 `.github/workflows/ci.yml` 里被注释掉了，有 `PAUSED 2026-04-14` 标记；将来要 failover / 冗余时直接 uncomment 即可
+- 自定义镜像脚本 [`scripts/build-cirun-gpu-image.sh`](../scripts/build-cirun-gpu-image.sh) 保留作为 GCP 方案的前置步骤，恢复时仍然需要
 
 **阶段二（credits 用完后）**：
-- 继续使用 GCP on-demand T4（~$0.35-0.45/hr，每月 50 次测试仅 ~$30）
-- 申请 GCP / AWS Open Source Credits 延续免费使用
+- 继续使用 AWS on-demand g4dn.xlarge（Sydney ~$0.63/hr，按秒计费；每月 50 次 5min 的测试仅 ~$3）
+- 申请 AWS Open Source Credits（`awsopen@amazon.com`）
 
 **阶段三（测试变多时）**：
 - Docker 镜像固化 GPU 环境（CUDA + PyTorch + cuRobo）
 - 考虑 nightly 全量 GPU 测试 + PR 只跑关键路径
 - 如果 GPU 测试频率很高，考虑 Cirrus Runners 的无限分钟方案
 
-### Cirun.io + GCP 配置（当前采用方案 ✅）
+### Cirun.io + GCP 配置（**已暂停 2026-04-14**，保留作为 failover / 冗余参考）
+
+> 下面的内容保留是因为恢复 GCP runner 时仍然需要这些前置步骤（构建自定义镜像、zone 选择等）。当前 primary 是 AWS Sydney，见下一节。
 
 #### 踩坑记录：为什么需要自定义镜像
 
@@ -265,27 +273,33 @@ gpu-test:
       run: pytest -m gpu -v --no-cov
 ```
 
-<details>
-<summary>备选：Cirun.io + AWS 配置</summary>
+### Cirun.io + AWS 配置（**当前采用方案 ✅**，2026-04-14 起）
 
-AWS 上 Cirun 的 GPU 体验更简单（不需要自定义镜像），但价格略贵：
+AWS 上 Cirun 的 GPU 体验明显更简单——**不需要自建镜像**，官方 NVIDIA GPU-Optimized AMI 已经把驱动 / Docker / NVIDIA Container Toolkit 全部预装好。
 
 ```yaml
 # .cirun.yml
 runners:
-  - name: gpu-runner
+  - name: aws-gpu-runner
     cloud: aws
-    instance_type: g4dn.xlarge  # T4 GPU, 4 vCPU, 16 GB RAM
-    machine_image: ami-0c7217cdde317cfec  # Ubuntu 22.04 LTS (us-east-1)
-    preemptible: true           # spot instance, ~$0.16/hr
-    region: us-east-1
+    instance_type: g4dn.xlarge     # T4 GPU, 4 vCPU, 16 GB RAM
+    machine_image: ami-081c2f6d9ef8eb26c  # NVIDIA GPU-Optimized AMI 25.9.1 (ap-southeast-2, Ubuntu 24.04, driver 580.65)
+    preemptible: false
+    region: ap-southeast-2         # Sydney — G-instance quota 已预先申请
     labels:
-      - cirun-gpu
+      - cirun-aws-gpu
 ```
 
-注意：AWS 上 Cirun 推荐使用 NVIDIA Deep Learning AMI，驱动预装，无需手动构建镜像。
+**一次性配置清单（首次接入必须）**：
+1. **AWS Marketplace AMI 订阅**：到 <https://aws.amazon.com/marketplace/pp/prodview-7ikjtg3um26wq> 点 "Continue to Subscribe" → "Accept Terms"。**只需在这个账号 accept 一次**，后续所有 region / 实例类型都可用。不 accept 的话 Cirun 会收到 `OptInRequired` 而默默 provision 失败
+2. **AWS 控制台 "One-click launch" 按钮不要点**，那是启一台手动 24/7 计费实例的入口，跟 CI 无关
+3. **Cirun Dashboard → Cloud → AWS**：粘贴一个有 EC2 权限的 IAM user 的 Access Key / Secret Key。没这一步 Cirun 不会去 AWS 开机，job 会永远 queued
+4. **区域 AMI ID 每个 region 不一样**，`ami-081c2f6d9ef8eb26c` 仅 ap-southeast-2 有效；换 region 要查对应 AMI（所有 region 列表在 Marketplace 页面）
+5. **G-instance vCPU quota**：新账号默认可能为 0，在目标 region 申请 "Running On-Demand G and VT instances" ≥ 4 vCPU（g4dn.xlarge 占 4 vCPU）
 
-</details>
+**对比 GCP**：GCP 没有等价的 Marketplace 镜像，必须自己构建。我们之前提供了 [`scripts/build-cirun-gpu-image.sh`](../scripts/build-cirun-gpu-image.sh) 来自动化这个过程（GCP 恢复时仍然会用到）。
+
+**Job 级 concurrency**：`.github/workflows/ci.yml` 里 `gpu-test-aws` 用 `concurrency: {group: gpu-test-aws, cancel-in-progress: true}` + `timeout-minutes: 45`，保证同时只有一个 AWS GPU job 在跑，新 push 直接 pre-empt 老的（避免 Cirun provisioning 卡住时无限排队）。
 
 ## 社区参考
 

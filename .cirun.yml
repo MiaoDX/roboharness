@@ -1,10 +1,39 @@
 runners:
-  - name: gpu-runner
-    cloud: gcp
-    instance_type: n1-standard-4  # 4 vCPU, 15 GB RAM
-    machine_image: "gitci-no-org:cirun-nvidia-gpu"  # Custom image with NVIDIA drivers pre-installed
-    gpu: nvidia-tesla-t4
-    preemptible: false             # preemptible is less reliable for GPU
-    region: asia-east1-c           # Taiwan — zone with T4 availability
+  # ─── GCP GPU runner PAUSED 2026-04-14 ──────────────────────────────────
+  # AWS Sydney (below) is the primary GPU CI runner. GCP is paused but
+  # kept here as a commented reference so it can be revived quickly.
+  #
+  # To re-enable: uncomment the block below AND uncomment the `gpu-test`
+  # job in `.github/workflows/ci.yml`. Both must be re-enabled together
+  # (the job is what references the `cirun-gpu` label).
+  #
+  # Last known-good config (see commit history for context): us-east1-c
+  # was the workable zone after us-central1 and asia-east1 hit
+  # ZONE_RESOURCE_POOL_EXHAUSTED for T4. The custom GCE Image
+  # `gitci-no-org:cirun-nvidia-gpu` is a global resource, no rebuild
+  # needed when changing zones.
+  #
+  # - name: gpu-runner
+  #   cloud: gcp
+  #   instance_type: n1-standard-4  # 4 vCPU, 15 GB RAM
+  #   machine_image: "gitci-no-org:cirun-nvidia-gpu"  # Custom image with NVIDIA drivers pre-installed
+  #   gpu: nvidia-tesla-t4
+  #   preemptible: false             # preemptible is less reliable for GPU
+  #   region: us-east1-c             # South Carolina — separate T4 pool from us-central1 (oversubscribed)
+  #   labels:
+  #     - cirun-gpu
+  # ─── End paused GCP runner ────────────────────────────────────────────
+
+  # AWS GPU runner (primary). Cirun recommends the NVIDIA GPU-Optimized
+  # AMI from AWS Marketplace — drivers, Docker, and NVIDIA Container Toolkit
+  # are pre-installed, so no custom image build is needed (unlike GCP).
+  # NOTE: the AMI's Marketplace terms must be accepted in the linked AWS
+  # account once, otherwise Cirun cannot provision instances.
+  - name: aws-gpu-runner
+    cloud: aws
+    instance_type: g4dn.xlarge     # T4 GPU, 4 vCPU, 16 GB RAM
+    machine_image: ami-081c2f6d9ef8eb26c  # NVIDIA GPU-Optimized AMI 25.9.1 (ap-southeast-2, Ubuntu 24.04, driver 580.65)
+    preemptible: false
+    region: ap-southeast-2         # Sydney — GPU quota pre-approved
     labels:
-      - cirun-gpu
+      - cirun-aws-gpu

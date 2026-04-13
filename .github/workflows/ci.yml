@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/test-aws-gpu-ci-gl5Jf]
   pull_request:
     branches: [main]
 
@@ -195,12 +195,67 @@ jobs:
               - 'Dockerfile.gpu'
               - '.github/workflows/ci.yml'
 
-  gpu-test:
+  # ─── gpu-test (GCP) PAUSED 2026-04-14 ────────────────────────────────
+  # GCP runner is currently paused in .cirun.yml; AWS Sydney is the
+  # primary GPU CI. To re-enable, uncomment the block below AND
+  # uncomment the GCP runner block in .cirun.yml.
+  #
+  # gpu-test:
+  #   needs: [gpu-changes]
+  #   runs-on: [self-hosted, cirun-gpu]
+  #   timeout-minutes: 45
+  #   # Only one GCP GPU job runs at a time globally — we only have quota for
+  #   # a single T4. `cancel-in-progress: true` so a new push immediately
+  #   # pre-empts any stale in-progress / queued job in this group; otherwise
+  #   # a stuck provisioning attempt would hold the slot indefinitely and
+  #   # every subsequent push would pile up behind it.
+  #   concurrency:
+  #     group: gpu-test-gcp
+  #     cancel-in-progress: true
+  #   if: |
+  #     github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #     || contains(github.event.pull_request.labels.*.name, 'gpu-test')
+  #     || needs.gpu-changes.outputs.gpu_relevant == 'true'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.12"
+  #     - name: Install uv
+  #       uses: astral-sh/setup-uv@v4
+  #     - name: Install package with dev dependencies and torch
+  #       run: |
+  #         uv pip install --system -e ".[dev]"
+  #         uv pip install --system torch --index-url https://download.pytorch.org/whl/cu121
+  #     - name: Verify GPU
+  #       run: |
+  #         nvidia-smi
+  #         python -c 'import torch; print(f"CUDA: {torch.cuda.is_available()}, GPUs: {torch.cuda.device_count()}")'
+  #     - name: Run GPU tests
+  #       run: pytest -m gpu -v --no-cov
+  # ─── End paused gpu-test (GCP) ───────────────────────────────────────
+
+  # AWS GPU smoke test — primary GPU CI. Runs on the cirun-aws-gpu runner
+  # provisioned on AWS (g4dn.xlarge in ap-southeast-2 + NVIDIA GPU-Optimized
+  # AMI). Gated to the test branch and to the gpu-relevant paths filter so
+  # we don't spin up AWS instances on unrelated pushes.
+  gpu-test-aws:
     needs: [gpu-changes]
-    runs-on: [self-hosted, cirun-gpu]
+    runs-on: [self-hosted, cirun-aws-gpu]
+    timeout-minutes: 45
+    # Serialize AWS GPU jobs too. `cancel-in-progress: true` so a new push
+    # pre-empts any stale in-progress / queued attempt — important because
+    # Cirun provisioning on AWS can silently sit queued (e.g. if the
+    # Dashboard has no AWS credentials or the Marketplace AMI subscription
+    # is still propagating), and `false` would stack pushes behind forever.
+    # Runs in a different group from gpu-test-gcp, so GCP and AWS do not
+    # block each other.
+    concurrency:
+      group: gpu-test-aws
+      cancel-in-progress: true
     if: |
-      github.event_name == 'push' && github.ref == 'refs/heads/main'
-      || contains(github.event.pull_request.labels.*.name, 'gpu-test')
+      github.ref == 'refs/heads/claude/test-aws-gpu-ci-gl5Jf'
+      || contains(github.event.pull_request.labels.*.name, 'gpu-test-aws')
       || needs.gpu-changes.outputs.gpu_relevant == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -209,14 +264,18 @@ jobs:
           python-version: "3.12"
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+      - name: Show host info
+        run: |
+          uname -a
+          cat /etc/os-release || true
+          nvidia-smi
       - name: Install package with dev dependencies and torch
         run: |
           uv pip install --system -e ".[dev]"
           uv pip install --system torch --index-url https://download.pytorch.org/whl/cu121
-      - name: Verify GPU
+      - name: Verify PyTorch CUDA
         run: |
-          nvidia-smi
-          python -c 'import torch; print(f"CUDA: {torch.cuda.is_available()}, GPUs: {torch.cuda.device_count()}")'
+          python -c 'import torch; print(f"torch={torch.__version__}, CUDA available={torch.cuda.is_available()}, GPUs={torch.cuda.device_count()}, name={torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}")'
       - name: Run GPU tests
         run: pytest -m gpu -v --no-cov
 
