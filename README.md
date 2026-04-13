@@ -24,7 +24,7 @@
 
 ### **[View Interactive Visual Reports →](https://miaodx.com/roboharness/)**
 
-*Auto-generated from CI on every push to main — MuJoCo grasp, G1 WBC reach, G1 locomotion, native LeRobot G1 (GR00T + SONIC), and SONIC.*
+*Auto-generated from CI on every push to main — MuJoCo grasp, G1 WBC reach, G1 locomotion, native LeRobot G1 (GR00T + SONIC planner), and SONIC tracking.*
 
 </div>
 
@@ -37,7 +37,8 @@
 | **[G1 Locomotion](#lerobot-g1-locomotion)** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/lerobot_g1.py --report` |
 | **[G1 Native LeRobot (GR00T)](#native-lerobot-integration)** | Official `make_env()` factory + GR00T Balance + Walk | [Live](https://miaodx.com/roboharness/g1-native-groot/) | `python examples/lerobot_g1_native.py --controller groot --report` |
 | **[G1 Native LeRobot (SONIC)](#native-lerobot-integration)** | Official `make_env()` factory + SONIC planner | [Live](https://miaodx.com/roboharness/g1-native-sonic/) | `python examples/lerobot_g1_native.py --controller sonic --report` |
-| **[SONIC Motion Tracking](#sonic-locomotion)** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/sonic_tracking.py --report` |
+| **[SONIC Planner](#sonic-planner)** | Standalone GEAR-SONIC planner demo on G1 | Local only | `python examples/sonic_locomotion.py --report` |
+| **[SONIC Motion Tracking](#sonic-motion-tracking)** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/sonic_tracking.py --report` |
 
 ## Installation
 
@@ -105,12 +106,16 @@ Uses LeRobot's official `make_env("lerobot/unitree-g1-mujoco")` factory for stan
 
 </details>
 
+<a id="sonic-planner"></a>
 <details>
-<summary><b>SONIC Locomotion</b></summary>
+<summary><b>SONIC Planner</b></summary>
 
-NVIDIA GEAR-SONIC locomotion controller with two modes:
+```bash
+pip install roboharness[demo]
+MUJOCO_GL=osmesa python examples/sonic_locomotion.py --report --assert-success
+```
 
-**Planner mode** — velocity commands → full-body pose trajectories (10 Hz planning, 50 Hz output):
+Standalone NVIDIA GEAR-SONIC planner demo on the real Unitree G1 MuJoCo model. This path uses `planner_sonic.onnx` only: velocity commands go in, full-body pose trajectories come out, and the example uses a lightweight virtual torso harness for stable visual debugging.
 
 ```python
 from roboharness.robots.unitree_g1 import SonicLocomotionController, SonicMode
@@ -122,7 +127,20 @@ action = ctrl.compute(
 )
 ```
 
-**Tracking mode** — reproduce motion capture clips via encoder+decoder pipeline:
+For a planner demo wired through LeRobot's official `make_env()` stack, see **G1 Native LeRobot (SONIC)** above. The planner path and the encoder+decoder tracking path are different inference stacks with different ONNX contracts; see [docs/sonic-inference-stacks.md](docs/sonic-inference-stacks.md) for the exact split, validation policy, and joint-order conventions.
+
+</details>
+
+<a id="sonic-motion-tracking"></a>
+<details>
+<summary><b>SONIC Motion Tracking</b></summary>
+
+```bash
+pip install roboharness[demo]
+MUJOCO_GL=osmesa python examples/sonic_tracking.py --report --assert-success
+```
+
+Real encoder+decoder tracking demo on the Unitree G1. This path uses `model_encoder.onnx` + `model_decoder.onnx` directly, replays a motion clip via `set_tracking_clip(...)`, and records checkpoint metrics for torso height, tracking-frame progress, and joint-tracking error. This is the same path published at `/sonic/`.
 
 ```python
 from roboharness.robots.unitree_g1 import MotionClipLoader, SonicLocomotionController
@@ -137,15 +155,7 @@ action = ctrl.compute(
 )
 ```
 
-Live tracking demo and published report:
-
-```bash
-MUJOCO_GL=osmesa python examples/sonic_tracking.py --report --assert-success
-```
-
-This is the same real encoder+decoder path published at `/sonic/`; it exercises `model_encoder.onnx` and `model_decoder.onnx` directly and records checkpoint metrics for torso height, tracking-frame progress, and joint-tracking error.
-
-Models (`planner_sonic.onnx`, `model_encoder.onnx`, `model_decoder.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. The planner path and the encoder+decoder tracking path are different inference stacks with different ONNX contracts; see [docs/sonic-inference-stacks.md](docs/sonic-inference-stacks.md) for the exact split, validation policy, and joint-order conventions. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
+Models (`planner_sonic.onnx`, `model_encoder.onnx`, `model_decoder.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. See [docs/sonic-inference-stacks.md](docs/sonic-inference-stacks.md) for the exact split between planner and tracking, plus the validation policy and joint-order conventions. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
 
 </details>
 
