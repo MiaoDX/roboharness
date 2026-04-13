@@ -37,7 +37,7 @@
 | **[G1 Locomotion](#lerobot-g1-locomotion)** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/lerobot_g1.py --report` |
 | **[G1 Native LeRobot (GR00T)](#native-lerobot-integration)** | Official `make_env()` factory + GR00T Balance + Walk | [Live](https://miaodx.com/roboharness/g1-native-groot/) | `python examples/lerobot_g1_native.py --controller groot --report` |
 | **[G1 Native LeRobot (SONIC)](#native-lerobot-integration)** | Official `make_env()` factory + SONIC planner | [Live](https://miaodx.com/roboharness/g1-native-sonic/) | `python examples/lerobot_g1_native.py --controller sonic --report` |
-| **[SONIC Motion Tracking](#sonic-locomotion)** | Encoder+decoder pipeline, motion replay from MoCap | [Live](https://miaodx.com/roboharness/sonic/) | Controller API (see below) |
+| **[SONIC Motion Tracking](#sonic-locomotion)** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/sonic_tracking.py --report` |
 
 ## Installation
 
@@ -136,6 +136,14 @@ action = ctrl.compute(
     state={"qpos": qpos, "qvel": qvel},
 )
 ```
+
+Live tracking demo and published report:
+
+```bash
+MUJOCO_GL=osmesa python examples/sonic_tracking.py --report --assert-success
+```
+
+This is the same real encoder+decoder path published at `/sonic/`; it exercises `model_encoder.onnx` and `model_decoder.onnx` directly and records checkpoint metrics for torso height, tracking-frame progress, and joint-tracking error.
 
 Models (`planner_sonic.onnx`, `model_encoder.onnx`, `model_decoder.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. The planner path and the encoder+decoder tracking path are different inference stacks with different ONNX contracts; see [docs/sonic-inference-stacks.md](docs/sonic-inference-stacks.md) for the exact split, validation policy, and joint-order conventions. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
 
