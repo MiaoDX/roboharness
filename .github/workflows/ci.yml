@@ -137,8 +137,14 @@ jobs:
       - name: Install system dependencies (OSMesa for headless rendering)
         run: sudo apt-get update && sudo apt-get install -y libosmesa6-dev
 
-      - name: Install package with demo + unitree dependencies
-        run: uv pip install --system -e ".[demo,unitree]"
+      - name: Install package with demo dependencies
+        run: uv pip install --system -e ".[demo]"
+
+      - name: Install unitree SDK directly from fork
+        run: |
+          # unitree-sdk2py is installed directly (not via a pyproject extra —
+          # PyPI rejects packages with git-based direct references on upload)
+          uv pip install --system "unitree-sdk2py @ git+https://github.com/MiaoDX-fork-and-pruning/unitree_sdk2_python_uv.git"
 
       - name: Install CPU PyTorch and lerobot
         run: |
