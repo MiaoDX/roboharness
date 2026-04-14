@@ -41,6 +41,20 @@ Key routing rules:
 
 ---
 
+## 0.2) Design artifact mirroring
+
+When a design or planning skill writes artifacts outside the repo (for example under
+`~/.gstack/projects/...`), keep that external copy if the skill needs it for cross-session
+discovery, but also mirror the approved project-facing artifact into `docs/designs/` so the
+repository remains self-contained.
+
+For `/office-hours` outputs specifically:
+- mirror the approved design doc into `docs/designs/`
+- mirror any project-relevant sketch HTML into `docs/designs/` when available
+- do not treat `/tmp` files as the canonical project artifact
+
+---
+
 ## 1) Environment preflight (mandatory before tests)
 
 Do not run UT immediately on a fresh environment.
