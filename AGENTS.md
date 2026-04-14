@@ -19,6 +19,28 @@ If instructions conflict, priority is:
 
 ---
 
+## 0.1) Skill routing (Codex + Claude)
+
+When the user's request clearly matches an available skill, invoke that skill as the
+first action instead of replying ad hoc or exploring with other tools first. This
+applies to Codex sessions as well as Claude sessions.
+
+Key routing rules:
+- Product ideas, "is this worth building", brainstorming -> `office-hours`
+- Bugs, errors, "why is this broken", 500 errors -> `investigate`
+- Ship, deploy, push, create PR -> `ship`
+- QA, test the site, find bugs -> `qa`
+- Code review, check my diff -> `review`
+- Update docs after shipping -> `document-release`
+- Weekly retro -> `retro`
+- Design system, brand -> `design-consultation`
+- Visual audit, design polish -> `design-review`
+- Architecture review -> `plan-eng-review`
+- Save progress, checkpoint, resume -> `checkpoint`
+- Code quality, health check -> `health`
+
+---
+
 ## 1) Environment preflight (mandatory before tests)
 
 Do not run UT immediately on a fresh environment.
