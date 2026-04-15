@@ -66,9 +66,9 @@ def _build_eval_summary(result: EvaluationResult) -> str:
     return (
         '<div class="eval-summary">'
         "<h3>Constraint Evaluation</h3>"
-        '<table class="eval-table">'
+        '<div class="table-scroll"><table class="eval-table">'
         "<tr><th>Metric</th><th>Expected</th><th>Actual</th>"
-        "<th>Severity</th><th>Result</th></tr>" + "".join(rows) + "</table></div>"
+        "<th>Severity</th><th>Result</th></tr>" + "".join(rows) + "</table></div></div>"
     )
 
 
@@ -254,6 +254,8 @@ def generate_html_report(
 <meta charset="utf-8"/>
 <title>{title}</title>
 <style>
+  html {{ box-sizing: border-box; }}
+  *, *::before, *::after {{ box-sizing: inherit; }}
   body {{ font-family: -apple-system, sans-serif; max-width: 1400px; margin: 0 auto; padding: 20px;
          background: #f5f5f5; }}
   h1 {{ color: #333; border-bottom: 2px solid {accent_color}; padding-bottom: 10px; }}
@@ -286,22 +288,24 @@ def generate_html_report(
   .phase-card-ok {{ border-color: #c6f6d5; background: #f0fff4; }}
   .phase-card-degraded {{ border-color: #f6e05e; background: #fffbea; }}
   .phase-card-fail {{ border-color: #feb2b2; background: #fff5f5; }}
+  .table-scroll {{ width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }}
   .meta-table {{ width: 100%; border-collapse: collapse; }}
   .meta-table th, .meta-table td {{ padding: 8px 10px; text-align: left;
                                     border-bottom: 1px solid #eee; }}
   .meta-table th {{ width: 34%; color: #4b5563; font-weight: 600; }}
+  .meta-table td code {{ white-space: normal; overflow-wrap: anywhere; word-break: break-word; }}
   .checkpoint {{ background: white; border-radius: 8px; padding: 20px; margin: 20px 0;
                  box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
   .checkpoint h2 {{ color: {accent_color}; margin-top: 0; }}
   .checkpoint-content {{ display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }}
-  .views {{ display: flex; gap: 16px; flex-wrap: wrap; flex: 1; min-width: 300px; }}
+  .views {{ display: flex; gap: 16px; flex-wrap: wrap; flex: 1; min-width: 0; }}
   .cam {{ text-align: center; }}
   .cam img {{ max-width: 320px; border: 1px solid #ddd; border-radius: 4px; }}
   .cam p {{ margin: 4px 0 0; font-size: 14px; color: #666; }}
-  .meshcat-viewer {{ flex: 0 0 480px; text-align: center; }}
+  .meshcat-viewer {{ flex: 1 1 480px; max-width: 100%; text-align: center; }}
   .meshcat-viewer h3 {{ color: {accent_color}; margin: 0 0 8px; font-size: 16px; }}
-  .meshcat-viewer iframe {{ width: 480px; height: 400px; border: 1px solid #ddd;
-                            border-radius: 4px; }}
+  .meshcat-viewer iframe {{ width: 100%; max-width: 480px; height: 400px; border: 1px solid #ddd;
+                            border-radius: 4px; display: block; margin: 0 auto; }}
   .meshcat-link {{ display: inline-block; padding: 10px 20px; background: {accent_color};
                    color: white; text-decoration: none; border-radius: 4px; font-weight: bold; }}
   .meshcat-link:hover {{ opacity: 0.85; }}
@@ -315,7 +319,7 @@ def generate_html_report(
   .eval-summary {{ background: white; border-radius: 8px; padding: 20px; margin: 20px 0;
                    box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
   .eval-summary h3 {{ color: {accent_color}; margin-top: 0; }}
-  .eval-table {{ width: 100%; border-collapse: collapse; }}
+  .eval-table {{ width: 100%; min-width: 640px; border-collapse: collapse; }}
   .eval-table th, .eval-table td {{ padding: 8px 12px; text-align: left;
                                     border-bottom: 1px solid #eee; }}
   .eval-table th {{ background: #f8f9fa; font-weight: 600; }}
@@ -403,6 +407,8 @@ def generate_html_report(
   .evidence-diagnostic {{ color: #92400e; }}
   @media (max-width: 860px) {{
     .evidence-compare-grid {{ grid-template-columns: 1fr; }}
+    .meshcat-viewer {{ flex-basis: 100%; }}
+    .meshcat-viewer iframe {{ height: min(70vw, 400px); }}
   }}
 </style>
 </head>

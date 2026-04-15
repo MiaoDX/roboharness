@@ -763,7 +763,7 @@ def build_summary_html(
         "</div>"
         '<div class="summary-card">'
         "<h3>Artifact Pack</h3>"
-        '<table class="meta-table">'
+        '<div class="table-scroll"><table class="meta-table">'
         f"<tr><th>Baseline</th><td><code>{baseline_name}</code></td></tr>"
         f"<tr><th>Verdict</th><td><strong>{html.escape(manifest.verdict.upper())}</strong></td></tr>"
         f"<tr><th>Evidence state</th><td>{html.escape(evidence_state)}</td></tr>"
@@ -773,7 +773,7 @@ def build_summary_html(
         f"{html.escape(manifest.suspected_root_cause)}</code></td></tr>"
         f"<tr><th>Rerun hint</th><td><code>{html.escape(manifest.rerun_hint)}</code></td></tr>"
         f"<tr><th>Regressions</th><td><code>{html.escape(regressions)}</code></td></tr>"
-        "</table>"
+        "</table></div>"
         "</div>"
         "</div>"
     )
