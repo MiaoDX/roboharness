@@ -182,12 +182,13 @@ def generate_html_report(
         if meshcat_mode != "none":
             meshcat_file = cp_dir / "meshcat_scene.html"
             if meshcat_file.exists():
-                meshcat_rel = f"{cp_name}/meshcat_scene.html"
+                meshcat_rel = meshcat_file.relative_to(output_dir).as_posix()
+                iframe_title = f"{cp_name} interactive 3D scene"
                 if meshcat_mode == "iframe":
                     meshcat_html = (
                         f'<div class="meshcat-viewer">'
                         f"<h3>Interactive 3D Scene</h3>"
-                        f'<iframe src="{meshcat_rel}" loading="lazy"></iframe>'
+                        f'<iframe src="{meshcat_rel}" loading="lazy" title="{iframe_title}"></iframe>'
                         f"<p>Rotate, pan, and zoom to explore the scene.</p>"
                         f"</div>"
                     )
