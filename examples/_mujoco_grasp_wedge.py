@@ -478,22 +478,20 @@ def build_phase_manifest(
         primary_failure = evaluation_result.failed[0]
     else:
         primary_failure = None
-    root_cause = (
-        ROOT_CAUSE_BY_METRIC.get(primary_failure.metric, "trajectory_regression")
-        if primary_failure is not None
-        else "trajectory_regression"
-    )
-    primary_views = PRIMARY_VIEWS_BY_ROOT_CAUSE.get(
-        root_cause,
-        MUJOCO_GRASP_PRIMARY_VIEWS.get(failed_phase_id or "lift", ["front"]),
-    )
+    if primary_failure is None:
+        root_cause = "none"
+        primary_views = list(MUJOCO_GRASP_PRIMARY_VIEWS["approach"])
+        rerun_hint = "not_required"
+        evidence_paths: list[str] = []
+    else:
+        root_cause = ROOT_CAUSE_BY_METRIC.get(primary_failure.metric, "trajectory_regression")
+        primary_views = PRIMARY_VIEWS_BY_ROOT_CAUSE.get(
+            root_cause,
+            MUJOCO_GRASP_PRIMARY_VIEWS.get(failed_phase_id or "lift", ["front"]),
+        )
+        rerun_hint = _build_rerun_hint(failed_phase_id)
+        evidence_paths = [f"{failed_phase_id}/{view}_rgb.png" for view in primary_views]
     regressions = [alarm.metric for alarm in alarms if alarm.status == "alarm"]
-    rerun_hint = _build_rerun_hint(failed_phase_id)
-    evidence_paths = (
-        [f"{failed_phase_id}/{view}_rgb.png" for view in primary_views]
-        if failed_phase_id is not None
-        else [f"lift/{primary_views[0]}_rgb.png"]
-    )
     agent_next_action = _build_agent_next_action(
         failed_phase_id=failed_phase_id,
         failed_phase=failed_phase,
@@ -734,6 +732,12 @@ def build_summary_html(
     selected_views = ", ".join(manifest.primary_views[:2]) if manifest.primary_views else "none"
     diagnostics = _collect_diagnostic_messages(evidence_pairs)
     diagnostics_html = "".join(f"<p>{html.escape(message)}</p>" for message in diagnostics)
+    root_cause_display = manifest.suspected_root_cause if manifest.failed_phase_id is not None else "none"
+    rerun_hint_row = (
+        f"<tr><th>Rerun hint</th><td><code>{html.escape(manifest.rerun_hint)}</code></td></tr>"
+        if manifest.failed_phase_id is not None
+        else "<tr><th>Rerun hint</th><td>No rerun required</td></tr>"
+    )
     if manifest.failed_phase_id is None:
         agent_context_html = ""
     else:
@@ -770,8 +774,8 @@ def build_summary_html(
         f"<tr><th>Failed phase</th><td>{failed_phase_text}</td></tr>"
         f"<tr><th>Selected views</th><td><code>{html.escape(selected_views)}</code></td></tr>"
         "<tr><th>Root cause</th><td><code>"
-        f"{html.escape(manifest.suspected_root_cause)}</code></td></tr>"
-        f"<tr><th>Rerun hint</th><td><code>{html.escape(manifest.rerun_hint)}</code></td></tr>"
+        f"{html.escape(root_cause_display)}</code></td></tr>"
+        f"{rerun_hint_row}"
         f"<tr><th>Regressions</th><td><code>{html.escape(regressions)}</code></td></tr>"
         "</table></div>"
         "</div>"
