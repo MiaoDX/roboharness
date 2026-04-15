@@ -329,6 +329,80 @@ def generate_html_report(
   .severity-major {{ background: #fff3cd; color: #856404; }}
   .severity-minor {{ background: #e2e3e5; color: #383d41; }}
   .severity-info {{ background: #d1ecf1; color: #0c5460; }}
+  .evidence-section {{ background: white; border-radius: 10px; padding: 20px; margin: 20px 0;
+                     box-shadow: 0 2px 4px rgba(0,0,0,0.08); }}
+  .evidence-section-head {{ display: flex; justify-content: space-between; gap: 16px;
+                           align-items: flex-start; flex-wrap: wrap; margin-bottom: 16px; }}
+  .evidence-section-head h3 {{ color: {accent_color}; margin: 0; }}
+  .evidence-section-head p {{ margin: 6px 0 0; color: #4b5563; }}
+  .evidence-state-label {{ margin: 0; font-weight: 700; color: #0f172a; }}
+  .evidence-banner {{ border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;
+                     border: 1px solid #dbeafe; background: #eff6ff; color: #1e3a8a; }}
+  .evidence-banner p {{ margin: 0; line-height: 1.5; }}
+  .evidence-banner-pass {{ background: #ecfdf3; border-color: #bbf7d0; color: #166534; }}
+  .evidence-banner-partial, .evidence-banner-ambiguous {{
+    background: #fffbea;
+    border-color: #fde68a;
+    color: #92400e;
+  }}
+  .evidence-banner-empty, .evidence-banner-mismatch {{
+    background: #fff5f5;
+    border-color: #fecaca;
+    color: #991b1b;
+  }}
+  .evidence-grid {{
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }}
+  .evidence-card {{
+    border: 1px solid #d6d6d6;
+    border-radius: 10px;
+    padding: 16px;
+    background: #fafafa;
+  }}
+  .evidence-card-full {{ border-color: #bfdbfe; background: #f8fbff; }}
+  .evidence-card-partial, .evidence-card-ambiguous {{ border-color: #fde68a; background: #fffdf5; }}
+  .evidence-card-empty {{ border-color: #fecaca; background: #fff8f8; }}
+  .evidence-card-head {{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }}
+  .evidence-badge {{ display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px;
+                    border-radius: 999px; background: #e5eefc; color: #1e3a8a; font-size: 12px;
+                    font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }}
+  .evidence-badge-status {{ background: #e5e7eb; color: #111827; }}
+  .evidence-compare-grid {{
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }}
+  .evidence-figure {{ margin: 0; }}
+  .evidence-role {{
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #4b5563;
+    margin-bottom: 8px;
+  }}
+  .evidence-figure img {{ width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px;
+                         border: 1px solid #d1d5db; background: #e5e7eb; }}
+  .evidence-figure figcaption {{
+    margin-top: 8px;
+    font-size: 13px;
+    color: #4b5563;
+    line-height: 1.4;
+  }}
+  .evidence-placeholder {{ width: 100%; aspect-ratio: 4 / 3; display: flex; align-items: center;
+                          justify-content: center; border: 1px dashed #f59e0b; border-radius: 8px;
+                          background: #fffbeb; color: #92400e; font-weight: 700; }}
+  .evidence-chip-row {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }}
+  .metric-chip {{ display: inline-flex; align-items: center; min-height: 28px; padding: 4px 10px;
+                 border-radius: 999px; background: #e2e8f0; color: #0f172a; font-size: 12px;
+                 line-height: 1.4; }}
+  .evidence-caption, .evidence-diagnostic {{ margin: 12px 0 0; line-height: 1.5; }}
+  .evidence-diagnostic {{ color: #92400e; }}
+  @media (max-width: 860px) {{
+    .evidence-compare-grid {{ grid-template-columns: 1fr; }}
+  }}
 </style>
 </head>
 <body>
