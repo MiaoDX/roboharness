@@ -732,7 +732,9 @@ def build_summary_html(
     selected_views = ", ".join(manifest.primary_views[:2]) if manifest.primary_views else "none"
     diagnostics = _collect_diagnostic_messages(evidence_pairs)
     diagnostics_html = "".join(f"<p>{html.escape(message)}</p>" for message in diagnostics)
-    root_cause_display = manifest.suspected_root_cause if manifest.failed_phase_id is not None else "none"
+    root_cause_display = (
+        manifest.suspected_root_cause if manifest.failed_phase_id is not None else "none"
+    )
     rerun_hint_row = (
         f"<tr><th>Rerun hint</th><td><code>{html.escape(manifest.rerun_hint)}</code></td></tr>"
         if manifest.failed_phase_id is not None

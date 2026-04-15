@@ -188,7 +188,8 @@ def generate_html_report(
                     meshcat_html = (
                         f'<div class="meshcat-viewer">'
                         f"<h3>Interactive 3D Scene</h3>"
-                        f'<iframe src="{meshcat_rel}" loading="lazy" title="{iframe_title}"></iframe>'
+                        f'<iframe src="{meshcat_rel}" loading="lazy" '
+                        f'title="{iframe_title}"></iframe>'
                         f"<p>Rotate, pan, and zoom to explore the scene.</p>"
                         f"</div>"
                     )
