@@ -95,7 +95,7 @@ npm install -g @anthropic-ai/claude-code
 # Clone and install roboharness with all deps
 git clone https://github.com/MiaoDX/roboharness.git
 cd roboharness
-pip install -e ".[demo,dev,wbc,unitree]"
+pip install -e ".[demo,dev,wbc]"
 
 # For SONIC/Isaac Lab: install PyTorch with CUDA
 pip install torch --index-url https://download.pytorch.org/whl/cu121

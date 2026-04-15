@@ -58,7 +58,12 @@ pip install roboharness[demo]
 python examples/mujoco_grasp.py --report
 ```
 
-For headless Linux or CI, prefix the command with `MUJOCO_GL=osmesa`.
+For headless Linux or CI, use a software renderer:
+
+```bash
+MUJOCO_GL=egl python examples/mujoco_grasp.py --report    # preferred on most headless Linux
+MUJOCO_GL=osmesa python examples/mujoco_grasp.py --report # fallback if egl is unavailable
+```
 
 This example now produces a report artifact pack that is meant to be actionable without replay:
 - `report.html` opens with an alarm-first summary and a `Current vs Baseline` section for the first failing phase.
@@ -108,8 +113,8 @@ Integrates the real [Unitree G1 43-DOF model](https://huggingface.co/lerobot/uni
 pip install torch --index-url https://download.pytorch.org/whl/cpu  # CPU-only
 pip install roboharness[demo] lerobot
 
-MUJOCO_GL=osmesa python examples/lerobot_g1_native.py --controller groot --report
-MUJOCO_GL=osmesa python examples/lerobot_g1_native.py --controller sonic --report
+MUJOCO_GL=egl python examples/lerobot_g1_native.py --controller groot --report
+MUJOCO_GL=egl python examples/lerobot_g1_native.py --controller sonic --report
 ```
 
 Uses LeRobot's official `make_env("lerobot/unitree-g1-mujoco")` factory for standardized env creation. The published native demo reports are split by controller: one report for GR00T and one for SONIC. DDS-ready for sim-to-real transfer when hardware is available. See [#83](https://github.com/MiaoDX/roboharness/issues/83) for details.
@@ -122,7 +127,7 @@ Uses LeRobot's official `make_env("lerobot/unitree-g1-mujoco")` factory for stan
 
 ```bash
 pip install roboharness[demo]
-MUJOCO_GL=osmesa python examples/sonic_locomotion.py --report --assert-success
+MUJOCO_GL=egl python examples/sonic_locomotion.py --report --assert-success
 ```
 
 Standalone NVIDIA GEAR-SONIC planner demo on the real Unitree G1 MuJoCo model. This path uses `planner_sonic.onnx` only: velocity commands go in, full-body pose trajectories come out, and the example uses a lightweight virtual torso harness for stable visual debugging. This is the same standalone planner path published at `/sonic-planner/`.
@@ -147,7 +152,7 @@ For a planner demo wired through LeRobot's official `make_env()` stack, see **G1
 
 ```bash
 pip install roboharness[demo]
-MUJOCO_GL=osmesa python examples/sonic_tracking.py --report --assert-success
+MUJOCO_GL=egl python examples/sonic_tracking.py --report --assert-success
 ```
 
 Real encoder+decoder tracking demo on the Unitree G1. This path uses `model_encoder.onnx` + `model_decoder.onnx` directly, replays a motion clip via `set_tracking_clip(...)`, and records checkpoint metrics for torso height, tracking-frame progress, and joint-tracking error. This is the same path published at `/sonic/`.
