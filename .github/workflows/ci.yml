@@ -95,6 +95,9 @@ jobs:
           name: mujoco-grasp-output
           path: |
             harness_output/report.html
+            harness_output/mujoco_grasp/trial_001/autonomous_report.json
+            harness_output/mujoco_grasp/trial_001/alarms.json
+            harness_output/mujoco_grasp/trial_001/phase_manifest.json
             harness_output/mujoco_grasp/trial_001/**/*_rgb.png
             harness_output/mujoco_grasp/trial_001/**/metadata.json
           retention-days: 30

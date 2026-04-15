@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "task": "mujoco_grasp",
+  "phase_order": [
+    "plan",
+    "pre_grasp",
+    "approach",
+    "grasp",
+    "lift"
+  ],
+  "summary_metrics": {
+    "loop_runtime_s": 5.199999999999649,
+    "final_cube_height_mm": 143.40268611930065,
+    "final_contact_count": 2.0,
+    "max_abs_qvel": 0.0029525872854482852
+  },
+  "snapshot_metrics": {
+    "plan": {
+      "step": 0.0,
+      "sim_time_s": 0.0,
+      "phase_runtime_s": 0.0,
+      "cube_height_mm": 30.0,
+      "grip_center_error_mm": 240.00000000000006,
+      "pinch_gap_error_mm": 5.999999999999998,
+      "pinch_elevation_deg": 0.0,
+      "gripper_skew_deg": 0.0,
+      "contact_count": 0.0,
+      "max_abs_qvel": 0.0
+    },
+    "pre_grasp": {
+      "step": 500.0,
+      "sim_time_s": 1.0000000000000007,
+      "phase_runtime_s": 1.0000000000000007,
+      "cube_height_mm": 24.727567014512175,
+      "grip_center_error_mm": 286.33157456894634,
+      "pinch_gap_error_mm": 35.99998039409206,
+      "pinch_elevation_deg": 0.0,
+      "gripper_skew_deg": 0.0,
+      "contact_count": 0.0,
+      "max_abs_qvel": 0.0029525872854482852
+    },
+    "approach": {
+      "step": 1000.0,
+      "sim_time_s": 2.0000000000000013,
+      "phase_runtime_s": 1.0000000000000007,
+      "cube_height_mm": 24.727567014512175,
+      "grip_center_error_mm": 14.60117442646594,
+      "pinch_gap_error_mm": 35.99999999887575,
+      "pinch_elevation_deg": 0.0,
+      "gripper_skew_deg": 0.0,
+      "contact_count": 0.0,
+      "max_abs_qvel": 1.5758868651013895e-07
+    },
+    "grasp": {
+      "step": 1800.0,
+      "sim_time_s": 3.599999999999825,
+      "phase_runtime_s": 1.5999999999998238,
+      "cube_height_mm": 24.72750674281074,
+      "grip_center_error_mm": 14.601236192572308,
+      "pinch_gap_error_mm": 2.12376715310527,
+      "pinch_elevation_deg": 0.0,
+      "gripper_skew_deg": 0.0,
+      "contact_count": 2.0,
+      "max_abs_qvel": 3.628399997814332e-07
+    },
+    "lift": {
+      "step": 2600.0,
+      "sim_time_s": 5.199999999999649,
+      "phase_runtime_s": 1.5999999999998242,
+      "cube_height_mm": 143.40268611930065,
+      "grip_center_error_mm": 17.216852319815732,
+      "pinch_gap_error_mm": 2.1237861793511543,
+      "pinch_elevation_deg": 0.0,
+      "gripper_skew_deg": 0.0,
+      "contact_count": 2.0,
+      "max_abs_qvel": 0.0009067547484772487
+    }
+  }
+}

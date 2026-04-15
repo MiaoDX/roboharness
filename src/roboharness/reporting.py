@@ -257,6 +257,38 @@ def generate_html_report(
          background: #f5f5f5; }}
   h1 {{ color: #333; border-bottom: 2px solid {accent_color}; padding-bottom: 10px; }}
   .summary {{ background: #e8f4fd; border-radius: 8px; padding: 16px; margin: 20px 0; }}
+  .report-grid {{ display: grid; gap: 16px;
+                  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }}
+  .summary-card {{ background: white; border-radius: 8px; padding: 16px;
+                   box-shadow: 0 1px 2px rgba(0,0,0,0.08); }}
+  .summary-card h3 {{ margin-top: 0; color: {accent_color}; }}
+  .alarm-grid {{ display: grid; gap: 12px;
+                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                 margin: 20px 0; }}
+  .alarm-card {{ background: white; border-left: 4px solid #dc3545; border-radius: 8px;
+                 padding: 14px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }}
+  .alarm-card.ok {{ border-left-color: #2f855a; }}
+  .alarm-card small {{ display: block; color: #666; text-transform: uppercase;
+                       letter-spacing: 0.04em; font-size: 11px; }}
+  .alarm-card strong {{ display: block; margin: 6px 0; color: #222; }}
+  .alarm-card p {{ margin: 4px 0 0; font-size: 14px; color: #555; }}
+  .agent-panel {{ background: linear-gradient(135deg, {accent_color}, #16324f); color: white;
+                  border-radius: 10px; padding: 18px 20px; margin: 20px 0; }}
+  .agent-panel strong {{ display: block; font-size: 16px; }}
+  .agent-panel p {{ margin: 8px 0 0; line-height: 1.5; }}
+  .phase-timeline {{ display: grid; gap: 12px;
+                     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }}
+  .phase-card {{ border: 1px solid #d6d6d6; border-radius: 8px; padding: 12px;
+                 background: #fafafa; }}
+  .phase-card h4 {{ margin: 0 0 8px; color: #1f2937; }}
+  .phase-card p {{ margin: 4px 0 0; font-size: 14px; color: #555; }}
+  .phase-card-ok {{ border-color: #c6f6d5; background: #f0fff4; }}
+  .phase-card-degraded {{ border-color: #f6e05e; background: #fffbea; }}
+  .phase-card-fail {{ border-color: #feb2b2; background: #fff5f5; }}
+  .meta-table {{ width: 100%; border-collapse: collapse; }}
+  .meta-table th, .meta-table td {{ padding: 8px 10px; text-align: left;
+                                    border-bottom: 1px solid #eee; }}
+  .meta-table th {{ width: 34%; color: #4b5563; font-weight: 600; }}
   .checkpoint {{ background: white; border-radius: 8px; padding: 20px; margin: 20px 0;
                  box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
   .checkpoint h2 {{ color: {accent_color}; margin-top: 0; }}
