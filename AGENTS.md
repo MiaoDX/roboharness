@@ -55,6 +55,23 @@ For `/office-hours` outputs specifically:
 
 ---
 
+## 0.3) Decision persistence for long reviews
+
+For multi-step design, review, or planning work, do not rely on chat context as the
+sole source of truth once decisions start getting locked in.
+
+- After each approved review block or major decision set, mirror the accepted
+  decisions into a repo-local artifact under `docs/designs/` or another task-appropriate
+  docs path.
+- Before starting implementation from a long interactive review, ensure the latest
+  approved decisions exist in a repo-local file and save a `/checkpoint`.
+- If context is getting long, the user asks about persistence/handoff, or a session
+  switch looks likely, save a `/checkpoint` proactively.
+- Treat `~/.gstack/projects/...` checkpoints as the handoff layer and repo-local
+  docs as the canonical project record for approved decisions.
+
+---
+
 ## 1) Environment preflight (mandatory before tests)
 
 Do not run UT immediately on a fresh environment.
