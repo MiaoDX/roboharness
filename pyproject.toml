@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "roboharness"
-version = "0.2.1"
+version = "0.2.2"
 description = "A Visual Testing Harness for AI Coding Agents in Robot Simulation"
 readme = "README.md"
 license = "MIT"
