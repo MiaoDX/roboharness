@@ -55,6 +55,7 @@ class EpisodeResult:
     metrics: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this episode result to a JSON-compatible dict."""
         return {
             "episode_id": self.episode_id,
             "success": self.success,
@@ -123,6 +124,7 @@ class LeRobotEvalReport:
         return sum(ep.episode_length for ep in self.episodes) / len(self.episodes)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this evaluation report to a JSON-compatible dict."""
         return {
             "n_episodes": self.n_episodes,
             "success_rate": self.success_rate,

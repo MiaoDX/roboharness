@@ -28,10 +28,12 @@ class EvaluationRecord:
     metrics: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this record to a JSON-compatible dict."""
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EvaluationRecord:
+        """Deserialize an EvaluationRecord from a dict (e.g. loaded from JSONL)."""
         return cls(
             task=data["task"],
             success_rate=data["success_rate"],
@@ -56,6 +58,7 @@ class TrendResult:
     message: str
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this trend result to a JSON-compatible dict."""
         return asdict(self)
 
 
@@ -91,6 +94,7 @@ class EvaluationHistory:
 
     @property
     def path(self) -> Path:
+        """Path to the underlying JSONL history file."""
         return self._path
 
     def append(self, record: EvaluationRecord) -> None:
