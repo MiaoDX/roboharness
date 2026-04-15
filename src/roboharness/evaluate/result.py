@@ -49,6 +49,7 @@ class AssertionResult:
     message: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this assertion result to a JSON-compatible dict."""
         threshold: float | list[float] = (
             list(self.threshold) if isinstance(self.threshold, tuple) else self.threshold
         )
@@ -74,21 +75,26 @@ class EvaluationResult:
 
     @property
     def passed(self) -> list[AssertionResult]:
+        """Assertions that passed."""
         return [r for r in self.results if r.passed]
 
     @property
     def failed(self) -> list[AssertionResult]:
+        """Assertions that failed."""
         return [r for r in self.results if not r.passed]
 
     @property
     def critical_failures(self) -> list[AssertionResult]:
+        """Failed assertions with CRITICAL severity."""
         return [r for r in self.results if not r.passed and r.severity == Severity.CRITICAL]
 
     @property
     def major_failures(self) -> list[AssertionResult]:
+        """Failed assertions with MAJOR severity."""
         return [r for r in self.results if not r.passed and r.severity == Severity.MAJOR]
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this evaluation result to a JSON-compatible dict."""
         passed_count = 0
         failed_count = 0
         critical_count = 0

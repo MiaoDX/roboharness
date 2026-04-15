@@ -25,6 +25,7 @@ class TrialSummary:
     failure_codes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this trial summary to a JSON-compatible dict."""
         return {
             "report_path": self.report_path,
             "case_id": self.case_id,
@@ -48,6 +49,7 @@ class EvalBatchResult:
     trials: list[TrialSummary] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this batch result to a JSON-compatible dict."""
         return {
             "results_dir": self.results_dir,
             "total_trials": self.total_trials,
@@ -67,6 +69,7 @@ class VariantResult:
     batch: EvalBatchResult
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this variant result to a JSON-compatible dict."""
         return {
             "variant_id": self.variant_id,
             **self.batch.to_dict(),
@@ -80,6 +83,7 @@ class ComparisonResult:
     variants: list[VariantResult] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this comparison result to a JSON-compatible dict."""
         return {
             "variants": [v.to_dict() for v in self.variants],
             "summary": {
