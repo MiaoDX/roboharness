@@ -52,6 +52,7 @@ lerobot = [
     "gymnasium>=0.29",
     "mujoco>=3.0",
     "Pillow",
+    "torch",
 ]
 dev = [
     "pytest>=7.0",
@@ -137,5 +138,7 @@ module = [
     "onnxruntime.*",
     "huggingface_hub.*",
     "mcp.*",
+    "torch.*",
+    "lerobot.*",
 ]
 ignore_missing_imports = true

@@ -56,6 +56,8 @@ Directions are split into "do now" and "do later." "Do now" means the next avail
 
 **Exit criteria:** A LeRobot user can run one command to get visual regression testing in CI.
 
+**Status:** Complete. `examples/lerobot_eval_harness.py --checkpoint-path <path> --repo-id <repo>` loads real LeRobot policies, captures checkpoint screenshots, produces `lerobot_eval_report.json`, and supports `--assert-threshold` for CI pass/fail gates.
+
 **Related issues:** New issue needed. Extends #83 (native LeRobot integration).
 
 ### B. Constraint Evaluator

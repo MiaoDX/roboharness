@@ -5,14 +5,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
 from roboharness.evaluate.lerobot_plugin import (
     EpisodeResult,
     LeRobotEvalConfig,
     LeRobotEvalReport,
     check_eval_threshold,
+    evaluate_lerobot_policy,
     evaluate_policy,
 )
 
@@ -293,6 +296,92 @@ class TestEvaluatePolicy:
         assert json_path.exists()
         data = json.loads(json_path.read_text())
         assert data["n_episodes"] == 2
+
+    def test_action_shape_validation(self, tmp_path: Path) -> None:
+        """Wrong action shape raises ValueError before env.step()."""
+        env = FakeEnv(episode_length=10)
+
+        def bad_policy(obs: np.ndarray) -> np.ndarray:
+            return np.zeros(5, dtype=np.float32)  # FakeEnv expects shape (2,)
+
+        config = LeRobotEvalConfig(
+            n_episodes=1,
+            max_steps_per_episode=20,
+            output_dir=str(tmp_path),
+        )
+        with pytest.raises(ValueError, match="Action shape mismatch"):
+            evaluate_policy(env, bad_policy, config)
+
+    def test_dict_observation_policy(self, tmp_path: Path) -> None:
+        """PolicyAdapter accepting dict observations works without hacks."""
+
+        class DictObsEnv(FakeEnv):
+            def reset(self, **kwargs: Any) -> tuple[Any, dict[str, Any]]:
+                self._step_count = 0
+                return {"state": self._obs.copy()}, {}
+
+            def step(self, action: Any) -> tuple[Any, float, bool, bool, dict[str, Any]]:
+                self._step_count += 1
+                terminated = self._step_count >= self.episode_length
+                reward = self.success_reward if terminated else 0.1
+                return {"state": self._obs.copy()}, reward, terminated, False, {}
+
+        env = DictObsEnv(episode_length=5)
+
+        def dict_policy(obs: Any) -> np.ndarray:
+            assert isinstance(obs, dict)
+            return np.zeros(2, dtype=np.float32)
+
+        config = LeRobotEvalConfig(
+            n_episodes=1,
+            max_steps_per_episode=10,
+            output_dir=str(tmp_path),
+        )
+        report = evaluate_policy(env, dict_policy, config)
+        assert report.n_episodes == 1
+        assert report.episodes[0].episode_length == 5
+
+
+# ---------------------------------------------------------------------------
+# evaluate_lerobot_policy integration
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluateLerobotPolicy:
+    @patch("roboharness.evaluate.lerobot_plugin.load_lerobot_policy")
+    @patch("roboharness.evaluate.lerobot_plugin.create_native_env")
+    @patch("roboharness.evaluate.lerobot_plugin.evaluate_policy")
+    def test_delegates_to_evaluate_policy(
+        self,
+        mock_eval: Any,
+        mock_create_env: Any,
+        mock_load_policy: Any,
+        tmp_path: Path,
+    ) -> None:
+        fake_policy = MagicMock()
+        fake_env = MagicMock()
+        fake_report = MagicMock()
+        mock_load_policy.return_value = fake_policy
+        mock_create_env.return_value = fake_env
+        mock_eval.return_value = fake_report
+
+        config = LeRobotEvalConfig(n_episodes=3)
+        report = evaluate_lerobot_policy(
+            str(tmp_path),
+            repo_id="lerobot/unitree-g1-mujoco",
+            config=config,
+        )
+
+        assert report is fake_report
+        mock_load_policy.assert_called_once_with(str(tmp_path), device="cpu")
+        mock_create_env.assert_called_once_with("lerobot/unitree-g1-mujoco")
+        mock_eval.assert_called_once_with(fake_env, fake_policy, config=config, metrics_fn=None)
+
+    @patch("roboharness.evaluate.lerobot_plugin.load_lerobot_policy")
+    def test_missing_repo_id_raises(self, mock_load_policy: Any, tmp_path: Path) -> None:
+        mock_load_policy.return_value = MagicMock()
+        with pytest.raises(ValueError, match="Could not infer environment repo_id"):
+            evaluate_lerobot_policy(str(tmp_path))
 
 
 # ---------------------------------------------------------------------------

@@ -31,6 +31,10 @@ from typing import Any
 
 import numpy as np
 
+from roboharness.evaluate.lerobot_env import create_native_env
+from roboharness.evaluate.lerobot_policy_adapter import load_lerobot_policy
+from roboharness.evaluate.protocol import PolicyAdapter
+
 logger = logging.getLogger(__name__)
 
 
@@ -174,9 +178,24 @@ def _save_checkpoint_screenshot(
     return str(cp_dir)
 
 
+def _validate_action_shape(action: np.ndarray, env: Any) -> None:
+    """Validate that the action shape matches the env's action space."""
+    action_space = getattr(env, "action_space", None)
+    if action_space is None:
+        return
+    expected_shape = getattr(action_space, "shape", None)
+    if expected_shape is None:
+        return
+    action_arr = np.asarray(action)
+    if action_arr.shape != expected_shape:
+        raise ValueError(
+            f"Action shape mismatch: expected {expected_shape}, got {action_arr.shape}"
+        )
+
+
 def evaluate_policy(
     env: Any,
-    policy_fn: PolicyFn,
+    policy_fn: PolicyFn | PolicyAdapter,
     config: LeRobotEvalConfig | None = None,
     *,
     metrics_fn: MetricsFn | None = None,
@@ -217,6 +236,7 @@ def evaluate_policy(
 
         for step in range(1, config.max_steps_per_episode + 1):
             action = policy_fn(obs)
+            _validate_action_shape(action, env)
             obs, reward, terminated, truncated, info = env.step(action)
             step_count = step
 
@@ -271,6 +291,69 @@ def evaluate_policy(
         logger.info("Saved evaluation report to %s", output_dir / "lerobot_eval_report.json")
 
     return report
+
+
+def evaluate_lerobot_policy(
+    checkpoint_path: str | Path,
+    repo_id: str | None = None,
+    config: LeRobotEvalConfig | None = None,
+    *,
+    device: str = "cpu",
+    metrics_fn: MetricsFn | None = None,
+) -> LeRobotEvalReport:
+    """Evaluate a real LeRobot policy checkpoint with visual checkpoints.
+
+    Loads the policy from ``checkpoint_path``, creates the associated
+    LeRobot environment, and runs ``evaluate_policy()``.
+
+    Args:
+        checkpoint_path: Path to a LeRobot checkpoint directory.
+        repo_id: Optional HuggingFace repo ID for the environment.
+            If omitted, it is inferred from the checkpoint config.
+        config: Evaluation configuration. Uses defaults if None.
+        device: Torch device for inference (default "cpu").
+        metrics_fn: Optional function to compute custom per-episode metrics.
+
+    Returns:
+        Aggregated evaluation report.
+    """
+    policy = load_lerobot_policy(checkpoint_path, device=device)
+
+    if repo_id is None:
+        repo_id = _infer_repo_id_from_checkpoint(checkpoint_path)
+
+    if repo_id is None:
+        raise ValueError(
+            "Could not infer environment repo_id from checkpoint. Please pass repo_id explicitly."
+        )
+
+    env = create_native_env(repo_id)
+    return evaluate_policy(env, policy, config=config, metrics_fn=metrics_fn)
+
+
+def _infer_repo_id_from_checkpoint(checkpoint_path: str | Path) -> str | None:
+    """Try to read the environment repo_id from train_config.json."""
+    cfg_path = Path(checkpoint_path) / "train_config.json"
+    if not cfg_path.exists():
+        return None
+    try:
+        import json
+
+        cfg = json.loads(cfg_path.read_text())
+        # LeRobot configs may store the env under different keys
+        for key in ("env", "repo_id", "env_name", "dataset_repo_id"):
+            val = cfg.get(key)
+            if isinstance(val, str) and val:
+                return val
+        # Nested policy config
+        policy_cfg = cfg.get("policy", {})
+        for key in ("env", "repo_id", "env_name", "dataset_repo_id"):
+            val = policy_cfg.get(key)
+            if isinstance(val, str) and val:
+                return val
+    except Exception:
+        logger.debug("Failed to infer repo_id from checkpoint config", exc_info=True)
+    return None
 
 
 def check_eval_threshold(

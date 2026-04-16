@@ -14,6 +14,12 @@ Requirements:
 Run (standalone — CartPole demo):
     python examples/lerobot_eval_harness.py --env CartPole-v1 --n-episodes 5
 
+Run (with real LeRobot checkpoint):
+    python examples/lerobot_eval_harness.py \
+        --checkpoint-path /path/to/lerobot/checkpoint \
+        --repo-id lerobot/unitree-g1-mujoco \
+        --n-episodes 5
+
 Run (with success threshold — CI gate):
     python examples/lerobot_eval_harness.py --env CartPole-v1 --n-episodes 10 \
         --min-success-rate 0.0 --assert-threshold
@@ -38,6 +44,7 @@ import numpy as np
 from roboharness.evaluate.lerobot_plugin import (
     LeRobotEvalConfig,
     check_eval_threshold,
+    evaluate_lerobot_policy,
     evaluate_policy,
 )
 
@@ -83,27 +90,24 @@ def main() -> None:
         action="store_true",
         help="Exit non-zero if thresholds are not met (CI mode)",
     )
+    parser.add_argument(
+        "--checkpoint-path",
+        type=str,
+        default=None,
+        help="Path to a LeRobot policy checkpoint directory",
+    )
+    parser.add_argument(
+        "--repo-id",
+        type=str,
+        default=None,
+        help="HuggingFace repo ID for the LeRobot environment (inferred if omitted)",
+    )
     args = parser.parse_args()
 
     print("=" * 60)
     print("  Roboharness: LeRobot Evaluation Harness")
     print("=" * 60)
 
-    # 1. Create environment
-    print(f"\n[1/3] Creating environment: {args.env}")
-    try:
-        import gymnasium as gym
-
-        env = gym.make(args.env, render_mode="rgb_array")
-    except ImportError:
-        print("ERROR: gymnasium is required. Install with: pip install roboharness[demo]")
-        sys.exit(1)
-
-    print(f"      Obs space: {env.observation_space}")
-    print(f"      Act space: {env.action_space}")
-
-    # 2. Run evaluation
-    print(f"[2/3] Evaluating ({args.n_episodes} episodes, max {args.max_steps} steps each) ...")
     output_dir = Path(args.output_dir) / "lerobot_eval"
 
     config = LeRobotEvalConfig(
@@ -113,14 +117,43 @@ def main() -> None:
         output_dir=str(output_dir),
     )
 
-    # Use random policy as fallback
-    action_space = env.action_space
+    # 1. Create environment / load policy
+    if args.checkpoint_path:
+        print(f"\n[1/3] Loading LeRobot policy from: {args.checkpoint_path}")
+        if not Path(args.checkpoint_path).exists():
+            print(f"ERROR: Checkpoint path does not exist: {args.checkpoint_path}")
+            sys.exit(1)
 
-    def policy_fn(obs: np.ndarray) -> np.ndarray:
-        return _random_policy(obs, action_space)
+        # 2. Run evaluation with real LeRobot policy
+        print(f"[2/3] Evaluating ({args.n_episodes} episodes, max {args.max_steps} steps each) ...")
+        report = evaluate_lerobot_policy(
+            checkpoint_path=args.checkpoint_path,
+            repo_id=args.repo_id,
+            config=config,
+        )
+    else:
+        print(f"\n[1/3] Creating environment: {args.env}")
+        try:
+            import gymnasium as gym
 
-    report = evaluate_policy(env, policy_fn, config)
-    env.close()
+            env = gym.make(args.env, render_mode="rgb_array")
+        except ImportError:
+            print("ERROR: gymnasium is required. Install with: pip install roboharness[demo]")
+            sys.exit(1)
+
+        print(f"      Obs space: {env.observation_space}")
+        print(f"      Act space: {env.action_space}")
+
+        # Use random policy as fallback
+        action_space = env.action_space
+
+        def policy_fn(obs: np.ndarray) -> np.ndarray:
+            return _random_policy(obs, action_space)
+
+        # 2. Run evaluation
+        print(f"[2/3] Evaluating ({args.n_episodes} episodes, max {args.max_steps} steps each) ...")
+        report = evaluate_policy(env, policy_fn, config)
+        env.close()
 
     # 3. Report results
     print("[3/3] Results:")
@@ -142,6 +175,14 @@ def main() -> None:
             f"    Episode {ep.episode_id:3d}: [{status}]"
             f"  reward={ep.total_reward:7.2f}"
             f"  length={ep.episode_length:4d}"
+        )
+
+    if not args.checkpoint_path:
+        print(
+            "\n  Tip: pass --checkpoint-path to evaluate a real LeRobot policy:\n"
+            "    python examples/lerobot_eval_harness.py \\\n"
+            "      --checkpoint-path /path/to/lerobot/checkpoint \\\n"
+            "      --repo-id lerobot/unitree-g1-mujoco"
         )
 
     # 4. CI gate

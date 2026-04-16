@@ -121,6 +121,29 @@ Uses LeRobot's official `make_env("lerobot/unitree-g1-mujoco")` factory for stan
 
 </details>
 
+<details>
+<summary><b>LeRobot Evaluation in CI</b></summary>
+
+```bash
+pip install roboharness[lerobot]
+
+# Evaluate a real LeRobot checkpoint with visual checkpoints + JSON report
+python examples/lerobot_eval_harness.py \
+  --checkpoint-path /path/to/lerobot/checkpoint \
+  --repo-id lerobot/unitree-g1-mujoco \
+  --n-episodes 5 \
+  --checkpoint-steps 10 50 100 \
+  --assert-threshold \
+  --min-success-rate 0.8
+```
+
+Produces:
+- `episode_000/step_0010/default_rgb.png` — checkpoint screenshots
+- `lerobot_eval_report.json` — structured per-episode stats
+- CI exit code 1 when thresholds are not met
+
+</details>
+
 <a id="sonic-planner"></a>
 <details>
 <summary><b>SONIC Planner</b></summary>
