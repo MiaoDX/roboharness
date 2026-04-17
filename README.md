@@ -40,6 +40,15 @@
 | **[SONIC Planner](#sonic-planner)** | Standalone GEAR-SONIC planner demo on G1 | [Live](https://miaodx.com/roboharness/sonic-planner/) | `python examples/sonic_locomotion.py --report` |
 | **[SONIC Motion Tracking](#sonic-motion-tracking)** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/sonic_tracking.py --report` |
 
+## Showcase Repository
+
+See real projects that consume roboharness as a pip dependency:
+
+- **[LeRobot Evaluation](https://github.com/roboharness/showcase/tree/main/lerobot-eval)** — visual regression testing for robot policies
+- **[GR00T WBC](https://github.com/roboharness/showcase/tree/main/groot-wbc)** — whole-body control integration
+
+Each showcase is self-contained, runs with `./run.sh`, and supports smoke mode for fast CI validation.
+
 ## Installation
 
 ```bash
