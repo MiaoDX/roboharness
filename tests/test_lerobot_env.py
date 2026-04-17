@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
 from roboharness.evaluate.lerobot_env import (
     _add_mujoco_rendering,
@@ -132,8 +133,8 @@ class TestAddMujocoRendering:
         captured = capsys.readouterr()
         assert "could not find MuJoCo model/data" in captured.out
 
-    @patch("mujoco.Renderer")
-    def test_adds_render_camera(self, mock_renderer_cls: Any) -> None:
+    def test_adds_render_camera(self, monkeypatch: Any) -> None:
+        mujoco = pytest.importorskip("mujoco")
         env = FakeEnv()
 
         fake_model = MagicMock()
@@ -150,7 +151,8 @@ class TestAddMujocoRendering:
 
         fake_renderer = MagicMock()
         fake_renderer.render.return_value = np.zeros((480, 640, 3), dtype=np.uint8)
-        mock_renderer_cls.return_value = fake_renderer
+        mock_renderer_cls = MagicMock(return_value=fake_renderer)
+        monkeypatch.setattr(mujoco, "Renderer", mock_renderer_cls)
 
         _add_mujoco_rendering(env)
 

@@ -157,8 +157,6 @@ def _add_mujoco_rendering(
     render_camera() + cameras property so RobotHarnessWrapper can capture
     multi-view screenshots.
     """
-    import mujoco
-
     unwrapped = getattr(env, "unwrapped", env)
 
     # Find the MuJoCo model and data on the env (attribute names vary by env)
@@ -193,6 +191,8 @@ def _add_mujoco_rendering(
     if model is None or data is None:
         print("      Warning: could not find MuJoCo model/data — no screenshots")
         return
+
+    import mujoco
 
     renderer = mujoco.Renderer(model, height, width)
     camera_names = [model.camera(i).name for i in range(model.ncam)]
