@@ -292,7 +292,7 @@ constraints:
 """
         p = tmp_path / "test.yaml"
         p.write_text(yaml_content)
-        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")  # noqa: F841
+        pytest.importorskip("yaml", reason="PyYAML not installed")
         assertions = load_constraints(p)
         assert len(assertions) == 2
         assert assertions[0].severity == Severity.CRITICAL
@@ -656,7 +656,7 @@ class TestEvaluateToReportEndToEnd:
 
         # Step 1: Load constraints from the project's actual YAML file
         constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
-        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")  # noqa: F841
+        pytest.importorskip("yaml", reason="PyYAML not installed")
         assertions = load_constraints(constraints_path)
         assert len(assertions) == 4
 
@@ -699,7 +699,7 @@ class TestEvaluateToReportEndToEnd:
         from roboharness.reporting import generate_html_report
 
         constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
-        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")  # noqa: F841
+        pytest.importorskip("yaml", reason="PyYAML not installed")
         assertions = load_constraints(constraints_path)
 
         # Override report with failing metrics
@@ -741,7 +741,7 @@ class TestEvaluateToReportEndToEnd:
         from roboharness.cli import main
 
         constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
-        yaml = pytest.importorskip("yaml", reason="PyYAML not installed")  # noqa: F841
+        pytest.importorskip("yaml", reason="PyYAML not installed")
         report_path = grasp_output / "grasp" / "trial_001" / "autonomous_report.json"
 
         ret = main(["evaluate", str(report_path), "--constraints", str(constraints_path)])

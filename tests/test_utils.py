@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import numpy as np
+import pytest
 
 from roboharness._utils import NumpyEncoder, save_image
 
@@ -49,4 +50,4 @@ def test_numpy_encoder_floating():
     """NumpyEncoder converts numpy floats."""
     val = np.float32(3.14)
     result = json.dumps({"val": val}, cls=NumpyEncoder)
-    assert abs(json.loads(result)["val"] - 3.14) < 0.01
+    assert json.loads(result)["val"] == pytest.approx(3.14, rel=1e-5)

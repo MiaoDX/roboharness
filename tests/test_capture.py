@@ -1,6 +1,7 @@
 """Tests for capture functionality."""
 
 import json
+from pathlib import Path
 
 import numpy as np
 
@@ -13,6 +14,8 @@ def test_camera_view_save_rgb(tmp_path):
     files = view.save(tmp_path / "test_view")
 
     assert "rgb" in files
+    assert Path(files["rgb"]).exists()
+    assert Path(files["rgb"]).stat().st_size > 0
 
 
 def test_camera_view_save_with_depth(tmp_path):
@@ -24,6 +27,11 @@ def test_camera_view_save_with_depth(tmp_path):
     assert "rgb" in files
     assert "depth" in files
     assert "depth_viz" in files
+    assert Path(files["rgb"]).exists()
+    assert Path(files["depth"]).exists()
+    assert Path(files["depth_viz"]).exists()
+    loaded_depth = np.load(files["depth"])
+    np.testing.assert_array_almost_equal(loaded_depth, depth)
 
 
 def test_capture_result_save(tmp_path):
