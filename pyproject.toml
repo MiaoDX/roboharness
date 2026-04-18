@@ -45,14 +45,14 @@ demo = [
 wbc = [
     "pin>=3.0",
     "pin-pink>=0.11",
-    "qpsolvers[quadprog]",
+    "qpsolvers[quadprog]>=3.0",
 ]
 lerobot = [
-    "lerobot",
+    "lerobot>=0.1",
     "gymnasium>=0.29",
     "mujoco>=3.0",
-    "Pillow",
-    "torch",
+    "Pillow>=9.0",
+    "torch>=2.0",
 ]
 dev = [
     "pytest>=7.0",
