@@ -59,11 +59,19 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python -c "
+          import os
           from huggingface_hub import HfApi
-          api = HfApi()
+          repo_id = 'miaodongxu/roboharness-demo'
+          api = HfApi(token=os.environ['HF_TOKEN'])
+          api.create_repo(
+              repo_id=repo_id,
+              repo_type='space',
+              space_sdk='static',
+              exist_ok=True,
+          )
           api.upload_folder(
               folder_path='_site',
-              repo_id='miaodongxu/roboharness-demo',
+              repo_id=repo_id,
               repo_type='space',
           )
           "
