@@ -29,7 +29,18 @@ def test_demo_matrix_includes_expected_ids() -> None:
 def test_hf_manual_fetch_keeps_sonic_planner_in_sync() -> None:
     workflow = Path(".github/workflows/hf-space.yml").read_text()
     assert "_site/sonic-planner" in workflow
-    assert "$BASE/sonic-planner/" in workflow
+    assert "$BASE/sonic-planner/index.html" in workflow
+
+
+def test_hf_sync_uses_official_mirror_action() -> None:
+    workflow = Path(".github/workflows/hf-space.yml").read_text()
+    assert "uses: huggingface/hub-sync@v0.1.0" in workflow
+    assert "subdirectory: _site" in workflow
+    assert "huggingface_repo_id: miaodongxu/roboharness-demo" in workflow
+    assert "repo_type: space" in workflow
+    assert "space_sdk: static" in workflow
+    assert "HfApi" not in workflow
+    assert "upload_folder" not in workflow
 
 
 def test_landing_page_uses_hf_static_compatible_demo_links() -> None:
