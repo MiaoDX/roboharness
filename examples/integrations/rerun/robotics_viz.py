@@ -7,20 +7,15 @@ import argparse
 import sys
 from pathlib import Path
 
-try:
-    from examples._mujoco_grasp_fixture import (
-        GRASP_MJCF,
-        MUJOCO_GRASP_CAMERAS,
-        build_grasp_phases,
-        build_grasp_protocol,
-    )
-except ModuleNotFoundError:  # pragma: no cover - script execution path
-    from _mujoco_grasp_fixture import (  # type: ignore[no-redef]
-        GRASP_MJCF,
-        MUJOCO_GRASP_CAMERAS,
-        build_grasp_phases,
-        build_grasp_protocol,
-    )
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from examples.demos.mujoco.fixture import (
+    GRASP_MJCF,
+    MUJOCO_GRASP_CAMERAS,
+    build_grasp_phases,
+    build_grasp_protocol,
+)
 
 
 def main() -> None:

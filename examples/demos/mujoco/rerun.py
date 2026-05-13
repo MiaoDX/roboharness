@@ -10,7 +10,7 @@ from roboharness.backends.mujoco_meshcat import MuJoCoMeshcatBackend
 from roboharness.core.harness import Harness
 
 try:
-    from examples._mujoco_grasp_fixture import (
+    from examples.demos.mujoco.fixture import (
         GRASP_MJCF,
         MUJOCO_GRASP_CAMERAS,
         MUJOCO_GRASP_TASK,
@@ -18,7 +18,7 @@ try:
         build_grasp_protocol,
     )
 except ModuleNotFoundError:  # pragma: no cover - script execution path
-    from _mujoco_grasp_fixture import (  # type: ignore[no-redef]
+    from fixture import (  # type: ignore[no-redef]
         GRASP_MJCF,
         MUJOCO_GRASP_CAMERAS,
         MUJOCO_GRASP_TASK,

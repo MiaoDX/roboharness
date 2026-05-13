@@ -52,11 +52,11 @@ Directions are split into "do now" and "do later." "Do now" means the next avail
 2. Wrap `lerobot-eval` output, insert checkpoint screenshots at key steps
 3. Produce structured JSON (per-episode success, per-step screenshot paths, key metrics)
 4. Provide CI-friendly pass/fail gate (e.g., success rate < threshold → exit 1)
-5. Ship a LeRobot-compatible example: `pip install roboharness[lerobot] && python examples/lerobot_eval_harness.py`
+5. Ship a LeRobot-compatible example: `pip install roboharness[lerobot] && python examples/integrations/lerobot/eval_harness.py`
 
 **Exit criteria:** A LeRobot user can run one command to get visual regression testing in CI.
 
-**Status:** Complete. `examples/lerobot_eval_harness.py --checkpoint-path <path> --repo-id <repo>` loads real LeRobot policies, captures checkpoint screenshots, produces `lerobot_eval_report.json`, and supports `--assert-threshold` for CI pass/fail gates.
+**Status:** Complete. `examples/integrations/lerobot/eval_harness.py --checkpoint-path <path> --repo-id <repo>` loads real LeRobot policies, captures checkpoint screenshots, produces `lerobot_eval_report.json`, and supports `--assert-threshold` for CI pass/fail gates.
 
 **Related issues:** New issue needed. Extends #83 (native LeRobot integration).
 
@@ -127,7 +127,7 @@ roboharness/showcase/
 - [ ] Create `.github` repo in `roboharness` org with `profile/README.md` (org landing page)
 - [ ] Create `roboharness/showcase` repo
 - [ ] Initialize skeleton: README + groot-n16/ + pi0-libero/ + lerobot-g1/ directories
-- [ ] First runnable showcase: extract `examples/lerobot_g1_native.py` as standalone showcase
+- [ ] First runnable showcase: extract `examples/demos/g1/lerobot_native.py` as standalone showcase
 - [ ] Set up CI: GitHub Actions matrix, one job per showcase
 
 **Exit criteria:** Showcase repo has at least 3 runnable showcases (GR00T, Pi0, LeRobot), each with CI.

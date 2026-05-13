@@ -5,7 +5,7 @@ Date: 2026-04-20
 Reviewed surfaces:
 - `README.md` front door and quick-start copy
 - installed package metadata from `pyproject.toml` and the local wheel install
-- `python examples/mujoco_grasp.py --help`
+- `python examples/demos/mujoco/grasp.py --help`
 - deterministic fail/pass `report.html` artifacts generated from the fixture-backed
   MuJoCo wedge helpers and rendered through gstack browse at desktop and mobile widths
 
@@ -20,7 +20,7 @@ evidence cards in order, the pass artifact suppressed unchanged cases cleanly, a
 the mobile render stayed within the viewport with no horizontal overflow.
 
 The one material boomerang finding was on the front door. The README told users to
-`pip install roboharness[demo]` and then run `python examples/mujoco_grasp.py --report`,
+`pip install roboharness[demo]` and then run `python examples/demos/mujoco/grasp.py --report`,
 but the published distribution installs only the `roboharness` CLI and does not ship
 the repo `examples/` directory. That made the top-level quick start source-only while
 reading like a package-install path.
@@ -39,7 +39,7 @@ Impact: High
 
 Observed:
 - The top README quick start paired `pip install roboharness[demo]` with
-  `python examples/mujoco_grasp.py --report`.
+  `python examples/demos/mujoco/grasp.py --report`.
 - The installed distribution exposes one console script:
   `roboharness=roboharness.cli:main`.
 - The installed distribution contains no `examples/` files.

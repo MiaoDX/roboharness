@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from examples.g1_cross_framework_report import (
+from examples.demos.g1.cross_framework_report import (
     ASSET_ROOT,
     DEFAULT_BUNDLE_ID,
     build_cross_framework_pairs,

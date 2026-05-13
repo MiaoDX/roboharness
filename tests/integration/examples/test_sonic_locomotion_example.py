@@ -7,7 +7,7 @@ import pytest
 
 pytest.importorskip("mujoco", reason="mujoco not installed")
 
-from examples.sonic_locomotion import (
+from examples.demos.sonic.locomotion import (
     G1_BODY_TORQUE_LIMITS,
     VirtualSupportHarness,
     _quat_to_rotvec,

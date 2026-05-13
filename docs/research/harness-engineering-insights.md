@@ -104,7 +104,7 @@ The original reports referenced:
 4. **The interaction model becomes: humans write tickets and maintain the harness; agents do the rest**: This is the end state. For roboharness users: write a task spec (constraint YAML + checkpoint config), let agents iterate on control code until the evaluator passes. The human's job is improving the harness, not reviewing every trial.
 
 **Actionable**:
-- **CI task success gate** — `mujoco_grasp.py --assert-success` that checks physical state against constraints and fails CI if the task didn't succeed. Small change, high leverage.
+- **CI task success gate** — `examples/demos/mujoco/grasp.py --assert-success` that checks physical state against constraints and fails CI if the task didn't succeed. Small change, high leverage.
 - **Success rate trend tracking** — store evaluation results over time, detect regressions across commits.
 - **Issue-driven agent workflow** — document how to use roboharness in a ticket-driven loop (write issue → agent picks up → runs harness → evaluator judges → PR with proof-of-work).
 

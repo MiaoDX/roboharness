@@ -49,7 +49,7 @@ The Claude Code CLI runs on any local machine with the same capabilities as the 
 
 ### What it enables
 
-- Run `MUJOCO_GL=egl python examples/sonic_locomotion.py --report` and immediately inspect output
+- Run `MUJOCO_GL=egl python examples/demos/sonic/locomotion.py --report` and immediately inspect output
 - Multi-turn visual debugging: "the robot is falling over" → inspect report → adjust gains → re-run → verify, all in one session
 - Test ONNX model loading, GPU rendering, Isaac Lab integration with real hardware
 - Catch visual regressions that no unit test can detect (flipped axes, wrong camera FOV, static robot)
@@ -129,7 +129,7 @@ No GPU needed — the fix is pure Python logic.
 **Ideal environment:** Local CLI + GPU
 
 1. GitHub issue reports static robot in SONIC demo
-2. Local session: run `python examples/sonic_locomotion.py --report`
+2. Local session: run `python examples/demos/sonic/locomotion.py --report`
 3. Open report — see the robot is indeed static
 4. Inspect controller output, find action mapping bug
 5. Fix, re-run, visually confirm robot moves

@@ -166,7 +166,7 @@ command that produces a report locally and in CI.
 
 Distribution shape:
 - package install via `pip install roboharness[demo]`
-- canonical example entrypoint in `examples/mujoco_grasp.py`
+- canonical example entrypoint in `examples/demos/mujoco/grasp.py`
 - generated `report.html` and machine-readable manifests in the output directory
 - optional publication of the report through the existing GitHub Pages workflow
 

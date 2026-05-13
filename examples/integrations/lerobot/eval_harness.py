@@ -12,16 +12,16 @@ Requirements:
     pip install roboharness[lerobot]      # full LeRobot integration
 
 Run (standalone — CartPole demo):
-    python examples/lerobot_eval_harness.py --env CartPole-v1 --n-episodes 5
+    python examples/integrations/lerobot/eval_harness.py --env CartPole-v1 --n-episodes 5
 
 Run (with real LeRobot checkpoint):
-    python examples/lerobot_eval_harness.py \
+    python examples/integrations/lerobot/eval_harness.py \
         --checkpoint-path /path/to/lerobot/checkpoint \
         --repo-id lerobot/unitree-g1-mujoco \
         --n-episodes 5
 
 Run (with success threshold — CI gate):
-    python examples/lerobot_eval_harness.py --env CartPole-v1 --n-episodes 10 \
+    python examples/integrations/lerobot/eval_harness.py --env CartPole-v1 --n-episodes 10 \
         --min-success-rate 0.0 --assert-threshold
 
 Output:
@@ -180,7 +180,7 @@ def main() -> None:
     if not args.checkpoint_path:
         print(
             "\n  Tip: pass --checkpoint-path to evaluate a real LeRobot policy:\n"
-            "    python examples/lerobot_eval_harness.py \\\n"
+            "    python examples/integrations/lerobot/eval_harness.py \\\n"
             "      --checkpoint-path /path/to/lerobot/checkpoint \\\n"
             "      --repo-id lerobot/unitree-g1-mujoco"
         )

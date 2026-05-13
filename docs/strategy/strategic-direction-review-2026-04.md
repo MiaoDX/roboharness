@@ -133,7 +133,7 @@ This doesn't mean feature work stops — it means feature work should be evaluat
 - Goal: wrap LeRobot's G1 MuJoCo env with `RobotHarnessWrapper`, capture checkpoints, produce visual output
 - This is a validation task, not a feature task — we want to know if it works or what breaks
 - Can be delegated to Claude Code / Codex
-- Success: a working `examples/lerobot_g1.py` with screenshots; or a concrete list of incompatibilities to fix
+- Success: a working `examples/demos/g1/lerobot_locomotion.py` with screenshots; or a concrete list of incompatibilities to fix
 - References:
   - LeRobot G1 docs: https://huggingface.co/docs/lerobot/unitree_g1
   - LeRobot repo: https://github.com/huggingface/lerobot

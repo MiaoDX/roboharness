@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 # The example is a script with a main() — import it as a module.
-from examples.lerobot_eval_harness import _random_policy, main
+from examples.integrations.lerobot.eval_harness import _random_policy, main
 
 
 class TestRandomPolicy:
@@ -26,7 +26,7 @@ class TestRandomPolicy:
 
 
 class TestMainCartPoleFallback:
-    @patch("examples.lerobot_eval_harness.evaluate_policy")
+    @patch("examples.integrations.lerobot.eval_harness.evaluate_policy")
     @patch("gymnasium.make")
     def test_cartpole_fallback(self, mock_gym_make: Any, mock_eval: Any, tmp_path: Path) -> None:
         fake_env = MagicMock()
@@ -44,7 +44,10 @@ class TestMainCartPoleFallback:
         fake_report.episodes = []
         mock_eval.return_value = fake_report
 
-        with patch("sys.argv", ["lerobot_eval_harness.py", "--output-dir", str(tmp_path)]):
+        with patch(
+            "sys.argv",
+            ["examples/integrations/lerobot/eval_harness.py", "--output-dir", str(tmp_path)],
+        ):
             main()
 
         mock_gym_make.assert_called_once()
@@ -56,7 +59,7 @@ class TestMainInvalidCheckpoint:
         with patch(
             "sys.argv",
             [
-                "lerobot_eval_harness.py",
+                "examples/integrations/lerobot/eval_harness.py",
                 "--checkpoint-path",
                 str(tmp_path / "does_not_exist"),
                 "--output-dir",
@@ -69,7 +72,7 @@ class TestMainInvalidCheckpoint:
 
 
 class TestMainThresholdPassFail:
-    @patch("examples.lerobot_eval_harness.evaluate_policy")
+    @patch("examples.integrations.lerobot.eval_harness.evaluate_policy")
     @patch("gymnasium.make")
     def test_threshold_pass(self, mock_gym_make: Any, mock_eval: Any, tmp_path: Path) -> None:
         fake_env = MagicMock()
@@ -90,7 +93,7 @@ class TestMainThresholdPassFail:
         with patch(
             "sys.argv",
             [
-                "lerobot_eval_harness.py",
+                "examples/integrations/lerobot/eval_harness.py",
                 "--assert-threshold",
                 "--min-success-rate",
                 "0.5",
@@ -100,7 +103,7 @@ class TestMainThresholdPassFail:
         ):
             main()
 
-    @patch("examples.lerobot_eval_harness.evaluate_policy")
+    @patch("examples.integrations.lerobot.eval_harness.evaluate_policy")
     @patch("gymnasium.make")
     def test_threshold_fail_exits_one(
         self, mock_gym_make: Any, mock_eval: Any, tmp_path: Path
@@ -123,7 +126,7 @@ class TestMainThresholdPassFail:
         with patch(
             "sys.argv",
             [
-                "lerobot_eval_harness.py",
+                "examples/integrations/lerobot/eval_harness.py",
                 "--assert-threshold",
                 "--min-success-rate",
                 "0.5",
@@ -137,7 +140,7 @@ class TestMainThresholdPassFail:
 
 
 class TestMainLeRobotPolicy:
-    @patch("examples.lerobot_eval_harness.evaluate_lerobot_policy")
+    @patch("examples.integrations.lerobot.eval_harness.evaluate_lerobot_policy")
     def test_evaluates_lerobot_checkpoint(self, mock_eval: Any, tmp_path: Path) -> None:
         fake_report = MagicMock()
         fake_report.n_episodes = 1
@@ -154,7 +157,7 @@ class TestMainLeRobotPolicy:
         with patch(
             "sys.argv",
             [
-                "lerobot_eval_harness.py",
+                "examples/integrations/lerobot/eval_harness.py",
                 "--checkpoint-path",
                 str(checkpoint_dir),
                 "--repo-id",

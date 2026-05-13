@@ -29,7 +29,7 @@ from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion
 from roboharness.evaluate.result import EvaluationResult, Operator, Severity
 
 try:
-    from examples._mujoco_grasp_fixture import (
+    from examples.demos.mujoco.fixture import (
         MUJOCO_GRASP_CAMERAS,
         MUJOCO_GRASP_PHASE_LABELS,
         MUJOCO_GRASP_PHASE_ORDER,
@@ -37,7 +37,7 @@ try:
         MUJOCO_GRASP_TASK,
     )
 except ModuleNotFoundError:  # pragma: no cover - script execution path
-    from _mujoco_grasp_fixture import (  # type: ignore[no-redef]
+    from fixture import (  # type: ignore[no-redef]
         MUJOCO_GRASP_CAMERAS,
         MUJOCO_GRASP_PHASE_LABELS,
         MUJOCO_GRASP_PHASE_ORDER,
@@ -49,7 +49,7 @@ TABLE_SURFACE_Z = 0.22
 FINGER_BODY_WIDTH_M = 0.024
 CUBE_WIDTH_M = 0.05
 CANONICAL_REPORT_NAME = "report.html"
-ASSET_ROOT = Path(__file__).resolve().parents[1] / "assets" / "example_mujoco_grasp"
+ASSET_ROOT = Path(__file__).resolve().parents[3] / "assets" / "example_mujoco_grasp"
 BASELINE_REPORT_PATH = ASSET_ROOT / "baseline_autonomous_report.json"
 BASELINE_VISUAL_ROOT = ASSET_ROOT / "baseline_visual"
 KNOWN_BAD_VISUAL_ROOT = ASSET_ROOT / "known_bad_visual"

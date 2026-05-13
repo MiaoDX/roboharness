@@ -9,8 +9,8 @@ Review source: `docs/designs/mujoco-alarmed-grasp-loop-phase-2-plan.md`
 Related artifacts:
 - `docs/designs/mujoco-alarmed-grasp-loop.md`
 - `docs/designs/mujoco-alarmed-grasp-loop-eng-review.md`
-- `examples/_mujoco_grasp_wedge.py`
-- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
+- `examples/demos/mujoco/wedge.py`
+- `tests/regression/mujoco_grasp/testexamples/demos/mujoco/wedge.py`
 
 ## Summary
 
@@ -98,12 +98,12 @@ view is actually worse than the baseline. Less human glue before the next rerun.
 
 ## What Already Exists
 
-- `examples/_mujoco_grasp_wedge.py` already builds `autonomous_report.json`,
+- `examples/demos/mujoco/wedge.py` already builds `autonomous_report.json`,
   evaluator-backed alarms, `phase_manifest.json`, and an alarm-first summary block.
-- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` already proves the evaluator localizes an
+- `tests/regression/mujoco_grasp/testexamples/demos/mujoco/wedge.py` already proves the evaluator localizes an
   `approach` regression and emits `primary_views == ["side", "top"]` plus
   `rerun_hint == "restore:pre_grasp"`.
-- `examples/_mujoco_grasp_fixture.py` already defines the canonical phase order,
+- `examples/demos/mujoco/fixture.py` already defines the canonical phase order,
   phase labels, and per-phase primary camera mapping.
 - `assets/example_mujoco_grasp/baseline_autonomous_report.json` already provides
   the blessed deterministic baseline metrics fixture.
@@ -217,9 +217,9 @@ Responsive and a11y requirements are part of the phase-2 contract:
 
 Keep the integration local to the MuJoCo example path:
 
-- `examples/mujoco_grasp.py` passes the current trial directory and blessed visual
+- `examples/demos/mujoco/grasp.py` passes the current trial directory and blessed visual
   fixture root into the summary builder when `--report` is enabled.
-- `examples/_mujoco_grasp_wedge.py` owns the evidence resolver and rendering data.
+- `examples/demos/mujoco/wedge.py` owns the evidence resolver and rendering data.
 - No new package-level abstraction for generic baseline image management yet.
 
 No new CLI flag is planned for phase 2. The reviewed default is to keep this behind
@@ -230,7 +230,7 @@ required for determinism or operator control.
 
 Extend the phase-2 test plan in two lanes:
 
-Default unit-test lane (`tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`):
+Default unit-test lane (`tests/regression/mujoco_grasp/testexamples/demos/mujoco/wedge.py`):
 1. deterministic known-bad fixture reports `Verdict.FAIL`
 2. the first failing phase remains `approach`
 3. the chosen views remain `["side", "top"]`
@@ -261,10 +261,10 @@ or equivalent example smoke path):
 ## Files Expected To Change
 
 - `docs/designs/mujoco-alarmed-grasp-loop-phase-2-plan.md`
-- `examples/_mujoco_grasp_wedge.py`
-- `examples/mujoco_grasp.py`
+- `examples/demos/mujoco/wedge.py`
+- `examples/demos/mujoco/grasp.py`
 - `assets/example_mujoco_grasp/`
-- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
+- `tests/regression/mujoco_grasp/testexamples/demos/mujoco/wedge.py`
 - `tests/regression/mujoco_grasp/test_mujoco_grasp_live_validation.py` or the equivalent MuJoCo-enabled
   smoke path if the repo prefers example-driven validation over a new test file
 - `src/roboharness/reporting.py` only for a tiny CSS hook that styles the new
@@ -312,7 +312,7 @@ instruction.
 Take the smallest explicit path:
 
 - check in baseline and known-bad image fixtures
-- keep the evidence-pair resolver in `examples/_mujoco_grasp_wedge.py`
+- keep the evidence-pair resolver in `examples/demos/mujoco/wedge.py`
 - keep the report upgrade inside `build_summary_html()`
 - keep the report self-contained by embedding the comparison images in the HTML
 - add one live-run validation path using the same manifest/evidence contract
@@ -339,11 +339,11 @@ Mode selected: `SELECTIVE_EXPANSION`
 
 | Sub-problem | Existing code | Reuse decision |
 |---|---|---|
-| Failing-phase classification | `examples/_mujoco_grasp_wedge.py::build_phase_manifest()` | Reuse directly |
-| View selection | `examples/_mujoco_grasp_fixture.py::MUJOCO_GRASP_PRIMARY_VIEWS` | Reuse directly |
-| Rerun action | `examples/_mujoco_grasp_wedge.py::_build_rerun_hint()` | Reuse directly |
-| Agent next action | `examples/_mujoco_grasp_wedge.py::_build_agent_next_action()` | Reuse directly |
-| Alarm-first summary surface | `examples/_mujoco_grasp_wedge.py::build_summary_html()` | Extend in place |
+| Failing-phase classification | `examples/demos/mujoco/wedge.py::build_phase_manifest()` | Reuse directly |
+| View selection | `examples/demos/mujoco/fixture.py::MUJOCO_GRASP_PRIMARY_VIEWS` | Reuse directly |
+| Rerun action | `examples/demos/mujoco/wedge.py::_build_rerun_hint()` | Reuse directly |
+| Agent next action | `examples/demos/mujoco/wedge.py::_build_agent_next_action()` | Reuse directly |
+| Alarm-first summary surface | `examples/demos/mujoco/wedge.py::build_summary_html()` | Extend in place |
 | Standalone HTML embedding | `src/roboharness/reporting.py` image embedding path | Reuse, avoid parallel renderer |
 | Deterministic evaluator path | `autonomous_report.json` + evaluator-backed assertions | Reuse, no second verdict path |
 
@@ -414,7 +414,7 @@ actual loop outcome instead of just polishing the report.
 ### 0D. Selective Expansion Analysis
 
 - Complexity check: the reviewed phase should still stay in roughly 5 target areas
-  (`examples/_mujoco_grasp_wedge.py`, `examples/mujoco_grasp.py`, assets, tests,
+  (`examples/demos/mujoco/wedge.py`, `examples/demos/mujoco/grasp.py`, assets, tests,
   and maybe a tiny reporting hook). That is acceptable for a feature enhancement.
 - Minimum set: paired current-vs-baseline evidence, deterministic known-bad fixture
   support, one live-run validation path, and focused tests.
@@ -473,7 +473,7 @@ CEO DUAL VOICES — CONSENSUS TABLE:
 ### Section 1. Architecture Review
 
 No architecture rewrite is needed. The right boundary is still:
-`mujoco_grasp.py` drives the run, `_mujoco_grasp_wedge.py` resolves evidence and
+`examples/demos/mujoco/grasp.py` drives the run, `examples/demos/mujoco/wedge.py` resolves evidence and
 builds summary HTML, `reporting.py` embeds the resulting block, and the manifest
 remains the canonical truth source. The architectural issue to avoid is a second
 classification path living only in the HTML builder.
@@ -771,7 +771,7 @@ Accessibility spec:
 
 - `.alarm-grid` and `.alarm-card` patterns in `src/roboharness/reporting.py`
 - `.phase-timeline` and `.phase-card-*` status vocabulary in the shared report CSS
-- the current `Agent Next Action` copy block in `examples/_mujoco_grasp_wedge.py`
+- the current `Agent Next Action` copy block in `examples/demos/mujoco/wedge.py`
 - the existing checkpoint gallery below the summary block, which remains the deep-inspection surface
 
 ### DESIGN PLAN REVIEW — COMPLETION SUMMARY
@@ -809,11 +809,11 @@ first, then action.
 ### Step 0. Scope Challenge With Actual Code
 
 The current code shape is narrow and favorable:
-- `examples/_mujoco_grasp_wedge.py` already owns the evaluator, manifest, and summary HTML
-- `examples/mujoco_grasp.py` already has the current trial directory and the blessed
+- `examples/demos/mujoco/wedge.py` already owns the evaluator, manifest, and summary HTML
+- `examples/demos/mujoco/grasp.py` already has the current trial directory and the blessed
   baseline report path in hand when `--report` runs
 - `src/roboharness/reporting.py` already owns the report CSS and the summary insertion point
-- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` already asserts phase localization and the
+- `tests/regression/mujoco_grasp/testexamples/demos/mujoco/wedge.py` already asserts phase localization and the
   current alarm-first sections
 
 Real hidden complexity lives in three seams, not everywhere:
@@ -851,7 +851,7 @@ ENG DUAL VOICES — CONSENSUS TABLE:
 Approved architecture:
 
 ```text
-examples/mujoco_grasp.py
+examples/demos/mujoco/grasp.py
     |
     +--> collect_phase_metrics()
     +--> build_autonomous_report()
@@ -869,7 +869,7 @@ assets/example_mujoco_grasp/
 ```
 
 Architecture decisions locked here:
-- keep the resolver and any `EvidencePair` dataclass in `examples/_mujoco_grasp_wedge.py`
+- keep the resolver and any `EvidencePair` dataclass in `examples/demos/mujoco/wedge.py`
 - pass explicit roots into the resolver; do not make `src/roboharness/reporting.py`
   know anything about baseline asset locations
 - allow one tiny shared CSS hook in `src/roboharness/reporting.py` for evidence cards
@@ -901,7 +901,7 @@ section names, but not the new evidence contract.
 
 CODE PATH COVERAGE
 ===========================
-[+] examples/_mujoco_grasp_wedge.py
+[+] examples/demos/mujoco/wedge.py
     |
     +-- resolve_evidence_pairs(...)
     |   +-- [GAP] full evidence for `approach/side` and `approach/top`
@@ -918,7 +918,7 @@ CODE PATH COVERAGE
         +-- [GAP] partial evidence cards retain visible `Current` / `Baseline` labels
         `-- [GAP] pass state omits empty comparison chrome and shows explicit success copy
 
-[+] examples/mujoco_grasp.py
+[+] examples/demos/mujoco/grasp.py
     |
     +-- report wiring under `--report`
     |   +-- [GAP] passes trial root + blessed baseline visual root into resolver
@@ -990,9 +990,9 @@ Performance guardrails:
 |---|---|---|
 | Summary insertion point | `src/roboharness/reporting.generate_html_report()` | Reuse; tiny CSS hook only |
 | Manifest-selected views | `build_phase_manifest()` + `MUJOCO_GRASP_PRIMARY_VIEWS` | Reuse directly |
-| Headless console summary | `examples/mujoco_grasp.py::main()` | Extend in place |
+| Headless console summary | `examples/demos/mujoco/grasp.py::main()` | Extend in place |
 | Trial image layout | existing per-phase trial directories | Reuse directly |
-| Default unit tests | `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` | Extend in place |
+| Default unit tests | `tests/regression/mujoco_grasp/testexamples/demos/mujoco/wedge.py` | Extend in place |
 | Optional MuJoCo CI lane | existing demo / MuJoCo-enabled environments | Reuse; do not force into default `[dev]` lane |
 
 ### Failure Modes Registry
@@ -1031,7 +1031,7 @@ Execution order:
 - Lane C starts after the resolver and HTML contract are stable
 
 Conflict flags:
-- Lane B is intentionally sequential because `examples/_mujoco_grasp_wedge.py` is the
+- Lane B is intentionally sequential because `examples/demos/mujoco/wedge.py` is the
   shared hotspot
 - Lane C is low-conflict, but test expectations will churn if Lane B changes the card contract late
 
@@ -1067,7 +1067,7 @@ Expects:   one copy-paste command, clear output paths, headless compatibility, n
 ### Developer Empathy Narrative
 
 I open the README and the MuJoCo Grasp section is easy to find. Good. The command is
-short: install the `demo` extra, then run `python examples/mujoco_grasp.py --report`.
+short: install the `demo` extra, then run `python examples/demos/mujoco/grasp.py --report`.
 That part feels modern enough. But once I imagine the run failing, the docs still hand
 me more of a generic report than a deterministic debug loop. I can infer that
 `phase_manifest.json` and `alarms.json` matter, but the README does not tell me what I
@@ -1098,7 +1098,7 @@ Magical moment: the developer opens the generated artifact pack and immediately 
 Delivery vehicle: **copy-paste demo command**.
 
 Implementation requirements:
-- preserve the existing `python examples/mujoco_grasp.py --report` entrypoint
+- preserve the existing `python examples/demos/mujoco/grasp.py --report` entrypoint
 - do not require a new CLI flag to see the improved proof surface
 - keep console output useful for headless users by printing verdict, failed phase,
   selected views or evidence status, and rerun hint
@@ -1130,7 +1130,7 @@ DX DUAL VOICES — CONSENSUS TABLE:
 |---|---|---|---|
 | 1. Discover | finds the MuJoCo Grasp section in `README.md` | low | ok |
 | 2. Install | installs `roboharness[demo]` | optional dep cost exists, but expected | ok |
-| 3. Run | executes `python examples/mujoco_grasp.py --report` | none if deps exist | ok |
+| 3. Run | executes `python examples/demos/mujoco/grasp.py --report` | none if deps exist | ok |
 | 4. Locate artifact pack | reads printed output paths | output already prints paths, phase 2 must keep it | fixed |
 | 5. Open summary report | opens `report.html` | current summary still too metadata-heavy | fixed in plan |
 | 6. Understand why it failed | reads evidence cards and metric chips | previously underspecified | fixed in plan |
@@ -1247,7 +1247,7 @@ Post-implementation recommendation:
 ### DX What Already Exists
 
 - a prominent MuJoCo Grasp quick start in `README.md`
-- the existing `--report` entrypoint in `examples/mujoco_grasp.py`
+- the existing `--report` entrypoint in `examples/demos/mujoco/grasp.py`
 - console summary lines that already print verdict, failed phase, and rerun hint
 - machine-readable artifacts already written alongside the report
 
@@ -1293,7 +1293,7 @@ DX IMPLEMENTATION CHECKLIST
 [ ] Time to hello world < 5 min after demo deps are present
 [ ] Installation is one command at the README layer
 [ ] First run produces meaningful output
-[ ] Magical moment delivered via `python examples/mujoco_grasp.py --report`
+[ ] Magical moment delivered via `python examples/demos/mujoco/grasp.py --report`
 [ ] Every evidence error message has: problem + cause + fix
 [ ] API/CLI naming remains guessable without docs
 [ ] Existing flags keep sensible defaults

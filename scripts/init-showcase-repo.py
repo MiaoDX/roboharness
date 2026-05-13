@@ -3,9 +3,9 @@
 
 Creates a complete, ready-to-push directory with:
   - Root README.md with overview and instructions
-  - lerobot-g1/ showcase (adapted from examples/lerobot_g1_native.py)
-  - groot-n16/ showcase (adapted from examples/lerobot_g1.py)
-  - sonic-locomotion/ showcase (adapted from examples/sonic_locomotion.py)
+  - lerobot-g1/ showcase (adapted from examples/demos/g1/lerobot_native.py)
+  - groot-n16/ showcase (adapted from examples/demos/g1/lerobot_locomotion.py)
+  - sonic-locomotion/ showcase (adapted from examples/demos/sonic/locomotion.py)
   - Placeholder directories for pi0-libero and capx-comparison
   - CI workflow (.github/workflows/showcase-ci.yml)
   - Org profile README (.github-org/profile/README.md)
@@ -32,9 +32,9 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LEROBOT_EXAMPLE = REPO_ROOT / "examples" / "lerobot_g1_native.py"
-GROOT_EXAMPLE = REPO_ROOT / "examples" / "lerobot_g1.py"
-SONIC_EXAMPLE = REPO_ROOT / "examples" / "sonic_locomotion.py"
+LEROBOT_EXAMPLE = REPO_ROOT / "examples" / "demos" / "g1" / "lerobot_native.py"
+GROOT_EXAMPLE = REPO_ROOT / "examples" / "demos" / "g1" / "lerobot_locomotion.py"
+SONIC_EXAMPLE = REPO_ROOT / "examples" / "demos" / "sonic" / "locomotion.py"
 
 SHOWCASE_DIRS = [
     "groot-n16",

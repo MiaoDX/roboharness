@@ -6,7 +6,7 @@ Reviewed surfaces:
 - Public landing page: `https://miaodx.com/roboharness/`
 - Public report page: `https://miaodx.com/roboharness/grasp/`
 - Local quick-start flow from `README.md`
-- Local generated report from `examples/mujoco_grasp.py --report`
+- Local generated report from `examples/demos/mujoco/grasp.py --report`
 - Contributor and environment docs under `README.md`, `CONTRIBUTING.md`, and `docs/development/development-workflow.md`
 
 Review branch:
@@ -33,13 +33,13 @@ That means the product is good, but the golden path still leaks implementation d
 Successful help path:
 
 ```bash
-python examples/mujoco_grasp.py --help
+python examples/demos/mujoco/grasp.py --help
 ```
 
 Broken docs-first headless path in this environment:
 
 ```bash
-MUJOCO_GL=osmesa python examples/mujoco_grasp.py --output-dir /tmp/roboharness-devex-review/grasp --report
+MUJOCO_GL=osmesa python examples/demos/mujoco/grasp.py --output-dir /tmp/roboharness-devex-review/grasp --report
 ```
 
 Observed result:
@@ -49,7 +49,7 @@ Observed result:
 Successful alternate headless path in this environment:
 
 ```bash
-MUJOCO_GL=egl python examples/mujoco_grasp.py --output-dir /tmp/roboharness-devex-review/grasp-egl --report
+MUJOCO_GL=egl python examples/demos/mujoco/grasp.py --output-dir /tmp/roboharness-devex-review/grasp-egl --report
 ```
 
 Observed result:
@@ -69,7 +69,7 @@ not expose an install CTA or copy-paste quick start.
 
 Step 3: Find the quick-start command in `README.md`. Time: ~30s. Friction: low.
 Evidence: `README.md` provides a concrete `pip install roboharness[demo]` plus
-`python examples/mujoco_grasp.py --report`.
+`python examples/demos/mujoco/grasp.py --report`.
 
 Step 4: Run the documented headless command. Time: `0.18s`. Friction: high.
 Evidence: the `MUJOCO_GL=osmesa` path failed immediately with a raw PyOpenGL traceback.
@@ -102,7 +102,7 @@ Why it matters:
 Fix:
 - Add one visible getting-started block to the public landing page:
   `pip install roboharness[demo]`
-  `MUJOCO_GL=egl python examples/mujoco_grasp.py --report`
+  `MUJOCO_GL=egl python examples/demos/mujoco/grasp.py --report`
 - Link directly to the README quick start or a dedicated docs page.
 - Add a simple `Getting Started` CTA beside the report gallery.
 

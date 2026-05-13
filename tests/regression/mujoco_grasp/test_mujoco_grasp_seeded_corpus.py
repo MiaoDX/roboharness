@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from examples._mujoco_grasp_wedge import (
+from examples.demos.mujoco.wedge import (
     BASELINE_VISUAL_ROOT,
     KNOWN_BAD_VISUAL_ROOT,
     build_alarms,

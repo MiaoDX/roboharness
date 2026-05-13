@@ -51,37 +51,37 @@ jobs:
       - name: Run MuJoCo grasp example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/mujoco_grasp.py --report --output-dir ./harness_output
+        run: python examples/demos/mujoco/grasp.py --report --output-dir ./harness_output
 
       - name: Run G1 WBC reach example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/g1_wbc_reach.py --report --output-dir ./harness_output
+        run: python examples/demos/g1/wbc_reach.py --report --output-dir ./harness_output
 
       - name: Run LeRobot G1 locomotion example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/lerobot_g1.py --report --output-dir ./harness_output
+        run: python examples/demos/g1/lerobot_locomotion.py --report --output-dir ./harness_output
 
       - name: Run native LeRobot G1 (GR00T) example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/lerobot_g1_native.py --controller groot --report --output-dir ./harness_output
+        run: python examples/demos/g1/lerobot_native.py --controller groot --report --output-dir ./harness_output
 
       - name: Run native LeRobot G1 (SONIC) example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/lerobot_g1_native.py --controller sonic --report --output-dir ./harness_output
+        run: python examples/demos/g1/lerobot_native.py --controller sonic --report --output-dir ./harness_output
 
       - name: Run SONIC planner example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/sonic_locomotion.py --report --assert-success --output-dir ./harness_output
+        run: python examples/demos/sonic/locomotion.py --report --assert-success --output-dir ./harness_output
 
       - name: Run SONIC motion tracking example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/sonic_tracking.py --report --assert-success --output-dir ./harness_output
+        run: python examples/demos/sonic/tracking.py --report --assert-success --output-dir ./harness_output
 
       - name: Build static pages (landing)
         run: |

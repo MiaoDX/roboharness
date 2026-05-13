@@ -4,7 +4,7 @@ This shows the storage layout for a grasp task where an agent
 tests multiple grasp positions, each with multiple retry trials.
 
 Run:
-    python examples/grasp_task_storage.py
+    python examples/demos/mujoco/task_storage.py
 """
 
 from roboharness.storage import GraspTaskStore

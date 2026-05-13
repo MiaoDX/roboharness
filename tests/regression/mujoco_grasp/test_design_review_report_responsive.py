@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
-from examples._mujoco_grasp_wedge import (
+from examples.demos.mujoco.wedge import (
     PhaseManifest,
     build_approval_report,
     build_default_contract,

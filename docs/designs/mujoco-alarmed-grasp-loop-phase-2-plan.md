@@ -8,7 +8,7 @@ Status: Draft for `/autoplan`
 Related artifacts:
 - `docs/designs/mujoco-alarmed-grasp-loop.md`
 - `docs/designs/mujoco-alarmed-grasp-loop-eng-review.md`
-- `examples/_mujoco_grasp_wedge.py`
+- `examples/demos/mujoco/wedge.py`
 - `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
 
 ## Summary
@@ -86,12 +86,12 @@ view is actually worse than the baseline.
 
 ## What Already Exists
 
-- `examples/_mujoco_grasp_wedge.py` already builds `autonomous_report.json`,
+- `examples/demos/mujoco/wedge.py` already builds `autonomous_report.json`,
   evaluator-backed alarms, `phase_manifest.json`, and an alarm-first summary block.
 - `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` already proves the evaluator localizes an
   `approach` regression and emits `primary_views == ["side", "top"]` plus
   `rerun_hint == "restore:pre_grasp"`.
-- `examples/_mujoco_grasp_fixture.py` already defines the canonical phase order,
+- `examples/demos/mujoco/fixture.py` already defines the canonical phase order,
   phase labels, and per-phase primary camera mapping.
 - `assets/example_mujoco_grasp/baseline_autonomous_report.json` already provides
   the blessed deterministic baseline metrics fixture.
@@ -164,9 +164,9 @@ alarms -> next action -> phase timeline -> current-vs-baseline evidence.
 
 Keep the integration local to the MuJoCo example path:
 
-- `examples/mujoco_grasp.py` passes the current trial directory and blessed visual
+- `examples/demos/mujoco/grasp.py` passes the current trial directory and blessed visual
   fixture root into the summary builder when `--report` is enabled.
-- `examples/_mujoco_grasp_wedge.py` owns the evidence resolver and rendering data.
+- `examples/demos/mujoco/wedge.py` owns the evidence resolver and rendering data.
 - No new package-level abstraction for generic baseline image management yet.
 
 No new CLI flag is planned for phase 2. The reviewed default is to keep this behind
@@ -193,8 +193,8 @@ Extend `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` with focused a
 ## Files Expected To Change
 
 - `docs/designs/mujoco-alarmed-grasp-loop-phase-2-plan.md`
-- `examples/_mujoco_grasp_wedge.py`
-- `examples/mujoco_grasp.py`
+- `examples/demos/mujoco/wedge.py`
+- `examples/demos/mujoco/grasp.py`
 - `assets/example_mujoco_grasp/`
 - `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
 - `src/roboharness/reporting.py` only if a tiny renderer hook is truly necessary
@@ -232,7 +232,7 @@ Extend `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` with focused a
 Take the smallest explicit path:
 
 - check in baseline and known-bad image fixtures
-- keep the evidence-pair resolver in `examples/_mujoco_grasp_wedge.py`
+- keep the evidence-pair resolver in `examples/demos/mujoco/wedge.py`
 - keep the report upgrade inside `build_summary_html()`
 - keep the report self-contained by embedding the comparison images in the HTML
 - avoid new CLI flags unless the implementation proves one is necessary

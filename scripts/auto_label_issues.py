@@ -84,7 +84,7 @@ ACTIONS: list[IssueAction] = [
             "for ManiSkill).\n\n"
             "Evidence:\n"
             "- `tests/test_maniskill_compat.py` — comprehensive mock-based validation\n"
-            "- `examples/contrib_maniskill_visual_debug.py` — example integration\n"
+            "- `examples/integrations/maniskill/visual_debug.py` — example integration\n"
             "- README lists ManiSkill as '✅ Implemented'"
         ),
         rationale=(
@@ -183,7 +183,7 @@ ACTIONS: list[IssueAction] = [
             "Label: priority:low.\n\n"
             "3 of 4 sub-issues completed (#81 ✅, #82 ✅, #83 ✅). Only #84 "
             "(upstream SDK import contribution) remains — that's tracked separately. "
-            "Core integration is functional: `examples/lerobot_g1_native.py` works, "
+            "Core integration is functional: `examples/demos/g1/lerobot_native.py` works, "
             "ONNX controllers integrated, CI runs the example."
         ),
         rationale=(

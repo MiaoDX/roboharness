@@ -1,34 +1,34 @@
 [[demo]]
 id = "grasp"
-entry = "examples/mujoco_grasp.py"
+entry = "examples/demos/mujoco/grasp.py"
 artifact_dir = "grasp"
 
 [[demo]]
 id = "g1-reach"
-entry = "examples/g1_wbc_reach.py"
+entry = "examples/demos/g1/wbc_reach.py"
 artifact_dir = "g1-reach"
 
 [[demo]]
 id = "g1-loco"
-entry = "examples/lerobot_g1.py"
+entry = "examples/demos/g1/lerobot_locomotion.py"
 artifact_dir = "g1-loco"
 
 [[demo]]
 id = "g1-native-groot"
-entry = "examples/lerobot_g1_native.py --controller groot"
+entry = "examples/demos/g1/lerobot_native.py --controller groot"
 artifact_dir = "g1-native-groot"
 
 [[demo]]
 id = "g1-native-sonic"
-entry = "examples/lerobot_g1_native.py --controller sonic"
+entry = "examples/demos/g1/lerobot_native.py --controller sonic"
 artifact_dir = "g1-native-sonic"
 
 [[demo]]
 id = "sonic-planner"
-entry = "examples/sonic_locomotion.py"
+entry = "examples/demos/sonic/locomotion.py"
 artifact_dir = "sonic-planner"
 
 [[demo]]
 id = "sonic"
-entry = "examples/sonic_tracking.py"
+entry = "examples/demos/sonic/tracking.py"
 artifact_dir = "sonic"
