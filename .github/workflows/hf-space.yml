@@ -63,7 +63,7 @@ jobs:
           api = HfApi()
           api.upload_folder(
               folder_path='_site',
-              repo_id='MiaoDX/roboharness-demo',
+              repo_id='miaodongxu/roboharness-demo',
               repo_type='space',
           )
           "
