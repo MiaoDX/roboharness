@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 
-from examples._mujoco_grasp_wedge import (
+from examples.demos.mujoco.wedge import (
     BASELINE_VISUAL_ROOT,
     build_alarms,
     build_approval_report,

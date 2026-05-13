@@ -51,7 +51,7 @@ Repo MuJoCo wedge:
 
 ```bash
 python -m pip install -e ".[demo]"
-MUJOCO_GL=osmesa python examples/mujoco_grasp.py --report
+MUJOCO_GL=osmesa python examples/demos/mujoco/grasp.py --report
 ```
 
 Development gates:

@@ -184,7 +184,7 @@ MiaoDX/roboharness remains the core repo's primary location. Reason: existing st
 
 - [ ] Create `roboharness/showcase` repo
 - [ ] Initialize skeleton: README + directory structure (see `docs/product/roadmap-2026-q2.md`)
-- [ ] First showcase: extract `examples/lerobot_g1_native.py` as a standalone runnable showcase
+- [ ] First showcase: extract `examples/demos/g1/lerobot_native.py` as a standalone runnable showcase
 - [ ] Each showcase directory contains: README.md, requirements.txt, run.sh, main script
 - [ ] CI matrix: one independent job per showcase
 

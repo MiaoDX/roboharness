@@ -11,10 +11,10 @@ Requirements:
 
 Run:
     # From the Isaac Lab root (with Isaac Sim environment activated):
-    python examples/isaac_lab_integration.py
+    python examples/integrations/isaac_lab/integration.py
 
     # With custom settings:
-    python examples/isaac_lab_integration.py --task Isaac-Reach-Franka-v0 --num-envs 1
+    python examples/integrations/isaac_lab/integration.py --task Isaac-Reach-Franka-v0 --num-envs 1
 
 Note:
     Isaac Lab environments return PyTorch tensors (not NumPy arrays) for

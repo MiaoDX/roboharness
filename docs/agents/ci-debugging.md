@@ -39,7 +39,7 @@ mypy src/
 MuJoCo or visual checks usually need:
 
 ```bash
-MUJOCO_GL=osmesa python examples/mujoco_grasp.py --report
+MUJOCO_GL=osmesa python examples/demos/mujoco/grasp.py --report
 ```
 
 ## CI Shape
@@ -49,7 +49,7 @@ MUJOCO_GL=osmesa python examples/mujoco_grasp.py --report
 - lint: Ruff check, Ruff format check, and mypy.
 - test: pytest across Python 3.10, 3.11, 3.12, and 3.13.
 - test-mujoco: demo + dev install with OSMesa.
-- mujoco-example: `examples/mujoco_grasp.py --report --assert-success`.
+- mujoco-example: `examples/demos/mujoco/grasp.py --report --assert-success`.
 - LeRobot native example path with direct runtime installs.
 - GPU relevance filtering and paused GCP GPU runner notes.
 

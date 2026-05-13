@@ -55,7 +55,7 @@ This file captures deferred work from approved planning and review artifacts.
 - Moved the paired-evidence data model, bounded path resolver, and reusable lightbox
   helpers into `src/roboharness/approval/evidence.py`.
 - The extraction is now justified by a second concrete consumer:
-  `examples/g1_cross_framework_report.py`, which renders the committed
+  `examples/demos/g1/cross_framework_report.py`, which renders the committed
   `assets/g1/X36_Y28_Z13/` Meshcat vs MuJoCo proof bundle through the same paired-
   evidence contract.
 

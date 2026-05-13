@@ -86,7 +86,7 @@ jobs:
       - name: Run MuJoCo grasp example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/mujoco_grasp.py --report --assert-success --output-dir ./harness_output
+        run: python examples/demos/mujoco/grasp.py --report --assert-success --output-dir ./harness_output
 
       - name: Upload visual artifacts
         if: always()
@@ -166,7 +166,7 @@ jobs:
       - name: Run native LeRobot G1 example (GR00T)
         env:
           MUJOCO_GL: osmesa
-        run: python examples/lerobot_g1_native.py --controller groot --report --assert-success --output-dir ./harness_output
+        run: python examples/demos/g1/lerobot_native.py --controller groot --report --assert-success --output-dir ./harness_output
 
       - name: Upload visual artifacts
         if: always()
@@ -301,7 +301,7 @@ jobs:
       - name: Run LeRobot G1 example
         env:
           MUJOCO_GL: osmesa
-        run: python examples/lerobot_g1.py --report --assert-success --output-dir ./harness_output
+        run: python examples/demos/g1/lerobot_locomotion.py --report --assert-success --output-dir ./harness_output
 
       - name: Upload visual artifacts
         if: always()

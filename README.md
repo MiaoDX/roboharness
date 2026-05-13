@@ -26,7 +26,7 @@ Meshcat front-to-back on the left and MuJoCo top-down on the right. Each frame
 keeps its phase name visible so you can compare humanoid behavior across
 frameworks without opening the full report first. To regenerate the same proof
 surface locally from the committed bundle, run
-`python examples/g1_cross_framework_report.py`.
+`python examples/demos/g1/cross_framework_report.py`.
 
 ## Choose Your Start
 
@@ -54,15 +54,15 @@ This path exercises the shipped MuJoCo approval wedge from this repository.
 git clone https://github.com/MiaoDX/roboharness.git
 cd roboharness
 python -m pip install -e ".[demo]"
-python examples/mujoco_grasp.py --report
+python examples/demos/mujoco/grasp.py --report
 ```
 
 For headless Linux or CI:
 
 ```bash
-MUJOCO_GL=egl python examples/mujoco_grasp.py --report
+MUJOCO_GL=egl python examples/demos/mujoco/grasp.py --report
 # or
-MUJOCO_GL=osmesa python examples/mujoco_grasp.py --report
+MUJOCO_GL=osmesa python examples/demos/mujoco/grasp.py --report
 ```
 
 What you get back:
@@ -111,7 +111,7 @@ pip install roboharness[dev]             # test/lint/type deps
 ## Progressive Disclosure
 
 - Package-first: wire the wrapper or `Harness` API into your existing codebase
-- Repo demo: from a clone of this repo, run `python examples/mujoco_grasp.py --report`
+- Repo demo: from a clone of this repo, run `python examples/demos/mujoco/grasp.py --report`
 - Preset-first: pass `--contract-preset mujoco_regression_v1` or
   `--contract-preset mujoco_migration_guarded_v1`
 - Prompt-assisted: pass `--contract-prompt "treat this as migration mode and require manual blessing"`
@@ -155,14 +155,14 @@ These are real integrations and proof surfaces, but they are not the front-door 
 
 | Demo | Description | Report | Run |
 |:-----|:------------|:------:|:----|
-| **[MuJoCo Grasp](#mujoco-grasp)** | Scripted grasp with Meshcat 3D, paired baseline proof, approval report | [Live](https://miaodx.com/roboharness/grasp/) | `python examples/mujoco_grasp.py --report` |
-| **G1 Cross-Framework Proof** | Committed Meshcat vs MuJoCo paired-evidence report for one G1 bundle | repo-only | `python examples/g1_cross_framework_report.py` |
-| **[G1 WBC Reach](#g1-humanoid-wbc-reach)** | Whole-body IK reaching (Pinocchio + Pink) | [Live](https://miaodx.com/roboharness/g1-reach/) | `python examples/g1_wbc_reach.py --report` |
-| **[G1 Locomotion](#lerobot-g1-locomotion)** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/lerobot_g1.py --report` |
-| **[G1 Native LeRobot (GR00T)](#native-lerobot-integration)** | Official `make_env()` factory + GR00T Balance + Walk | [Live](https://miaodx.com/roboharness/g1-native-groot/) | `python examples/lerobot_g1_native.py --controller groot --report` |
-| **[G1 Native LeRobot (SONIC)](#native-lerobot-integration)** | Official `make_env()` factory + SONIC planner | [Live](https://miaodx.com/roboharness/g1-native-sonic/) | `python examples/lerobot_g1_native.py --controller sonic --report` |
-| **[SONIC Planner](#sonic-planner)** | Standalone GEAR-SONIC planner demo on G1 | [Live](https://miaodx.com/roboharness/sonic-planner/) | `python examples/sonic_locomotion.py --report` |
-| **[SONIC Motion Tracking](#sonic-motion-tracking)** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/sonic_tracking.py --report` |
+| **[MuJoCo Grasp](#mujoco-grasp)** | Scripted grasp with Meshcat 3D, paired baseline proof, approval report | [Live](https://miaodx.com/roboharness/grasp/) | `python examples/demos/mujoco/grasp.py --report` |
+| **G1 Cross-Framework Proof** | Committed Meshcat vs MuJoCo paired-evidence report for one G1 bundle | repo-only | `python examples/demos/g1/cross_framework_report.py` |
+| **[G1 WBC Reach](#g1-humanoid-wbc-reach)** | Whole-body IK reaching (Pinocchio + Pink) | [Live](https://miaodx.com/roboharness/g1-reach/) | `python examples/demos/g1/wbc_reach.py --report` |
+| **[G1 Locomotion](#lerobot-g1-locomotion)** | GR00T RL stand→walk→stop, HuggingFace model | [Live](https://miaodx.com/roboharness/g1-loco/) | `python examples/demos/g1/lerobot_locomotion.py --report` |
+| **[G1 Native LeRobot (GR00T)](#native-lerobot-integration)** | Official `make_env()` factory + GR00T Balance + Walk | [Live](https://miaodx.com/roboharness/g1-native-groot/) | `python examples/demos/g1/lerobot_native.py --controller groot --report` |
+| **[G1 Native LeRobot (SONIC)](#native-lerobot-integration)** | Official `make_env()` factory + SONIC planner | [Live](https://miaodx.com/roboharness/g1-native-sonic/) | `python examples/demos/g1/lerobot_native.py --controller sonic --report` |
+| **[SONIC Planner](#sonic-planner)** | Standalone GEAR-SONIC planner demo on G1 | [Live](https://miaodx.com/roboharness/sonic-planner/) | `python examples/demos/sonic/locomotion.py --report` |
+| **[SONIC Motion Tracking](#sonic-motion-tracking)** | Real encoder+decoder tracking demo on G1 | [Live](https://miaodx.com/roboharness/sonic/) | `python examples/demos/sonic/tracking.py --report` |
 
 ## Showcase Repository
 
@@ -184,7 +184,7 @@ Each showcase is self-contained, runs with `./run.sh`, and supports smoke mode f
 
 ```bash
 pip install roboharness[demo,wbc]
-python examples/g1_wbc_reach.py --report
+python examples/demos/g1/wbc_reach.py --report
 ```
 
 Whole-body control (WBC) for the Unitree G1 humanoid using Pinocchio + Pink differential-IK for upper-body reaching while maintaining lower-body balance. The controller solves inverse kinematics for both arms simultaneously, letting the robot reach arbitrary 3D targets without falling over.
@@ -200,7 +200,7 @@ Whole-body control (WBC) for the Unitree G1 humanoid using Pinocchio + Pink diff
 
 ```bash
 pip install roboharness[demo]
-python examples/lerobot_g1.py --report
+python examples/demos/g1/lerobot_locomotion.py --report
 ```
 
 Integrates the real [Unitree G1 43-DOF model](https://huggingface.co/lerobot/unitree-g1-mujoco) from HuggingFace with GR00T WBC locomotion policies (Balance + Walk). The example downloads the model and ONNX policies automatically, runs the G1 through stand → walk → stop phases, and captures multi-camera checkpoints via `RobotHarnessWrapper`.
@@ -214,8 +214,8 @@ Integrates the real [Unitree G1 43-DOF model](https://huggingface.co/lerobot/uni
 pip install torch --index-url https://download.pytorch.org/whl/cpu  # CPU-only
 pip install roboharness[demo] lerobot
 
-MUJOCO_GL=egl python examples/lerobot_g1_native.py --controller groot --report
-MUJOCO_GL=egl python examples/lerobot_g1_native.py --controller sonic --report
+MUJOCO_GL=egl python examples/demos/g1/lerobot_native.py --controller groot --report
+MUJOCO_GL=egl python examples/demos/g1/lerobot_native.py --controller sonic --report
 ```
 
 Uses LeRobot's official `make_env("lerobot/unitree-g1-mujoco")` factory for standardized env creation. The published native demo reports are split by controller: one report for GR00T and one for SONIC. DDS-ready for sim-to-real transfer when hardware is available. See [#83](https://github.com/MiaoDX/roboharness/issues/83) for details.
@@ -229,7 +229,7 @@ Uses LeRobot's official `make_env("lerobot/unitree-g1-mujoco")` factory for stan
 pip install roboharness[lerobot]
 
 # Evaluate a real LeRobot checkpoint with visual checkpoints + JSON report
-python examples/lerobot_eval_harness.py \
+python examples/integrations/lerobot/eval_harness.py \
   --checkpoint-path /path/to/lerobot/checkpoint \
   --repo-id lerobot/unitree-g1-mujoco \
   --n-episodes 5 \
@@ -251,7 +251,7 @@ Produces:
 
 ```bash
 pip install roboharness[demo]
-MUJOCO_GL=egl python examples/sonic_locomotion.py --report --assert-success
+MUJOCO_GL=egl python examples/demos/sonic/locomotion.py --report --assert-success
 ```
 
 Standalone NVIDIA GEAR-SONIC planner demo on the real Unitree G1 MuJoCo model. This path uses `planner_sonic.onnx` only: velocity commands go in, full-body pose trajectories come out, and the example uses a lightweight virtual torso harness for stable visual debugging. This is the same standalone planner path published at `/sonic-planner/`.
@@ -276,7 +276,7 @@ For a planner demo wired through LeRobot's official `make_env()` stack, see **G1
 
 ```bash
 pip install roboharness[demo]
-MUJOCO_GL=egl python examples/sonic_tracking.py --report --assert-success
+MUJOCO_GL=egl python examples/demos/sonic/tracking.py --report --assert-success
 ```
 
 Real encoder+decoder tracking demo on the Unitree G1. This path uses `model_encoder.onnx` + `model_decoder.onnx` directly, replays a motion clip via `set_tracking_clip(...)`, and records checkpoint metrics for torso height, tracking-frame progress, and joint-tracking error. This is the same path published at `/sonic/`.

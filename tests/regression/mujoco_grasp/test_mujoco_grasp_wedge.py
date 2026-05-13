@@ -11,14 +11,14 @@ from typing import Any
 
 import pytest
 
-from examples._mujoco_grasp_fixture import (
+from examples.demos.mujoco.fixture import (
     MUJOCO_GRASP_CAMERAS,
     MUJOCO_GRASP_PHASE_ORDER,
     MUJOCO_GRASP_PRIMARY_VIEWS,
     build_grasp_phases,
     build_grasp_protocol,
 )
-from examples._mujoco_grasp_wedge import (
+from examples.demos.mujoco.wedge import (
     BASELINE_VISUAL_ROOT,
     KNOWN_BAD_VISUAL_ROOT,
     ContractCompileError,

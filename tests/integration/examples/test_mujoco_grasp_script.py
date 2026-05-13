@@ -8,8 +8,8 @@ import pytest
 
 pytest.importorskip("mujoco")
 
-from examples import mujoco_grasp
-from examples._mujoco_grasp_wedge import ErrorEnvelope
+from examples.demos.mujoco import grasp as mujoco_grasp
+from examples.demos.mujoco.wedge import ErrorEnvelope
 
 
 def test_main_fails_fast_without_display_or_gl_backend(
@@ -20,7 +20,9 @@ def test_main_fails_fast_without_display_or_gl_backend(
             raise AssertionError("backend should not be constructed")
 
     monkeypatch.setattr(mujoco_grasp, "MuJoCoMeshcatBackend", UnexpectedBackendInit)
-    monkeypatch.setattr(sys, "argv", ["mujoco_grasp.py", "--output-dir", str(tmp_path)])
+    monkeypatch.setattr(
+        sys, "argv", ["examples/demos/mujoco/grasp.py", "--output-dir", str(tmp_path)]
+    )
     monkeypatch.delenv("MUJOCO_GL", raising=False)
     monkeypatch.delenv("DISPLAY", raising=False)
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
@@ -44,7 +46,9 @@ def test_main_surfaces_friendly_rendering_error(
             raise RuntimeError("an OpenGL platform library has not been loaded into this process")
 
     monkeypatch.setattr(mujoco_grasp, "MuJoCoMeshcatBackend", FailingBackend)
-    monkeypatch.setattr(sys, "argv", ["mujoco_grasp.py", "--output-dir", str(tmp_path)])
+    monkeypatch.setattr(
+        sys, "argv", ["examples/demos/mujoco/grasp.py", "--output-dir", str(tmp_path)]
+    )
     monkeypatch.setenv("MUJOCO_GL", "egl")
     monkeypatch.delenv("DISPLAY", raising=False)
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
@@ -68,7 +72,9 @@ def test_main_preserves_non_rendering_backend_errors(
             raise RuntimeError("boom")
 
     monkeypatch.setattr(mujoco_grasp, "MuJoCoMeshcatBackend", FailingBackend)
-    monkeypatch.setattr(sys, "argv", ["mujoco_grasp.py", "--output-dir", str(tmp_path)])
+    monkeypatch.setattr(
+        sys, "argv", ["examples/demos/mujoco/grasp.py", "--output-dir", str(tmp_path)]
+    )
     monkeypatch.setenv("MUJOCO_GL", "egl")
 
     with pytest.raises(RuntimeError, match="boom"):
@@ -107,7 +113,7 @@ def test_main_writes_contract_compile_diagnostic_and_exits(
         sys,
         "argv",
         [
-            "mujoco_grasp.py",
+            "examples/demos/mujoco/grasp.py",
             "--output-dir",
             str(tmp_path),
             "--baseline-report",

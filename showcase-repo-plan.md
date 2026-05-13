@@ -231,7 +231,7 @@ Relevant existing assets:
 - `phase_manifest.json` for failing phase, primary views, and rerun hints
 - `alarms.json` for evaluator-backed failures
 - `report.html` and the current `Current vs Baseline` evidence surface
-- `examples/_mujoco_grasp_wedge.py` and its phase-local evidence model
+- `examples/demos/mujoco/wedge.py` and its phase-local evidence model
 - the existing `RobotHarnessWrapper`, `Harness`, and report-generation flow
 
 This is important: the current MuJoCo wedge already looks like a seed of the right
@@ -379,9 +379,9 @@ Mode selected: `SELECTIVE_EXPANSION`
 
 | Sub-problem | Existing code | Reuse decision |
 |---|---|---|
-| Single-case verdict artifact pack | `examples/_mujoco_grasp_wedge.py::build_autonomous_report()` plus `write_artifact_pack()` | Reuse directly as the seed contract/evidence pack |
-| First failing phase + evidence hints | `examples/_mujoco_grasp_wedge.py::build_phase_manifest()` and `resolve_evidence_pairs()` | Reuse directly; extend toward surfaced-case proof |
-| Reviewer-facing HTML evidence | `examples/_mujoco_grasp_wedge.py::build_summary_html()` and `src/roboharness/reporting.py` | Extend in place; do not invent a second renderer stack |
+| Single-case verdict artifact pack | `examples/demos/mujoco/wedge.py::build_autonomous_report()` plus `write_artifact_pack()` | Reuse directly as the seed contract/evidence pack |
+| First failing phase + evidence hints | `examples/demos/mujoco/wedge.py::build_phase_manifest()` and `resolve_evidence_pairs()` | Reuse directly; extend toward surfaced-case proof |
+| Reviewer-facing HTML evidence | `examples/demos/mujoco/wedge.py::build_summary_html()` and `src/roboharness/reporting.py` | Extend in place; do not invent a second renderer stack |
 | Multi-case aggregation | `src/roboharness/evaluate/batch.py` | Reuse as the substrate for a changed-case queue |
 | CLI front door | `src/roboharness/cli.py` inspect/report/evaluate paths | Reuse; front-door rewrite should align these to the new story |
 | Agent/tooling integration | `src/roboharness/mcp/tools.py` (`evaluate_constraints`, `evaluate_batch_trials`, `compare_baselines`) | Reuse; keep library/CLI first, agent adapters second |
@@ -650,8 +650,8 @@ earned.
 
 ## What already exists
 
-- A deterministic MuJoCo evidence pack already exists in `examples/mujoco_grasp.py`
-  and `examples/_mujoco_grasp_wedge.py`, including `autonomous_report.json`,
+- A deterministic MuJoCo evidence pack already exists in `examples/demos/mujoco/grasp.py`
+  and `examples/demos/mujoco/wedge.py`, including `autonomous_report.json`,
   `phase_manifest.json`, `alarms.json`, and a current-vs-baseline report surface.
 - Multi-case aggregation already exists in `src/roboharness/evaluate/batch.py`, which
   is the natural substrate for changed-case surfacing rather than a net-new queue engine.
@@ -974,7 +974,7 @@ Accessibility requirements:
 - `docs/designs/unattended-refactor-harness-v1.md` already captures the accepted
   product contract
 - `src/roboharness/reporting.py` already owns the report shell and status vocabulary
-- `examples/_mujoco_grasp_wedge.py` already proves a compact summary block can drive
+- `examples/demos/mujoco/wedge.py` already proves a compact summary block can drive
   the review flow
 - `README.md` already contains a MuJoCo quick start, even though the story above it is
   currently too diffuse
@@ -1244,7 +1244,7 @@ Performance guardrails:
 | Multi-case aggregation | `src/roboharness/evaluate/batch.py` | Reuse as the substrate for surfaced/suppressed counts and reasons |
 | CLI front door | `src/roboharness/cli.py` | Reuse as thin adapters, not as the home of product truth |
 | HTML report shell | `src/roboharness/reporting.py` | Reuse as presentation-only shell |
-| MuJoCo proof wedge | `examples/_mujoco_grasp_wedge.py` + tests | Reuse as the first implementation wedge |
+| MuJoCo proof wedge | `examples/demos/mujoco/wedge.py` + tests | Reuse as the first implementation wedge |
 | Agent adapters | `src/roboharness/mcp/tools.py` | Reuse later; keep secondary to the library contract |
 | Existing quickstart surface | `README.md` | Rewrite around the wedge, do not discard it |
 
@@ -1534,7 +1534,7 @@ Measurement commitments added by this review:
 ### DX What Already Exists
 
 - `README.md` already has a MuJoCo quickstart, even if it is not the front-door hero
-- `examples/mujoco_grasp.py --report` already exists as the obvious first wedge
+- `examples/demos/mujoco/grasp.py --report` already exists as the obvious first wedge
 - `src/roboharness/cli.py` already provides supporting inspection/reporting verbs
 - the current artifact pack already gives the repo a real proof substrate to build on
 

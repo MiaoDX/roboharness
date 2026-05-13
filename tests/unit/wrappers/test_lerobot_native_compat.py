@@ -14,8 +14,6 @@ No LeRobot or MuJoCo installation is required.
 from __future__ import annotations
 
 import json
-import sys
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -26,8 +24,6 @@ gym = pytest.importorskip("gymnasium", reason="gymnasium not installed")
 from gymnasium import spaces  # noqa: E402
 
 from roboharness.wrappers import RobotHarnessWrapper  # noqa: E402
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # ---------------------------------------------------------------------------
 # Real lightweight Gymnasium envs for testing
@@ -149,16 +145,10 @@ class MismatchedObsSpaceEnv(gym.Env):
 
 @pytest.fixture()
 def native_module():
-    """Import examples/lerobot_g1_native.py as a module."""
-    example_path = REPO_ROOT / "examples"
-    sys.path.insert(0, str(example_path))
-    try:
-        import lerobot_g1_native
+    """Import examples/demos/g1/lerobot_native.py as a module."""
+    from examples.demos.g1 import lerobot_native
 
-        yield lerobot_g1_native
-    finally:
-        sys.path.pop(0)
-        sys.modules.pop("lerobot_g1_native", None)
+    yield lerobot_native
 
 
 # ---------------------------------------------------------------------------

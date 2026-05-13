@@ -24,7 +24,7 @@ from roboharness.wrappers import RobotHarnessWrapper  # noqa: E402
 
 
 class MockPickCubeEnv(gym.Env):
-    """Reproduces the mock from contrib_maniskill_visual_debug.py for testing."""
+    """Reproduces the mock from examples/integrations/maniskill/visual_debug.py for testing."""
 
     metadata: dict = {"render_modes": ["rgb_array"], "render_fps": 20}  # noqa: RUF012
 

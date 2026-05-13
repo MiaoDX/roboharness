@@ -9,7 +9,7 @@ Review branch:
 - `codex/design-review-mujoco-20260415`
 
 Runtime used to generate the audited artifact:
-- `MUJOCO_GL=egl python examples/mujoco_grasp.py --output-dir tmp/design_review_report --report`
+- `MUJOCO_GL=egl python examples/demos/mujoco/grasp.py --output-dir tmp/design_review_report --report`
 
 ## Outcome
 
@@ -110,7 +110,7 @@ Commits:
 - `f99e897` `chore: format design review follow-up`
 
 Files:
-- `examples/_mujoco_grasp_wedge.py`
+- `examples/demos/mujoco/wedge.py`
 - `tests/regression/mujoco_grasp/test_design_review_pass_state_metadata.py`
 
 ## Verification

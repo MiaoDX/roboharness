@@ -16,11 +16,11 @@ can inspect to debug manipulation policies — no separate VLM needed.
 
 Run (with ManiSkill installed):
     pip install roboharness gymnasium mani-skill
-    python examples/contrib_maniskill_visual_debug.py
+    python examples/integrations/maniskill/visual_debug.py
 
 Run (without ManiSkill — uses built-in mock for demonstration):
     pip install roboharness gymnasium
-    python examples/contrib_maniskill_visual_debug.py --mock
+    python examples/integrations/maniskill/visual_debug.py --mock
 
 Output:
     ./harness_maniskill_output/pick_cube/trial_001/

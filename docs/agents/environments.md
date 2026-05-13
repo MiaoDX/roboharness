@@ -25,8 +25,8 @@ tests, CPU-only environments are usually enough.
 Use OSMesa or EGL for headless rendering:
 
 ```bash
-MUJOCO_GL=osmesa python examples/mujoco_grasp.py --report
-MUJOCO_GL=egl python examples/mujoco_grasp.py --report
+MUJOCO_GL=osmesa python examples/demos/mujoco/grasp.py --report
+MUJOCO_GL=egl python examples/demos/mujoco/grasp.py --report
 ```
 
 The Makefile defaults `MUJOCO_GL` to `osmesa` for demo targets:

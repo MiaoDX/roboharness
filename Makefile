@@ -36,19 +36,19 @@ check-gpu:
 MUJOCO_GL ?= osmesa
 
 demo-grasp:
-	MUJOCO_GL=$(MUJOCO_GL) python examples/mujoco_grasp.py --report
+	MUJOCO_GL=$(MUJOCO_GL) python examples/demos/mujoco/grasp.py --report
 
 demo-sonic:
-	MUJOCO_GL=$(MUJOCO_GL) python examples/sonic_locomotion.py --report
+	MUJOCO_GL=$(MUJOCO_GL) python examples/demos/sonic/locomotion.py --report
 
 demo-g1:
-	MUJOCO_GL=$(MUJOCO_GL) python examples/lerobot_g1.py --report
+	MUJOCO_GL=$(MUJOCO_GL) python examples/demos/g1/lerobot_locomotion.py --report
 
 demo-g1-native:
-	MUJOCO_GL=$(MUJOCO_GL) python examples/lerobot_g1_native.py --report
+	MUJOCO_GL=$(MUJOCO_GL) python examples/demos/g1/lerobot_native.py --report
 
 demo-wbc:
-	MUJOCO_GL=$(MUJOCO_GL) python examples/g1_wbc_reach.py --report
+	MUJOCO_GL=$(MUJOCO_GL) python examples/demos/g1/wbc_reach.py --report
 
 demos: demo-grasp demo-wbc demo-g1 demo-sonic
 	@echo "All demos complete. Check output directories for reports."

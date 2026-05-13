@@ -65,9 +65,9 @@ Use one verdict path only.
 Extract the duplicated MuJoCo grasp fixture and phase script into one small example-side
 helper module.
 
-- Shared by `examples/mujoco_grasp.py`.
-- Shared by `examples/mujoco_rerun.py`.
-- Shared by `examples/contrib_rerun_robotics_viz.py`.
+- Shared by `examples/demos/mujoco/grasp.py`.
+- Shared by `examples/demos/mujoco/rerun.py`.
+- Shared by `examples/integrations/rerun/robotics_viz.py`.
 
 ### 8A. Machine-Readable Artifact Types
 
@@ -84,7 +84,7 @@ Add small local dataclasses with `to_dict()` for new machine-readable artifacts.
   Resolution: aliases are allowed in presentation only; internals stay unchanged.
 - The current CI artifact path and example output path are mismatched:
   `.github/workflows/ci.yml` uploads `harness_output/report.html`, while
-  `examples/mujoco_grasp.py` currently writes `harness_output/mujoco_grasp_report.html`.
+  `examples/demos/mujoco/grasp.py` currently writes `harness_output/mujoco_grasp_report.html`.
   The eventual implementation should align those paths.
 - The distribution plan should stay boring:
   existing GitHub Actions artifacts plus the existing Pages flow, with no new
@@ -100,10 +100,10 @@ These files were identified as the main implementation and test anchors during r
 - `src/roboharness/evaluate/assertions.py`
 - `src/roboharness/storage/history.py`
 - `src/roboharness/mcp/tools.py`
-- `examples/mujoco_grasp.py`
-- `examples/mujoco_rerun.py`
-- `examples/contrib_rerun_robotics_viz.py`
-- `examples/sonic_tracking.py`
+- `examples/demos/mujoco/grasp.py`
+- `examples/demos/mujoco/rerun.py`
+- `examples/integrations/rerun/robotics_viz.py`
+- `examples/demos/sonic/tracking.py`
 - `tests/unit/evaluate/test_assertions.py`
 - `tests/regression/reporting/test_reporting.py`
 - `tests/unit/mcp/test_mcp_tools.py`

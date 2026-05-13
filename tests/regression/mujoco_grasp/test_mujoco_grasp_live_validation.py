@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from examples._mujoco_grasp_fixture import (
+from examples.demos.mujoco.fixture import (
     GRASP_MJCF,
     MUJOCO_GRASP_CAMERAS,
     build_grasp_phases,
     build_grasp_protocol,
 )
-from examples._mujoco_grasp_wedge import (
+from examples.demos.mujoco.wedge import (
     BASELINE_VISUAL_ROOT,
     build_alarms,
     build_autonomous_report,

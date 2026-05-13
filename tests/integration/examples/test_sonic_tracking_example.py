@@ -7,7 +7,7 @@ import pytest
 
 pytest.importorskip("mujoco", reason="mujoco not installed")
 
-from examples.sonic_tracking import (
+from examples.demos.sonic.tracking import (
     TRACKING_PROTOCOL,
     build_phase_steps,
     build_tracking_evaluation,

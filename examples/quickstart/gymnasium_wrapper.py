@@ -5,7 +5,7 @@ with Roboharness to add checkpoint-based visual capture.
 
 Run:
     pip install roboharness gymnasium
-    python examples/quickstart_gymnasium.py
+    python examples/quickstart/gymnasium_wrapper.py
 """
 
 import gymnasium as gym
