@@ -36,42 +36,23 @@ jobs:
                    _site/g1-native-groot _site/g1-native-sonic _site/sonic-planner _site/sonic
           BASE=https://miaodx.com/roboharness
           curl -fsSL "$BASE/"           -o _site/index.html
-          curl -fsSL "$BASE/grasp/"     -o _site/grasp/index.html
-          curl -fsSL "$BASE/g1-reach/"  -o _site/g1-reach/index.html
-          curl -fsSL "$BASE/g1-loco/"   -o _site/g1-loco/index.html
-          curl -fsSL "$BASE/g1-native-groot/" -o _site/g1-native-groot/index.html
-          curl -fsSL "$BASE/g1-native-sonic/" -o _site/g1-native-sonic/index.html
-          curl -fsSL "$BASE/sonic-planner/" -o _site/sonic-planner/index.html
-          curl -fsSL "$BASE/sonic/"     -o _site/sonic/index.html
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install huggingface_hub
-        run: pip install "huggingface_hub>=0.20"
+          curl -fsSL "$BASE/grasp/index.html"     -o _site/grasp/index.html
+          curl -fsSL "$BASE/g1-reach/index.html"  -o _site/g1-reach/index.html
+          curl -fsSL "$BASE/g1-loco/index.html"   -o _site/g1-loco/index.html
+          curl -fsSL "$BASE/g1-native-groot/index.html" -o _site/g1-native-groot/index.html
+          curl -fsSL "$BASE/g1-native-sonic/index.html" -o _site/g1-native-sonic/index.html
+          curl -fsSL "$BASE/sonic-planner/index.html" -o _site/sonic-planner/index.html
+          curl -fsSL "$BASE/sonic/index.html"     -o _site/sonic/index.html
 
       - name: Add Space metadata
         run: cp hf-space/README.md _site/README.md
 
-      - name: Push to HuggingFace Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          python -c "
-          import os
-          from huggingface_hub import HfApi
-          repo_id = 'miaodongxu/roboharness-demo'
-          api = HfApi(token=os.environ['HF_TOKEN'])
-          api.create_repo(
-              repo_id=repo_id,
-              repo_type='space',
-              space_sdk='static',
-              exist_ok=True,
-          )
-          api.upload_folder(
-              folder_path='_site',
-              repo_id=repo_id,
-              repo_type='space',
-          )
-          "
+      - name: Mirror site to Hugging Face Space
+        uses: huggingface/hub-sync@v0.1.0
+        with:
+          github_repo_id: MiaoDX/roboharness
+          subdirectory: _site
+          huggingface_repo_id: miaodongxu/roboharness-demo
+          hf_token: ${{ secrets.HF_TOKEN }}
+          repo_type: space
+          space_sdk: static
