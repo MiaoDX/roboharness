@@ -42,8 +42,8 @@ The SONIC policy observations use IsaacLab joint ordering internally. The contro
 
 For supported SONIC paths in this repo, real-model execution is the default validation standard.
 
-- Mocked ONNX sessions remain in `tests/test_locomotion.py` for narrow unit checks such as packing, ordering, and output decoding.
-- Real-model validation lives in `tests/test_sonic_real_models.py` and runs both planner mode and tracking mode against the published HuggingFace ONNX files.
+- Mocked ONNX sessions remain in `tests/unit/controllers/test_locomotion.py` for narrow unit checks such as packing, ordering, and output decoding.
+- Real-model validation lives in `tests/unit/controllers/test_sonic_real_models.py` and runs both planner mode and tracking mode against the published HuggingFace ONNX files.
 - `roboharness[dev]` includes `huggingface_hub` and `onnxruntime`, so `pytest -q` exercises the real SONIC Python path in the normal repo test workflow.
 
 This repo does not claim that the Python path is the same implementation as NVIDIA's C++/TensorRT deploy stack. It claims that the Python path it ships is explicit, separate, and validated against the real models.

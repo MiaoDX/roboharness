@@ -11,8 +11,7 @@ import numpy as np
 from roboharness.core.harness import Harness, SimulatorBackend
 from roboharness.runner import BatchResult, ParallelTrialRunner, TrialSpec
 from roboharness.storage.task_store import TaskStore, TrialResult
-
-from .conftest import MockBackend
+from tests.conftest import MockBackend
 
 # -- TrialSpec tests --
 

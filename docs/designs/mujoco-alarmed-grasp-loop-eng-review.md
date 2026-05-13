@@ -104,10 +104,10 @@ These files were identified as the main implementation and test anchors during r
 - `examples/mujoco_rerun.py`
 - `examples/contrib_rerun_robotics_viz.py`
 - `examples/sonic_tracking.py`
-- `tests/test_assertions.py`
-- `tests/test_reporting.py`
-- `tests/test_mcp_tools.py`
-- `tests/test_sonic_tracking_example.py`
+- `tests/unit/evaluate/test_assertions.py`
+- `tests/regression/reporting/test_reporting.py`
+- `tests/unit/mcp/test_mcp_tools.py`
+- `tests/integration/examples/test_sonic_tracking_example.py`
 
 ## Remaining Review Work
 

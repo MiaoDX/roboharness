@@ -84,7 +84,7 @@ def pytest_configure(config):
 ```
 
 ```python
-# tests/test_curobo_planning.py
+# tests/integration/gpu/test_curobo_planning.py
 @pytest.mark.gpu
 def test_curobo_ik_solver():
     """需要 CUDA 的 cuRobo 逆运动学测试"""

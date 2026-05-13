@@ -22,7 +22,7 @@ This file captures deferred work from approved planning and review artifacts.
 ### Build a seeded evaluator corpus before treating the queue as trustworthy
 
 - **Completed:** 2026-04-20
-- Added `tests/test_mujoco_grasp_seeded_corpus.py` with seeded `good`, `bad`, and
+- Added `tests/regression/mujoco_grasp/test_mujoco_grasp_seeded_corpus.py` with seeded `good`, `bad`, and
   `ambiguous` cases for the MuJoCo wedge.
 - The corpus locks surfaced-case precision `1.0`, surfaced-case recall `1.0`, and the
   trust boundary that ambiguous still-image evidence must stay review-required.

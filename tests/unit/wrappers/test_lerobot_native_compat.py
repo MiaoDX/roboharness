@@ -27,6 +27,8 @@ from gymnasium import spaces  # noqa: E402
 
 from roboharness.wrappers import RobotHarnessWrapper  # noqa: E402
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 # ---------------------------------------------------------------------------
 # Real lightweight Gymnasium envs for testing
 # ---------------------------------------------------------------------------
@@ -148,7 +150,7 @@ class MismatchedObsSpaceEnv(gym.Env):
 @pytest.fixture()
 def native_module():
     """Import examples/lerobot_g1_native.py as a module."""
-    example_path = Path(__file__).parent.parent / "examples"
+    example_path = REPO_ROOT / "examples"
     sys.path.insert(0, str(example_path))
     try:
         import lerobot_g1_native

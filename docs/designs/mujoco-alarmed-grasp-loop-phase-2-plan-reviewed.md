@@ -10,7 +10,7 @@ Related artifacts:
 - `docs/designs/mujoco-alarmed-grasp-loop.md`
 - `docs/designs/mujoco-alarmed-grasp-loop-eng-review.md`
 - `examples/_mujoco_grasp_wedge.py`
-- `tests/test_mujoco_grasp_wedge.py`
+- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
 
 ## Summary
 
@@ -100,7 +100,7 @@ view is actually worse than the baseline. Less human glue before the next rerun.
 
 - `examples/_mujoco_grasp_wedge.py` already builds `autonomous_report.json`,
   evaluator-backed alarms, `phase_manifest.json`, and an alarm-first summary block.
-- `tests/test_mujoco_grasp_wedge.py` already proves the evaluator localizes an
+- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` already proves the evaluator localizes an
   `approach` regression and emits `primary_views == ["side", "top"]` plus
   `rerun_hint == "restore:pre_grasp"`.
 - `examples/_mujoco_grasp_fixture.py` already defines the canonical phase order,
@@ -230,7 +230,7 @@ required for determinism or operator control.
 
 Extend the phase-2 test plan in two lanes:
 
-Default unit-test lane (`tests/test_mujoco_grasp_wedge.py`):
+Default unit-test lane (`tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`):
 1. deterministic known-bad fixture reports `Verdict.FAIL`
 2. the first failing phase remains `approach`
 3. the chosen views remain `["side", "top"]`
@@ -248,7 +248,7 @@ Default unit-test lane (`tests/test_mujoco_grasp_wedge.py`):
 11. fixture coverage stays aligned with the primary-view policy for the supported
     failing phase(s)
 
-Optional MuJoCo-enabled live-validation lane (`tests/test_mujoco_grasp_live_validation.py`
+Optional MuJoCo-enabled live-validation lane (`tests/regression/mujoco_grasp/test_mujoco_grasp_live_validation.py`
 or equivalent example smoke path):
 12. one generated-from-live-run path still produces the same failing-phase contract
     as the deterministic fixture path
@@ -264,8 +264,8 @@ or equivalent example smoke path):
 - `examples/_mujoco_grasp_wedge.py`
 - `examples/mujoco_grasp.py`
 - `assets/example_mujoco_grasp/`
-- `tests/test_mujoco_grasp_wedge.py`
-- `tests/test_mujoco_grasp_live_validation.py` or the equivalent MuJoCo-enabled
+- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
+- `tests/regression/mujoco_grasp/test_mujoco_grasp_live_validation.py` or the equivalent MuJoCo-enabled
   smoke path if the repo prefers example-driven validation over a new test file
 - `src/roboharness/reporting.py` only for a tiny CSS hook that styles the new
   evidence cards, placeholders, and diagnostic banners
@@ -813,7 +813,7 @@ The current code shape is narrow and favorable:
 - `examples/mujoco_grasp.py` already has the current trial directory and the blessed
   baseline report path in hand when `--report` runs
 - `src/roboharness/reporting.py` already owns the report CSS and the summary insertion point
-- `tests/test_mujoco_grasp_wedge.py` already asserts phase localization and the
+- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` already asserts phase localization and the
   current alarm-first sections
 
 Real hidden complexity lives in three seams, not everywhere:
@@ -992,7 +992,7 @@ Performance guardrails:
 | Manifest-selected views | `build_phase_manifest()` + `MUJOCO_GRASP_PRIMARY_VIEWS` | Reuse directly |
 | Headless console summary | `examples/mujoco_grasp.py::main()` | Extend in place |
 | Trial image layout | existing per-phase trial directories | Reuse directly |
-| Default unit tests | `tests/test_mujoco_grasp_wedge.py` | Extend in place |
+| Default unit tests | `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` | Extend in place |
 | Optional MuJoCo CI lane | existing demo / MuJoCo-enabled environments | Reuse; do not force into default `[dev]` lane |
 
 ### Failure Modes Registry

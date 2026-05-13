@@ -11,4 +11,4 @@ constraints/demo_matrix.toml @MiaoDX
 docs/steering/* @MiaoDX
 docs/release/* @MiaoDX
 examples/_mujoco_grasp_wedge.py @MiaoDX
-tests/test_mujoco_grasp_seeded_corpus.py @MiaoDX
+tests/regression/mujoco_grasp/test_mujoco_grasp_seeded_corpus.py @MiaoDX

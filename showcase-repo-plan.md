@@ -1180,8 +1180,8 @@ CODE PATH COVERAGE
 
 [+] existing MuJoCo wedge
     |
-    +-- [TESTED] `tests/test_mujoco_grasp_wedge.py`
-    +-- [TESTED] `tests/test_mujoco_grasp_live_validation.py`
+    +-- [TESTED] `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
+    +-- [TESTED] `tests/regression/mujoco_grasp/test_mujoco_grasp_live_validation.py`
     `-- [GAP] migration-mode queue and bless-path states
 
 USER FLOW COVERAGE

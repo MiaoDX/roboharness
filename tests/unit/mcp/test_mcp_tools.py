@@ -11,8 +11,7 @@ from roboharness.core.harness import Harness
 from roboharness.evaluate.constraints import _parse_assertion
 from roboharness.mcp.tools import TOOL_SCHEMAS, HarnessTools
 from roboharness.storage.history import EvaluationRecord
-
-from .conftest import MockBackend
+from tests.conftest import MockBackend
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
 

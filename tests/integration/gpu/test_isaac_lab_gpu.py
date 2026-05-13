@@ -3,7 +3,7 @@
 These tests require an NVIDIA GPU with CUDA support. They verify that the wrapper
 correctly handles PyTorch tensors living on GPU memory, which is how Isaac Lab
 environments actually operate (as opposed to the CPU-tensor mocks in
-test_isaac_lab_compat.py).
+tests/unit/wrappers/test_isaac_lab_compat.py).
 
 Key behaviors validated:
   - Wrapper passes through CUDA tensor observations without moving them to CPU

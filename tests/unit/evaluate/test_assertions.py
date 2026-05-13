@@ -26,6 +26,8 @@ from roboharness.evaluate.result import (
     Verdict,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -423,7 +425,7 @@ class TestVariantComparison:
 # ---------------------------------------------------------------------------
 
 
-ASSETS_DIR = Path(__file__).parent.parent / "assets"
+ASSETS_DIR = REPO_ROOT / "assets"
 
 
 @pytest.mark.skipif(
@@ -655,7 +657,7 @@ class TestEvaluateToReportEndToEnd:
         from roboharness.reporting import generate_html_report
 
         # Step 1: Load constraints from the project's actual YAML file
-        constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
+        constraints_path = REPO_ROOT / "constraints" / "grasp_default.yaml"
         pytest.importorskip("yaml", reason="PyYAML not installed")
         assertions = load_constraints(constraints_path)
         assert len(assertions) == 4
@@ -698,7 +700,7 @@ class TestEvaluateToReportEndToEnd:
         from roboharness.evaluate.constraints import load_constraints
         from roboharness.reporting import generate_html_report
 
-        constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
+        constraints_path = REPO_ROOT / "constraints" / "grasp_default.yaml"
         pytest.importorskip("yaml", reason="PyYAML not installed")
         assertions = load_constraints(constraints_path)
 
@@ -740,7 +742,7 @@ class TestEvaluateToReportEndToEnd:
         """End-to-end: CLI evaluate command with real YAML constraints."""
         from roboharness.cli import main
 
-        constraints_path = Path(__file__).parent.parent / "constraints" / "grasp_default.yaml"
+        constraints_path = REPO_ROOT / "constraints" / "grasp_default.yaml"
         pytest.importorskip("yaml", reason="PyYAML not installed")
         report_path = grasp_output / "grasp" / "trial_001" / "autonomous_report.json"
 

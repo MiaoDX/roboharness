@@ -18,8 +18,7 @@ from roboharness.core.protocol import (
     TaskPhase,
     TaskProtocol,
 )
-
-from .conftest import MockBackend
+from tests.conftest import MockBackend
 
 # ---------------------------------------------------------------------------
 # TaskPhase tests

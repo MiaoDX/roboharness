@@ -58,7 +58,7 @@ Commits:
 
 Files:
 - `src/roboharness/reporting.py`
-- `tests/test_design_review_meshcat_paths.py`
+- `tests/regression/reporting/test_design_review_meshcat_paths.py`
 
 ### FINDING-002: Horizontal overflow on small screens
 
@@ -85,7 +85,7 @@ Commits:
 
 Files:
 - `src/roboharness/reporting.py`
-- `tests/test_design_review_report_responsive.py`
+- `tests/regression/mujoco_grasp/test_design_review_report_responsive.py`
 
 ### FINDING-003: Pass-state metadata contradicted the UI
 
@@ -111,7 +111,7 @@ Commits:
 
 Files:
 - `examples/_mujoco_grasp_wedge.py`
-- `tests/test_design_review_pass_state_metadata.py`
+- `tests/regression/mujoco_grasp/test_design_review_pass_state_metadata.py`
 
 ## Verification
 

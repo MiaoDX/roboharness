@@ -16,8 +16,7 @@ from typing import Any
 import pytest
 
 from roboharness.core.harness import Harness
-
-from .conftest import MockBackend
+from tests.conftest import MockBackend
 
 # ── Lightweight MCP SDK stand-ins ───────────────────────────────────────
 

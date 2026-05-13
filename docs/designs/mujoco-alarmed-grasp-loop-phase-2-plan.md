@@ -9,7 +9,7 @@ Related artifacts:
 - `docs/designs/mujoco-alarmed-grasp-loop.md`
 - `docs/designs/mujoco-alarmed-grasp-loop-eng-review.md`
 - `examples/_mujoco_grasp_wedge.py`
-- `tests/test_mujoco_grasp_wedge.py`
+- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
 
 ## Summary
 
@@ -88,7 +88,7 @@ view is actually worse than the baseline.
 
 - `examples/_mujoco_grasp_wedge.py` already builds `autonomous_report.json`,
   evaluator-backed alarms, `phase_manifest.json`, and an alarm-first summary block.
-- `tests/test_mujoco_grasp_wedge.py` already proves the evaluator localizes an
+- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` already proves the evaluator localizes an
   `approach` regression and emits `primary_views == ["side", "top"]` plus
   `rerun_hint == "restore:pre_grasp"`.
 - `examples/_mujoco_grasp_fixture.py` already defines the canonical phase order,
@@ -175,7 +175,7 @@ required for determinism or operator control.
 
 ### 5. Tests
 
-Extend `tests/test_mujoco_grasp_wedge.py` with focused assertions for:
+Extend `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py` with focused assertions for:
 
 1. deterministic known-bad fixture reports `Verdict.FAIL`
 2. the first failing phase remains `approach`
@@ -196,7 +196,7 @@ Extend `tests/test_mujoco_grasp_wedge.py` with focused assertions for:
 - `examples/_mujoco_grasp_wedge.py`
 - `examples/mujoco_grasp.py`
 - `assets/example_mujoco_grasp/`
-- `tests/test_mujoco_grasp_wedge.py`
+- `tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py`
 - `src/roboharness/reporting.py` only if a tiny renderer hook is truly necessary
 
 ## Success Criteria

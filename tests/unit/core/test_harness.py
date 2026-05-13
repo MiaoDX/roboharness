@@ -3,8 +3,7 @@
 import pytest
 
 from roboharness.core.harness import Harness, SimulatorBackend
-
-from .conftest import MockBackend
+from tests.conftest import MockBackend
 
 
 def test_mock_implements_protocol():

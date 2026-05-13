@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from roboharness.core.harness import Harness
-from tests.test_harness import MockBackend
+from tests.conftest import MockBackend
 
 
 class _Recorder:
