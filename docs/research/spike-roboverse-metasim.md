@@ -215,5 +215,5 @@ features (state save/restore, named cameras) when the underlying handler is avai
 - [RoboVerse GitHub](https://github.com/RoboVerseOrg/RoboVerse) — 1.7k stars, Apache 2.0
 - [RoboVerse Paper](https://arxiv.org/abs/2504.18904) — RSS 2025
 - [MetaSim Docs](https://roboverse.wiki/metasim/) — v0.1.0
-- [roboharness SimulatorBackend Protocol](../src/roboharness/core/harness.py) — 7-method protocol
-- [Roadmap §F](./roadmap-2026-q2.md) — Original spike request
+- [roboharness SimulatorBackend Protocol](../../src/roboharness/core/harness.py) — 7-method protocol
+- [Roadmap §F](../product/roadmap-2026-q2.md) — Original spike request

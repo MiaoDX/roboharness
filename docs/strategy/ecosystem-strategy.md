@@ -2,7 +2,7 @@
 
 _Last updated: April 10, 2026_
 _This document covers everything outside the project itself: making roboharness discoverable, building technical influence, entering key communities._
-_Technical roadmap is in `roadmap-2026-q2.md`._
+_Technical roadmap is in `docs/product/roadmap-2026-q2.md`._
 
 ---
 
@@ -183,7 +183,7 @@ MiaoDX/roboharness remains the core repo's primary location. Reason: existing st
 **2. Showcase Repo Initialization**
 
 - [ ] Create `roboharness/showcase` repo
-- [ ] Initialize skeleton: README + directory structure (see `roadmap-2026-q2.md`)
+- [ ] Initialize skeleton: README + directory structure (see `docs/product/roadmap-2026-q2.md`)
 - [ ] First showcase: extract `examples/lerobot_g1_native.py` as a standalone runnable showcase
 - [ ] Each showcase directory contains: README.md, requirements.txt, run.sh, main script
 - [ ] CI matrix: one independent job per showcase

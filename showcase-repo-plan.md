@@ -385,7 +385,7 @@ Mode selected: `SELECTIVE_EXPANSION`
 | Multi-case aggregation | `src/roboharness/evaluate/batch.py` | Reuse as the substrate for a changed-case queue |
 | CLI front door | `src/roboharness/cli.py` inspect/report/evaluate paths | Reuse; front-door rewrite should align these to the new story |
 | Agent/tooling integration | `src/roboharness/mcp/tools.py` (`evaluate_constraints`, `evaluate_batch_trials`, `compare_baselines`) | Reuse; keep library/CLI first, agent adapters second |
-| Strategic wedge already prioritized | `docs/roadmap-2026-q2.md` LeRobot Evaluation + Constraint Evaluator | Reuse as proof that evaluator-first work already has roadmap support |
+| Strategic wedge already prioritized | `docs/product/roadmap-2026-q2.md` LeRobot Evaluation + Constraint Evaluator | Reuse as proof that evaluator-first work already has roadmap support |
 
 ### 0C. Dream State Mapping
 

@@ -92,7 +92,7 @@ There are two integration paths, from fastest to most custom.
 ### Option A: Via RoboVerse MetaSim (fastest, recommended if MetaSim stabilises)
 
 RoboVerse MetaSim already wraps Newton as one of its 8+ simulator backends. If
-the MetaSim spike (see `docs/spike-roboverse-metasim.md`) results in a
+the MetaSim spike (see `docs/research/spike-roboverse-metasim.md`) results in a
 `RoboVerseBackend`, Newton support comes for free — no Newton-specific code needed.
 
 **Effort:** 0 Newton-specific lines (reuses the RoboVerse adapter)
@@ -199,5 +199,5 @@ checkpoints and visual reports "for free" via `RobotHarnessWrapper`.
 - Newton GitHub: https://github.com/newton-physics/newton
 - Newton blog announcement: https://developer.nvidia.com/blog/announcing-newton-an-open-source-physics-engine-for-robotics-simulation/
 - Isaac Lab Newton integration: https://isaac-lab.github.io/
-- RoboVerse MetaSim spike: `docs/spike-roboverse-metasim.md`
-- Roadmap §E: `docs/roadmap-2026-q2.md`
+- RoboVerse MetaSim spike: `docs/research/spike-roboverse-metasim.md`
+- Roadmap §E: `docs/product/roadmap-2026-q2.md`

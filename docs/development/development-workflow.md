@@ -148,7 +148,7 @@ No GPU needed — the fix is pure Python logic.
 
 ## Relationship to Other Docs
 
-- **`docs/ci-strategy.md`** — Details on GPU CI infrastructure (Cirun + GCP), cost analysis, platform comparison
-- **`docs/roadmap-2026-q2.md`** — Project technical direction and priorities
-- **`docs/ecosystem-strategy.md`** — Community and distribution strategy
+- **`docs/development/ci-strategy.md`** — Details on GPU CI infrastructure (Cirun + GCP), cost analysis, platform comparison
+- **`docs/product/roadmap-2026-q2.md`** — Project technical direction and priorities
+- **`docs/strategy/ecosystem-strategy.md`** — Community and distribution strategy
 - **`CLAUDE.md`** — Agent instructions (read automatically by Claude Code CLI and web)

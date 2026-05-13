@@ -68,7 +68,7 @@ The original reports referenced:
    - **Evaluator**: independent constraint check on harness output (P1 spec)
 
 **Actionable**:
-- **P1 Constraint Evaluator** (spec exists: `docs/p1-constraint-evaluator.md`) — the most direct application of this dimension. Makes the harness a closed-loop verification system, not just an observation tool.
+- **P1 Constraint Evaluator** (spec exists: `docs/product/p1-constraint-evaluator.md`) — the most direct application of this dimension. Makes the harness a closed-loop verification system, not just an observation tool.
 - **Component lifecycle metadata** — annotate harness components with the assumption they encode and conditions under which they can be removed.
 
 ### Dimension 2: Space Scaling — many agents/trials running in parallel
@@ -115,7 +115,7 @@ The original reports referenced:
 | Priority | Item | Source dimension | Tracks to |
 |----------|------|-----------------|-----------|
 | **P0** | CI task success gate (`--assert-success`) | Interaction | #48 |
-| **P1** | Constraint Evaluator | Time | `docs/p1-constraint-evaluator.md` |
+| **P1** | Constraint Evaluator | Time | `docs/product/p1-constraint-evaluator.md` |
 | **P2** | Parallel trial execution | Space | #49 |
 | **P3** | Component lifecycle metadata | Time | #50 |
 | **P4** | Batch evaluation + aggregation | Space | #51 |
@@ -146,6 +146,6 @@ The original reports referenced:
 
 ## Related
 
-- `docs/p1-constraint-evaluator.md` — P1 spec (evaluator design)
-- `docs/roadmap.md` — project roadmap
+- `docs/product/p1-constraint-evaluator.md` — P1 spec (evaluator design)
+- `docs/product/roadmap.md` — project roadmap
 - `drafts/harness-engineering-article.md` (in claw-agents-shared) — full article text

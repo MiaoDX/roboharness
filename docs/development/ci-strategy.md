@@ -182,7 +182,7 @@ Cirun.io 同时支持 AWS、GCP、Azure，接入方式统一（一个 `.cirun.ym
 - 原因：T4 在 GCP 被 AI 训练 workload 持续占满。依次试过 `asia-east1-c`、`us-central1-a`、最后落在 `us-east1-c` 才跑通，可用性不稳定
 - 不是 quota 问题，是**物理库存**问题（`ZONE_RESOURCE_POOL_EXHAUSTED`），开 support case 没用
 - 配置没删，只是在 `.cirun.yml` 和 `.github/workflows/ci.yml` 里被注释掉了，有 `PAUSED 2026-04-14` 标记；将来要 failover / 冗余时直接 uncomment 即可
-- 自定义镜像脚本 [`scripts/build-cirun-gpu-image.sh`](../scripts/build-cirun-gpu-image.sh) 保留作为 GCP 方案的前置步骤，恢复时仍然需要
+- 自定义镜像脚本 [`scripts/build-cirun-gpu-image.sh`](../../scripts/build-cirun-gpu-image.sh) 保留作为 GCP 方案的前置步骤，恢复时仍然需要
 
 **阶段二（credits 用完后）**：
 - 继续使用 AWS on-demand g4dn.xlarge（Sydney ~$0.63/hr，按秒计费；每月 50 次 5min 的测试仅 ~$3）
@@ -219,7 +219,7 @@ Cirun 的 `gpu:` 字段声称会自动安装 NVIDIA 驱动，但在 GCP 上**实
 GCP_PROJECT=your-project GCP_ZONE=asia-east1-c ./scripts/build-cirun-gpu-image.sh
 ```
 
-详见 [`scripts/build-cirun-gpu-image.sh`](../scripts/build-cirun-gpu-image.sh)，支持配置：
+详见 [`scripts/build-cirun-gpu-image.sh`](../../scripts/build-cirun-gpu-image.sh)，支持配置：
 
 | 环境变量 | 默认值 | 说明 |
 |---------|-------|------|
@@ -297,7 +297,7 @@ runners:
 4. **区域 AMI ID 每个 region 不一样**，`ami-081c2f6d9ef8eb26c` 仅 ap-southeast-2 有效；换 region 要查对应 AMI（所有 region 列表在 Marketplace 页面）
 5. **G-instance vCPU quota**：新账号默认可能为 0，在目标 region 申请 "Running On-Demand G and VT instances" ≥ 4 vCPU（g4dn.xlarge 占 4 vCPU）
 
-**对比 GCP**：GCP 没有等价的 Marketplace 镜像，必须自己构建。我们之前提供了 [`scripts/build-cirun-gpu-image.sh`](../scripts/build-cirun-gpu-image.sh) 来自动化这个过程（GCP 恢复时仍然会用到）。
+**对比 GCP**：GCP 没有等价的 Marketplace 镜像，必须自己构建。我们之前提供了 [`scripts/build-cirun-gpu-image.sh`](../../scripts/build-cirun-gpu-image.sh) 来自动化这个过程（GCP 恢复时仍然会用到）。
 
 **Job 级 concurrency**：`.github/workflows/ci.yml` 里 `gpu-test-aws` 用 `concurrency: {group: gpu-test-aws, cancel-in-progress: true}` + `timeout-minutes: 45`，保证同时只有一个 AWS GPU job 在跑，新 push 直接 pre-empt 老的（避免 Cirun provisioning 卡住时无限排队）。
 
