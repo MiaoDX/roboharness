@@ -7,7 +7,7 @@ Reviewed surfaces:
 - Public report page: `https://miaodx.com/roboharness/grasp/`
 - Local quick-start flow from `README.md`
 - Local generated report from `examples/mujoco_grasp.py --report`
-- Contributor and environment docs under `README.md`, `CONTRIBUTING.md`, and `docs/development-workflow.md`
+- Contributor and environment docs under `README.md`, `CONTRIBUTING.md`, and `docs/development/development-workflow.md`
 
 Review branch:
 - `codex/design-review-mujoco-20260415-docs`
@@ -134,7 +134,7 @@ Fix:
 Impact: High
 
 What happened:
-- `docs/development-workflow.md` tells developers to install
+- `docs/development/development-workflow.md` tells developers to install
   `.[demo,dev,wbc,unitree]`.
 - `pyproject.toml` defines `demo`, `dev`, `lerobot`, and `wbc`, but not `unitree`.
 
@@ -268,7 +268,7 @@ What is missing:
 
 What is good:
 - `CONTRIBUTING.md` gives a compact dev setup and the correct default verification loop.
-- `docs/development-workflow.md` explains the CPU/GPU split clearly and makes the
+- `docs/development/development-workflow.md` explains the CPU/GPU split clearly and makes the
   constraints explicit.
 
 What is weak:
@@ -304,7 +304,7 @@ What does not yet exist:
 
 2. Fix the broken environment doc command.
    - Remove or replace the invalid `unitree` extra in
-     `docs/development-workflow.md`.
+     `docs/development/development-workflow.md`.
 
 3. Improve runtime recovery messages.
    - Turn backend-init failures into actionable guidance instead of a raw traceback.

@@ -266,7 +266,7 @@ action = ctrl.compute(
 )
 ```
 
-For a planner demo wired through LeRobot's official `make_env()` stack, see **G1 Native LeRobot (SONIC)** above. The planner path and the encoder+decoder tracking path are different inference stacks with different ONNX contracts; see [docs/sonic-inference-stacks.md](docs/sonic-inference-stacks.md) for the exact split, validation policy, and joint-order conventions.
+For a planner demo wired through LeRobot's official `make_env()` stack, see **G1 Native LeRobot (SONIC)** above. The planner path and the encoder+decoder tracking path are different inference stacks with different ONNX contracts; see [docs/product/sonic-inference-stacks.md](docs/product/sonic-inference-stacks.md) for the exact split, validation policy, and joint-order conventions.
 
 </details>
 
@@ -294,7 +294,7 @@ action = ctrl.compute(
 )
 ```
 
-Models (`planner_sonic.onnx`, `model_encoder.onnx`, `model_decoder.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. See [docs/sonic-inference-stacks.md](docs/sonic-inference-stacks.md) for the exact split between planner and tracking, plus the validation policy and joint-order conventions. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
+Models (`planner_sonic.onnx`, `model_encoder.onnx`, `model_decoder.onnx`) are downloaded from HuggingFace (`nvidia/GEAR-SONIC`) on first use. Requires `pip install roboharness[demo]`. See [docs/product/sonic-inference-stacks.md](docs/product/sonic-inference-stacks.md) for the exact split between planner and tracking, plus the validation policy and joint-order conventions. See [#86](https://github.com/MiaoDX/roboharness/issues/86) (Phase 1) and [#92](https://github.com/MiaoDX/roboharness/issues/92) (Phase 2).
 
 </details>
 
@@ -353,8 +353,8 @@ result = harness.run_to_next_checkpoint(actions)
 
 See [STATUS.md](STATUS.md), [ARCHITECTURE.md](ARCHITECTURE.md),
 [docs/human/README.md](docs/human/README.md), [CONTRIBUTING.md](CONTRIBUTING.md),
-[CHANGELOG.md](CHANGELOG.md), [docs/development-workflow.md](docs/development-workflow.md),
-and [docs/context.en.md](docs/context.en.md) for current status, architecture,
+[CHANGELOG.md](CHANGELOG.md), [docs/development/development-workflow.md](docs/development/development-workflow.md),
+and [docs/context/context.en.md](docs/context/context.en.md) for current status, architecture,
 the curated human doc index, contributor workflow, release notes, and project
 background.
 

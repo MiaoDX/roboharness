@@ -17,9 +17,9 @@ strategy drafts; those are evidence, not the default review path.
 
 - `CONTRIBUTING.md` — contribution workflow.
 - `CHANGELOG.md` — release history.
-- `docs/development-workflow.md` — development environment guidance.
-- `docs/context.en.md` and `docs/context.zh-CN.md` — project background.
-- `docs/sonic-inference-stacks.md` — SONIC planner/tracking split and
+- `docs/development/development-workflow.md` — development environment guidance.
+- `docs/context/context.en.md` and `docs/context/context.zh-CN.md` — project background.
+- `docs/product/sonic-inference-stacks.md` — SONIC planner/tracking split and
   validation policy.
 
 ## Evidence and History

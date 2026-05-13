@@ -158,5 +158,5 @@ These are explicitly out of scope for P1:
 ## Related
 
 - [PR #47](https://github.com/MiaoDX/roboharness/pull/47) — P0: fail-first report module
-- `docs/roadmap.md` — Milestone A2: task-level summary metrics (P1 refines this milestone)
+- `docs/product/roadmap.md` — Milestone A2: task-level summary metrics (P1 refines this milestone)
 - Harness Engineering article discussion, 2026-04-03

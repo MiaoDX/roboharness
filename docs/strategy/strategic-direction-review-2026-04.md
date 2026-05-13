@@ -155,7 +155,7 @@ This doesn't mean feature work stops — it means feature work should be evaluat
 ### Short-term (2 weeks)
 
 **Action 4: Continue P1 Constraint Evaluator implementation.**
-- Spec exists at `docs/p1-constraint-evaluator.md`
+- Spec exists at `docs/product/p1-constraint-evaluator.md`
 - This is the feature that turns roboharness from "can see" to "can judge"
 - Closes the agent feedback loop: code change → harness run → constraint check → pass/fail verdict
 - After this, CI can block PRs that break robot behavior — "constraints beat instructions"
@@ -281,4 +281,4 @@ Additional insight worth remembering:
 
 > "Each harness component is a hypothesis about the current model's capability boundary. These hypotheses have different expiration speeds. The evolution direction of a harness is not getting thicker, but getting thinner as models improve."
 
-This is codified in `docs/component-lifecycle-guide.md`. When a new model generation releases, the first thing to do is remove components and test if quality drops — not add more layers.
+This is codified in `docs/development/component-lifecycle-guide.md`. When a new model generation releases, the first thing to do is remove components and test if quality drops — not add more layers.

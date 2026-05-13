@@ -45,7 +45,7 @@ scripts/gpu-dev-setup.sh
 make check-gpu
 ```
 
-See `docs/development-workflow.md` for manual setup and background.
+See `docs/development/development-workflow.md` for manual setup and background.
 
 Isaac Lab end-to-end validation requires NVIDIA RTX hardware. CPU tests validate
 the wrapper contract through mock environments, not real Isaac Lab execution.

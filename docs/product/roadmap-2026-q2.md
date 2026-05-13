@@ -1,7 +1,7 @@
 # Roboharness Project Roadmap — 2026 Q2+
 
 _Last updated: April 10, 2026_
-_This document covers the project's technical direction and priority ordering. Community and distribution strategy is in `ecosystem-strategy.md`._
+_This document covers the project's technical direction and priority ordering. Community and distribution strategy is in `docs/strategy/ecosystem-strategy.md`._
 _No timing estimates — priorities determine what to work on, AI coding agents determine how fast it ships._
 
 ---
@@ -66,14 +66,14 @@ Directions are split into "do now" and "do later." "Do now" means the next avail
 
 **What to do:**
 
-1. Complete the YAML constraint → pass/fail flow described in `docs/p1-constraint-evaluator.md`
+1. Complete the YAML constraint → pass/fail flow described in `docs/product/p1-constraint-evaluator.md`
 2. Demo constraint evaluation on mujoco_grasp and g1_wbc_reach
 3. Add pass/fail markers (green/red) to HTML reports
 4. Provide `roboharness evaluate --constraints grasp_default.yaml` CLI path
 
 **Exit criteria:** CI-generated HTML reports show which checkpoints passed constraints and which failed.
 
-**Related issues:** `docs/p1-constraint-evaluator.md` has the design doc.
+**Related issues:** `docs/product/p1-constraint-evaluator.md` has the design doc.
 
 ### C. Showcase Repository (github.com/roboharness/showcase)
 
@@ -150,7 +150,7 @@ NVIDIA released Newton 1.0 at GTC 2026, built on Warp, claiming 475x faster than
 
 **Not urgent.** Newton just hit 1.0 and the API may still be changing. Monitor community adoption first. Roboharness's MuJoCo support + Gymnasium wrapper already covers most scenarios.
 
-**Spike complete:** `docs/spike-newton-backend.md` documents the integration plan,
+**Spike complete:** `docs/research/spike-newton-backend.md` documents the integration plan,
 SimulatorBackend protocol mapping, CI requirements, and concrete adoption criteria
 for when to begin implementation. Isaac Lab users already get Newton coverage today
 via `RobotHarnessWrapper` (Isaac Lab's Newton backend exposes a Gymnasium interface).
@@ -188,7 +188,7 @@ Explicitly listed to prevent scope creep:
 | Direction | Related Issue | Status |
 |-----------|--------------|--------|
 | LeRobot eval plugin | To be created | New direction |
-| Constraint Evaluator | docs/p1-constraint-evaluator.md | Design complete, awaiting implementation |
+| Constraint Evaluator | docs/product/p1-constraint-evaluator.md | Design complete, awaiting implementation |
 | Showcase repo | Redefines #91 | New approach |
 | VLM judge | To be created | Design phase |
 | Newton support | None | Monitoring |
