@@ -23,7 +23,16 @@ If instructions conflict, priority is:
 
 ---
 
-## 0.1) Skill routing (Codex + Claude)
+## 0.1) Orientation and command selection
+
+For architectural changes, also read `ARCHITECTURE.md`.
+For public docs, examples, packaging, or Hugging Face Space changes, read the
+relevant `README.md` files first.
+If a `Makefile` target exists for a task, prefer it over inventing a new command.
+
+---
+
+## 0.2) Skill routing (Codex + Claude)
 
 When the user's request clearly matches an available skill, invoke that skill as the
 first action instead of replying ad hoc or exploring with other tools first. This
@@ -45,7 +54,7 @@ Key routing rules:
 
 ---
 
-## 0.2) Design artifact mirroring
+## 0.3) Design artifact mirroring
 
 When a design or planning skill writes artifacts outside the repo (for example under
 `~/.gstack/projects/...`), keep that external copy if the skill needs it for cross-session
@@ -59,7 +68,7 @@ For `/office-hours` outputs specifically:
 
 ---
 
-## 0.3) Decision persistence for long reviews
+## 0.4) Decision persistence for long reviews
 
 For multi-step design, review, or planning work, do not rely on chat context as the
 sole source of truth once decisions start getting locked in.
@@ -118,6 +127,18 @@ python -c "import pytest_cov; print('pytest-cov ok')"
 ```
 
 If this fails, install missing dev deps first (via `uv` preferred, pip fallback), then proceed.
+
+### 1.4 Optional extras by task
+
+Use optional extras by task:
+
+- `.[dev]` for normal development, tests, lint, and typing.
+- `.[demo]` for MuJoCo, Meshcat, Rerun, examples, or visual demo work.
+- `.[wbc]` for WBC / Pinocchio / Pink controller work.
+- `.[lerobot]` for LeRobot integration work.
+
+GPU or visual validation cannot be fully completed in CPU-only environments;
+report that limitation explicitly.
 
 ---
 

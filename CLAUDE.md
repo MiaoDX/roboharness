@@ -5,16 +5,26 @@ Visual testing harness for AI coding agents in robot simulation. Python 3.10+, n
 ## Build & test
 
 ```bash
-pip install -e ".[dev]"          # install with dev deps
+uv --version
+uv sync --dev                    # if uv lock/workspace setup is present
+# If no lockfile/workspace setup is present:
+uv pip install -e ".[dev]"
+python -c "import pytest_cov; print('pytest-cov ok')"
+pytest -q                        # run all tests with coverage (testpaths: tests/)
+pytest tests/test_harness.py -k test_name -q  # run single test
+pytest --no-cov -q               # run tests without coverage
 ruff check .                     # lint (line-length 100)
 ruff format --check .            # format check
-pytest                           # run all tests with coverage (testpaths: tests/)
-pytest tests/test_harness.py -k test_name  # run single test
-pytest --no-cov                  # run tests without coverage
 mypy src/                        # type check (Python 3.10 target)
 ```
 
-MuJoCo example (headless, needs `pip install -e ".[demo]"`):
+Fallback when `uv` is unavailable:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+MuJoCo example (headless, needs `.[demo]`):
 ```bash
 MUJOCO_GL=osmesa python examples/mujoco_grasp.py
 ```
@@ -120,7 +130,10 @@ Local GPU setup: run `scripts/gpu-dev-setup.sh` or see `docs/development-workflo
 - Pre-commit hooks are configured (`.pre-commit-config.yaml`). Run `pre-commit install` to enable, or run `ruff check . && ruff format --check .` manually.
 - Optional deps: `[demo]` (all example dependencies), `[dev]` (testing/linting tools).
 
-## Subagent strategy
+## Claude-specific workflow
+
+This section applies only in Claude environments that support subagents. Do not
+use it to override repo-wide instructions in `AGENTS.md`.
 
 - **Maximize parallelism.** Run independent tasks (research, search, implementation) as concurrent subagents. Sequential execution of parallelizable work is unacceptable.
 - **Protect the main context window.** Delegate non-trivial work to subagents; main session is for orchestration.
@@ -156,20 +169,4 @@ Local GPU setup: run `scripts/gpu-dev-setup.sh` or see `docs/development-workflo
 
 ## Skill routing
 
-When the user's request matches an available skill, ALWAYS invoke it using the Skill
-tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
-
-Key routing rules:
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
-- Bugs, errors, "why is this broken", 500 errors → invoke investigate
-- Ship, deploy, push, create PR → invoke ship
-- QA, test the site, find bugs → invoke qa
-- Code review, check my diff → invoke review
-- Update docs after shipping → invoke document-release
-- Weekly retro → invoke retro
-- Design system, brand → invoke design-consultation
-- Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
-- Save progress, checkpoint, resume → invoke checkpoint
-- Code quality, health check → invoke health
+Follow the canonical skill-routing rules in `AGENTS.md`.
