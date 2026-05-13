@@ -2,6 +2,12 @@
 
 Roboharness is a visual testing harness for **AI Coding Agents** in robot simulation. Its core premise: when an AI agent writes robot control code, it needs to **pause, observe, judge, and iterate** at critical moments — just like a human engineer watching a simulation replay.
 
+The project now has two connected surfaces:
+
+- a reusable harness layer for checkpointed visual and numeric captures
+- a trust-loop layer that turns captures, metrics, and baselines into proof packs
+  a human can review quickly
+
 ## Design Philosophy
 
 ### Why Roboharness?
@@ -15,6 +21,7 @@ Roboharness enables AI agents to automatically capture multi-view screenshots at
 1. **Protocol-Driven**: All external dependencies (simulators, controllers, visualizers) integrate via structural typing Protocols — no base class inheritance required.
 2. **Checkpoint-Oriented**: Simulation doesn't run straight through. It pauses at semantically meaningful points for capture and inspection.
 3. **Agent-First**: The API is designed around the AI agent's workflow — load a task protocol, execute action sequences, receive visual feedback, decide what to do next.
+4. **Approval-Centered**: Long unattended changes should end in a compact proof surface: what changed, where it failed first, what evidence compares to the baseline, and what needs human review.
 
 ## High-Level Architecture
 
@@ -53,6 +60,10 @@ Roboharness enables AI agents to automatically capture multi-view screenshots at
                 • MuJoCoMeshcatBackend
                 • (Isaac Lab, ManiSkill, ...)
 ```
+
+The harness loop produces checkpoint images and state. The trust loop adds
+metric evaluation, paired current-vs-baseline evidence, alarm summaries,
+approval queue decisions, and HTML/JSON reports.
 
 ## Module Breakdown
 
@@ -93,13 +104,14 @@ harness.load_protocol(GRASP_PROTOCOL)
 harness.load_protocol(GRASP_PROTOCOL, phases=["pre_grasp", "grasp", "lift"])
 ```
 
-**Four built-in protocols:**
+**Five built-in protocols:**
 
 | Protocol | Use Case | Phases |
 |----------|----------|--------|
 | `GRASP_PROTOCOL` | Pick-and-place | plan → pre_grasp → approach → grasp → lift → place → home |
 | `LOCOMOTION_PROTOCOL` | Legged walking | initial → accelerate → steady → decelerate → terminal |
 | `LOCO_MANIPULATION_PROTOCOL` | Mobile manipulation | navigate → pre_grasp → grasp → transport → place → retreat |
+| `REACH_PROTOCOL` | End-effector reaching / pointing | rest → reach → hold → retract |
 | `DANCE_PROTOCOL` | Rhythmic motion | ready → sequence → finale |
 
 **Custom protocols are straightforward:**
@@ -160,6 +172,31 @@ report.json ──→ MetricAssertion[] ──→ AssertionEngine ──→ Eval
 - **Constraints** — Loadable from JSON/YAML files, separating configuration from code
 
 **Batch evaluation** (`evaluate/batch.py`): Cross-trial aggregated analysis — success rates, failure phase distribution, variant comparison.
+
+The evaluation package also owns the LeRobot evaluation path:
+
+- native LeRobot environment creation prefers `make_env()` and adapts the
+  resulting vector environment back to a single-env interface
+- policy adapters normalize LeRobot checkpoint inference to an observation →
+  action callable
+- evaluation reports record per-episode rewards, success rate, checkpoint
+  image directories, and threshold-gated CI outcomes
+
+### `approval/` — Paired Evidence and Review Surfaces
+
+The approval package contains shared primitives for current-vs-baseline proof
+surfaces. It resolves requested evidence paths under bounded roots, rejects path
+escapes, and classifies each requested proof pair as full, ambiguous, partial,
+empty, or mismatched.
+
+The MuJoCo trust loop builds on this layer to produce:
+
+- `contract.json` — compiled approval contract
+- `autonomous_report.json` — canonical metrics and baseline comparison
+- `alarms.json` — evaluator-derived alarm cards
+- `phase_manifest.json` — first failing phase, view selection, and rerun hint
+- `approval_report.json` — surfaced vs suppressed review decision
+- `report.html` — first-screen proof surface for human review
 
 ### `runner.py` — Parallel Trial Execution
 
@@ -224,6 +261,11 @@ for _ in range(200):
 
 Automatically detects multi-camera capabilities (`render_camera()` method, Isaac Lab TiledCamera, or fallback to `env.render()`).
 
+**VectorEnvAdapter** adapts a single-instance Gymnasium `VectorEnv` back to a
+standard `gym.Env` shape. This is used for LeRobot `make_env()` integrations,
+where `n_envs=1` still returns a vectorized wrapper with batched observations,
+rewards, termination flags, and info values.
+
 ### `robots/` — Robot-Specific Code
 
 Currently supports **Unitree G1** humanoid robot:
@@ -240,11 +282,22 @@ Generates self-contained HTML reports with multi-view screenshots at each checkp
 
 ```bash
 roboharness inspect ./harness_output    # inspect output directory contents
-roboharness report ./harness_output     # generate HTML report + JSON summary
-roboharness evaluate report.json        # run constraint evaluation
+roboharness report ./harness_output     # generate report.json summary
+roboharness evaluate autonomous_report.json  # run constraint evaluation
 roboharness evaluate-batch ./output/    # batch evaluation
 roboharness trend ./output/             # trend detection (regression/improvement)
 ```
+
+HTML reports are generated by `roboharness.reporting.generate_html_report()` and
+by the repo demo scripts when run with `--report`.
+
+### `mcp/` — Model Context Protocol Tools
+
+The MCP surface exposes harness operations to AI agents through standard MCP
+tools. The current tool set can capture checkpoints, evaluate metric
+constraints, compare success rates against evaluation history, and evaluate all
+trial reports under a results directory. The business logic is decoupled from
+the optional MCP SDK so it can be tested without running an MCP server.
 
 ### `core/lifecycle.py` — Component Lifecycle
 
@@ -301,11 +354,9 @@ for phase_name, actions in my_action_sequences.items():
 
 | Group | Purpose | Key Packages |
 |-------|---------|-------------|
-| `[mujoco]` | MuJoCo simulation | mujoco >= 3.0 |
-| `[meshcat]` | 3D interactive visualization | meshcat >= 0.3 |
-| `[rerun]` | Rerun time-series visualization | rerun-sdk >= 0.18 |
-| `[wbc]` | Whole-body control (IK) | pinocchio, pink, qpsolvers |
-| `[lerobot]` | LeRobot policy inference | onnxruntime, huggingface_hub |
+| `[demo]` | MuJoCo, Meshcat, Gymnasium, Rerun, G1 demo runtime | mujoco, meshcat, gymnasium, onnxruntime, huggingface_hub, Pillow, robot_descriptions, rerun-sdk |
+| `[wbc]` | Whole-body control (IK) | pin, pin-pink, qpsolvers |
+| `[lerobot]` | Native LeRobot evaluation and environment integration | lerobot, gymnasium, mujoco, Pillow, torch |
 | `[dev]` | Development tools | pytest, ruff, mypy |
 
 ## Extension Guide
@@ -348,3 +399,18 @@ class MyController:
         # command → action conversion logic
         return joint_positions
 ```
+
+### Adding a New Approval Surface
+
+Start from bounded evidence roots and explicit evidence targets. Current and
+baseline proof paths should be resolved through the approval primitives rather
+than string-concatenated into report HTML. This keeps review bundles
+deterministic, prevents path escapes, and lets missing or ambiguous evidence be
+surfaced as a review state instead of silently disappearing.
+
+### Adding a New MCP Tool
+
+Keep tool business logic in the SDK-free tool layer and expose only a thin MCP
+server wrapper around it. Each tool should accept JSON-serializable inputs,
+return JSON-serializable outputs, and be testable without importing the optional
+`mcp` package.
