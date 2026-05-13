@@ -30,3 +30,10 @@ def test_hf_manual_fetch_keeps_sonic_planner_in_sync() -> None:
     workflow = Path(".github/workflows/hf-space.yml").read_text()
     assert "_site/sonic-planner" in workflow
     assert "$BASE/sonic-planner/" in workflow
+
+
+def test_landing_page_uses_hf_static_compatible_demo_links() -> None:
+    page = Path(".github/pages/index.html").read_text()
+    for demo_id in _matrix_ids():
+        assert f'href="{demo_id}/index.html"' in page
+        assert f'href="{demo_id}/"' not in page
