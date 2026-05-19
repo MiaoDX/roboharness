@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import json
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -306,6 +307,68 @@ class ProofPack:
     approval_report: dict[str, Any]
 
 
+class EvidenceState(str, Enum):
+    """Canonical evidence state labels emitted by the MuJoCo approval report."""
+
+    PASS_NO_FAILED_PHASE = "PASS/no failed phase"
+    EMPTY = "FAIL/empty evidence"
+    MANIFEST_MISMATCH = "FAIL/manifest mismatch"
+    AMBIGUOUS_STILL_IMAGE = "FAIL/ambiguous still-image evidence"
+    PARTIAL = "FAIL/partial evidence"
+    FULL = "FAIL/full evidence"
+
+    @property
+    def label(self) -> str:
+        return self.value
+
+    @property
+    def banner_variant(self) -> str:
+        if self is EvidenceState.PASS_NO_FAILED_PHASE:
+            return "pass"
+        if self is EvidenceState.MANIFEST_MISMATCH:
+            return "mismatch"
+        if self is EvidenceState.PARTIAL:
+            return "partial"
+        if self is EvidenceState.EMPTY:
+            return "empty"
+        if self is EvidenceState.AMBIGUOUS_STILL_IMAGE:
+            return "ambiguous"
+        return "full"
+
+
+@dataclass(frozen=True)
+class EvidenceSummary:
+    """Evidence state and reviewer-facing copy derived from one manifest."""
+
+    state: EvidenceState
+    message: str
+
+    @property
+    def label(self) -> str:
+        return self.state.label
+
+    @property
+    def banner_variant(self) -> str:
+        return self.state.banner_variant
+
+
+@dataclass(frozen=True)
+class ApprovalDecision:
+    """Central approval semantics for one MuJoCo proof pack."""
+
+    evidence: EvidenceSummary
+    overall_verdict: str
+    surfaces_case: bool
+    surfaced_case_status: str
+    material_reasons: tuple[str, ...]
+    stop_reason: str
+    run_state: str
+    run_state_title: str
+    run_state_message: str
+    needs_baseline_blessing: bool
+    reruns: int
+
+
 @dataclass(frozen=True)
 class GroundedContractRule:
     """Validated contract rule tied to one evaluator assertion template."""
@@ -544,25 +607,17 @@ def build_approval_report(
 ) -> dict[str, Any]:
     """Build the single-case approval artifact returned by the MuJoCo wedge."""
     case_id = str(report.get("case_id", "deterministic_mujoco_grasp"))
-    evidence_state = _summary_evidence_state(manifest, evidence_pairs)
-    overall_verdict = _approval_overall_verdict(
-        evaluation_result,
-        evidence_state,
+    evidence = _build_evidence_summary(manifest, evidence_pairs)
+    decision = _build_approval_decision(
+        mode=contract["mode"],
+        evaluation_result=evaluation_result,
+        evidence=evidence,
         has_ungrounded_rules=bool(_ungrounded_rule_ids(contract, evaluation_result)),
     )
     surfaced_cases: list[dict[str, Any]] = []
     suppressed_cases: list[dict[str, Any]] = []
-    is_migration_review = contract.get("mode") == "migration" and overall_verdict == "PASS"
 
-    if overall_verdict == "PASS" and not is_migration_review:
-        suppressed_cases.append(
-            {
-                "case_id": case_id,
-                "status": "UNCHANGED",
-                "reason": "no_material_change",
-            }
-        )
-    else:
+    if decision.surfaces_case:
         surfaced_cases.append(
             _build_surfaced_case(
                 contract=contract,
@@ -571,42 +626,34 @@ def build_approval_report(
                 manifest=manifest,
                 evidence_pairs=evidence_pairs,
                 case_id=case_id,
-                overall_verdict=overall_verdict,
-                evidence_state=evidence_state,
+                decision=decision,
             )
         )
-
-    run_state, run_title, run_message = _build_run_state(
-        overall_verdict=overall_verdict,
-        evidence_state=evidence_state,
-        surfaced_cases=surfaced_cases,
-        mode=contract["mode"],
-    )
-    needs_baseline_blessing = (
-        contract.get("mode") == "migration" and overall_verdict == "PASS" and bool(surfaced_cases)
-    )
+    else:
+        suppressed_cases.append(
+            {
+                "case_id": case_id,
+                "status": "UNCHANGED",
+                "reason": "no_material_change",
+            }
+        )
 
     return {
         "schema_version": APPROVAL_REPORT_SCHEMA_VERSION,
         "contract_id": contract["contract_id"],
         "mode": contract["mode"],
-        "overall_verdict": overall_verdict,
-        "stop_reason": _build_stop_reason(
-            overall_verdict,
-            evidence_state,
-            mode=contract["mode"],
-            surfaced_cases=surfaced_cases,
-        ),
-        "run_state": run_state,
-        "run_state_title": run_title,
-        "run_state_message": run_message,
+        "overall_verdict": decision.overall_verdict,
+        "stop_reason": decision.stop_reason,
+        "run_state": decision.run_state,
+        "run_state_title": decision.run_state_title,
+        "run_state_message": decision.run_state_message,
         "baseline_authority": _baseline_authority_copy(contract["mode"]),
         "summary": {
             "cases_total": 1,
             "cases_surfaced": len(surfaced_cases),
             "cases_suppressed": len(suppressed_cases),
             "cases_unchanged": len(suppressed_cases),
-            "reruns": 0 if overall_verdict == "PASS" else 1,
+            "reruns": decision.reruns,
         },
         "surfaced_cases": surfaced_cases,
         "suppressed_cases": suppressed_cases,
@@ -615,7 +662,7 @@ def build_approval_report(
         },
         "user_action": {
             "needs_review": bool(surfaced_cases),
-            "needs_baseline_blessing": needs_baseline_blessing,
+            "needs_baseline_blessing": decision.needs_baseline_blessing,
             "review_case_ids": [case["case_id"] for case in surfaced_cases],
         },
     }
@@ -1065,8 +1112,8 @@ def build_summary_html(
     """Build the alarm-first HTML summary block for the shared report renderer."""
     visible_alarms = alarms[:4]
     alarm_cards = "".join(_render_alarm_card(alarm) for alarm in visible_alarms)
-    evidence_state = _summary_evidence_state(manifest, evidence_pairs)
-    evidence_section = _render_evidence_section(manifest, evidence_pairs)
+    evidence = _build_evidence_summary(manifest, evidence_pairs)
+    evidence_section = _render_evidence_section(manifest, evidence_pairs, evidence)
     decision_banner = _render_run_decision_banner(approval_report)
     counts_strip = _render_case_counts(approval_report)
     queue_section = _render_approval_queue(approval_report)
@@ -1094,7 +1141,7 @@ def build_summary_html(
             "<p><strong>Why this proof:</strong> "
             f"first failing phase <code>{html.escape(manifest.failed_phase_id)}</code> "
             f"with manifest-selected views <code>{html.escape(selected_views)}</code>. "
-            f"State: {html.escape(evidence_state)}.</p>"
+            f"State: {html.escape(evidence.label)}.</p>"
             f"<p><strong>Rerun hint:</strong> <code>{html.escape(manifest.rerun_hint)}</code></p>"
         )
 
@@ -1125,7 +1172,7 @@ def build_summary_html(
         '<div class="table-scroll"><table class="meta-table">'
         f"<tr><th>Baseline</th><td><code>{baseline_name}</code></td></tr>"
         f"<tr><th>Verdict</th><td><strong>{html.escape(manifest.verdict.upper())}</strong></td></tr>"
-        f"<tr><th>Evidence state</th><td>{html.escape(evidence_state)}</td></tr>"
+        f"<tr><th>Evidence state</th><td>{html.escape(evidence.label)}</td></tr>"
         f"<tr><th>Failed phase</th><td>{failed_phase_text}</td></tr>"
         f"<tr><th>Selected views</th><td><code>{html.escape(selected_views)}</code></td></tr>"
         "<tr><th>Root cause</th><td><code>"
@@ -1300,25 +1347,64 @@ def _contract_error(*, cause: str, fix: str) -> ContractCompileError:
 
 def _approval_overall_verdict(
     evaluation_result: EvaluationResult,
-    evidence_state: str,
+    evidence_state: EvidenceState,
     *,
     has_ungrounded_rules: bool,
 ) -> str:
     if has_ungrounded_rules:
         return "CONTRACT_INVALID"
-    if evidence_state == "FAIL/ambiguous still-image evidence":
+    if evidence_state is EvidenceState.AMBIGUOUS_STILL_IMAGE:
         return "AMBIGUOUS"
     if evaluation_result.verdict.value == "pass":
         return "PASS"
     return "FAIL"
 
 
-def _build_run_state(
+def _build_approval_decision(
+    *,
+    mode: str,
+    evaluation_result: EvaluationResult,
+    evidence: EvidenceSummary,
+    has_ungrounded_rules: bool,
+) -> ApprovalDecision:
+    overall_verdict = _approval_overall_verdict(
+        evaluation_result,
+        evidence.state,
+        has_ungrounded_rules=has_ungrounded_rules,
+    )
+    surfaces_case = overall_verdict != "PASS" or mode == "migration"
+    run_state, run_title, run_message = _run_fields_for_decision(
+        overall_verdict=overall_verdict,
+        evidence_state=evidence.state,
+        mode=mode,
+        surfaces_case=surfaces_case,
+    )
+    return ApprovalDecision(
+        evidence=evidence,
+        overall_verdict=overall_verdict,
+        surfaces_case=surfaces_case,
+        surfaced_case_status=_surfaced_case_status_for_decision(mode, overall_verdict),
+        material_reasons=_material_reasons_for_decision(mode, overall_verdict, evidence.state),
+        stop_reason=_stop_reason_for_decision(
+            mode=mode,
+            overall_verdict=overall_verdict,
+            evidence_state=evidence.state,
+            surfaces_case=surfaces_case,
+        ),
+        run_state=run_state,
+        run_state_title=run_title,
+        run_state_message=run_message,
+        needs_baseline_blessing=mode == "migration" and overall_verdict == "PASS" and surfaces_case,
+        reruns=0 if overall_verdict == "PASS" else 1,
+    )
+
+
+def _run_fields_for_decision(
     *,
     overall_verdict: str,
-    evidence_state: str,
-    surfaced_cases: list[dict[str, Any]],
+    evidence_state: EvidenceState,
     mode: str,
+    surfaces_case: bool,
 ) -> tuple[str, str, str]:
     if overall_verdict == "CONTRACT_INVALID":
         return (
@@ -1329,7 +1415,7 @@ def _build_run_state(
                 "Do not trust or bless this run."
             ),
         )
-    if overall_verdict == "PASS" and surfaced_cases and mode == "migration":
+    if overall_verdict == "PASS" and surfaces_case and mode == "migration":
         return (
             "review_ready_migration",
             "Review intended change",
@@ -1338,19 +1424,19 @@ def _build_run_state(
                 "against the old baseline before blessing a new one."
             ),
         )
-    if overall_verdict == "PASS" and not surfaced_cases:
+    if overall_verdict == "PASS" and not surfaces_case:
         return (
             "review_ready_success",
             "No surfaced cases",
             "No material changes surfaced. Old baseline remains authoritative.",
         )
-    if evidence_state in {"FAIL/partial evidence", "FAIL/empty evidence"}:
+    if evidence_state in {EvidenceState.PARTIAL, EvidenceState.EMPTY}:
         return (
             "partial_reviewable",
             "Partial reviewable",
             "Some review is possible, but one side of the proof is missing. Review cautiously.",
         )
-    if evidence_state in {"FAIL/manifest mismatch", "FAIL/ambiguous still-image evidence"}:
+    if evidence_state in {EvidenceState.MANIFEST_MISMATCH, EvidenceState.AMBIGUOUS_STILL_IMAGE}:
         return (
             "evidence_degraded",
             "Evidence degraded",
@@ -1363,28 +1449,58 @@ def _build_run_state(
     )
 
 
-def _build_stop_reason(
-    overall_verdict: str,
-    evidence_state: str,
+def _stop_reason_for_decision(
     *,
     mode: str,
-    surfaced_cases: list[dict[str, Any]],
+    overall_verdict: str,
+    evidence_state: EvidenceState,
+    surfaces_case: bool,
 ) -> str:
     if overall_verdict == "CONTRACT_INVALID":
         return "contract_invalid"
-    if overall_verdict == "PASS" and mode == "migration" and surfaced_cases:
+    if overall_verdict == "PASS" and mode == "migration" and surfaces_case:
         return "awaiting_user_blessing"
     if overall_verdict == "PASS":
         return "all_rules_satisfied"
     if overall_verdict == "AMBIGUOUS":
         return "visual_intent_unclear"
-    if evidence_state == "FAIL/manifest mismatch":
+    if evidence_state is EvidenceState.MANIFEST_MISMATCH:
         return "evidence_contract_mismatch"
-    if evidence_state == "FAIL/partial evidence":
+    if evidence_state is EvidenceState.PARTIAL:
         return "evidence_incomplete"
-    if evidence_state == "FAIL/empty evidence":
+    if evidence_state is EvidenceState.EMPTY:
         return "evidence_missing"
     return "hard_metric_failed"
+
+
+def _surfaced_case_status_for_decision(mode: str, overall_verdict: str) -> str:
+    if overall_verdict == "CONTRACT_INVALID":
+        return "CONTRACT_INVALID"
+    if overall_verdict == "AMBIGUOUS":
+        return "AMBIGUOUS"
+    if mode == "migration" and overall_verdict == "PASS":
+        return "INTENDED_CHANGE_CONFIRMED"
+    return "REGRESSION"
+
+
+def _material_reasons_for_decision(
+    mode: str,
+    overall_verdict: str,
+    evidence_state: EvidenceState,
+) -> tuple[str, ...]:
+    if overall_verdict == "CONTRACT_INVALID":
+        return ("contract_invalid",)
+    if overall_verdict == "AMBIGUOUS":
+        return ("visual_intent_unclear",)
+    if mode == "migration" and overall_verdict == "PASS":
+        return ("intended_change_requires_review",)
+    if evidence_state is EvidenceState.PARTIAL:
+        return ("hard_metric_failed", "partial_evidence")
+    if evidence_state is EvidenceState.EMPTY:
+        return ("hard_metric_failed", "missing_evidence")
+    if evidence_state is EvidenceState.MANIFEST_MISMATCH:
+        return ("hard_metric_failed", "evidence_contract_mismatch")
+    return ("hard_metric_failed",)
 
 
 def _baseline_authority_copy(mode: str) -> str:
@@ -1407,16 +1523,15 @@ def _build_surfaced_case(
     manifest: PhaseManifest,
     evidence_pairs: list[EvidencePair],
     case_id: str,
-    overall_verdict: str,
-    evidence_state: str,
+    decision: ApprovalDecision,
 ) -> dict[str, Any]:
     proof_pair = next((pair for pair in evidence_pairs if pair.status != "mismatch"), None)
-    rules = _build_rule_outcomes(contract, evaluation_result, overall_verdict)
+    rules = _build_rule_outcomes(contract, evaluation_result, decision.overall_verdict)
     metrics = _build_metric_observations(evaluation_result, report)
     return {
         "case_id": case_id,
-        "status": _surfaced_case_status(contract["mode"], overall_verdict),
-        "material_reason": _material_reasons(contract["mode"], overall_verdict, evidence_state),
+        "status": decision.surfaced_case_status,
+        "material_reason": list(decision.material_reasons),
         "proof_panel": {
             "phase_id": proof_pair.phase_id if proof_pair is not None else manifest.failed_phase_id,
             "view": proof_pair.view_name if proof_pair is not None else None,
@@ -1434,7 +1549,7 @@ def _build_surfaced_case(
         },
         "rules": rules,
         "metrics": metrics,
-        "caption": _summary_evidence_message(manifest, evidence_pairs),
+        "caption": decision.evidence.message,
     }
 
 
@@ -1491,32 +1606,6 @@ def _build_metric_observations(
             }
         )
     return observations
-
-
-def _surfaced_case_status(mode: str, overall_verdict: str) -> str:
-    if overall_verdict == "CONTRACT_INVALID":
-        return "CONTRACT_INVALID"
-    if overall_verdict == "AMBIGUOUS":
-        return "AMBIGUOUS"
-    if mode == "migration" and overall_verdict == "PASS":
-        return "INTENDED_CHANGE_CONFIRMED"
-    return "REGRESSION"
-
-
-def _material_reasons(mode: str, overall_verdict: str, evidence_state: str) -> list[str]:
-    if overall_verdict == "CONTRACT_INVALID":
-        return ["contract_invalid"]
-    if overall_verdict == "AMBIGUOUS":
-        return ["visual_intent_unclear"]
-    if mode == "migration" and overall_verdict == "PASS":
-        return ["intended_change_requires_review"]
-    if evidence_state == "FAIL/partial evidence":
-        return ["hard_metric_failed", "partial_evidence"]
-    if evidence_state == "FAIL/empty evidence":
-        return ["hard_metric_failed", "missing_evidence"]
-    if evidence_state == "FAIL/manifest mismatch":
-        return ["hard_metric_failed", "evidence_contract_mismatch"]
-    return ["hard_metric_failed"]
 
 
 def _ground_contract_rules(contract: dict[str, Any]) -> tuple[GroundedContractRule, ...]:
@@ -2002,43 +2091,68 @@ def _summary_evidence_state(
     manifest: PhaseManifest,
     evidence_pairs: list[EvidencePair],
 ) -> str:
+    return _build_evidence_summary(manifest, evidence_pairs).label
+
+
+def _build_evidence_summary(
+    manifest: PhaseManifest,
+    evidence_pairs: list[EvidencePair],
+) -> EvidenceSummary:
+    state = _resolve_evidence_state(manifest, evidence_pairs)
+    return EvidenceSummary(
+        state=state,
+        message=_summary_evidence_message_for_state(state, manifest, evidence_pairs),
+    )
+
+
+def _resolve_evidence_state(
+    manifest: PhaseManifest,
+    evidence_pairs: list[EvidencePair],
+) -> EvidenceState:
     if manifest.failed_phase_id is None:
-        return "PASS/no failed phase"
+        return EvidenceState.PASS_NO_FAILED_PHASE
     if not evidence_pairs or all(pair.status == "empty" for pair in evidence_pairs):
-        return "FAIL/empty evidence"
+        return EvidenceState.EMPTY
     statuses = {pair.status for pair in evidence_pairs}
     if "mismatch" in statuses:
-        return "FAIL/manifest mismatch"
+        return EvidenceState.MANIFEST_MISMATCH
     if "ambiguous" in statuses:
-        return "FAIL/ambiguous still-image evidence"
+        return EvidenceState.AMBIGUOUS_STILL_IMAGE
     if "partial" in statuses or "empty" in statuses:
-        return "FAIL/partial evidence"
-    return "FAIL/full evidence"
+        return EvidenceState.PARTIAL
+    return EvidenceState.FULL
 
 
 def _summary_evidence_message(
     manifest: PhaseManifest,
     evidence_pairs: list[EvidencePair],
 ) -> str:
-    state = _summary_evidence_state(manifest, evidence_pairs)
+    return _build_evidence_summary(manifest, evidence_pairs).message
+
+
+def _summary_evidence_message_for_state(
+    state: EvidenceState,
+    manifest: PhaseManifest,
+    evidence_pairs: list[EvidencePair],
+) -> str:
     diagnostics = _collect_diagnostic_messages(evidence_pairs)
-    if state == "PASS/no failed phase":
+    if state is EvidenceState.PASS_NO_FAILED_PHASE:
         return "No visual regression detected for the canonical primary views."
-    if state == "FAIL/manifest mismatch" and diagnostics:
+    if state is EvidenceState.MANIFEST_MISMATCH and diagnostics:
         return diagnostics[0]
-    if state == "FAIL/empty evidence":
+    if state is EvidenceState.EMPTY:
         return (
             "No visual evidence available for the failing phase. "
             f"Re-run from {manifest.rerun_hint} to rebuild evidence."
         )
-    if state == "FAIL/ambiguous still-image evidence":
+    if state is EvidenceState.AMBIGUOUS_STILL_IMAGE:
         if diagnostics:
             return diagnostics[0]
         return (
             "Still-image evidence is suggestive, but temporal proof is weak. "
             f"Re-run from {manifest.rerun_hint} if motion timing matters."
         )
-    if state == "FAIL/partial evidence" and diagnostics:
+    if state is EvidenceState.PARTIAL and diagnostics:
         return diagnostics[0]
     if manifest.failed_phase_id is None:
         return "No visual regression detected for the canonical primary views."
@@ -2183,9 +2297,8 @@ def _render_baseline_section(approval_report: dict[str, Any]) -> str:
 def _render_evidence_section(
     manifest: PhaseManifest,
     evidence_pairs: list[EvidencePair],
+    evidence: EvidenceSummary,
 ) -> str:
-    state = _summary_evidence_state(manifest, evidence_pairs)
-    message = _summary_evidence_message(manifest, evidence_pairs)
     selected_views = ", ".join(manifest.primary_views[:2]) if manifest.primary_views else "none"
 
     cards = "".join(
@@ -2208,27 +2321,13 @@ def _render_evidence_section(
         f"<p>First failing phase: <code>{html.escape(manifest.failed_phase_id or 'none')}</code> · "
         f"views: <code>{html.escape(selected_views)}</code></p>"
         "</div>"
-        f'<p class="evidence-state-label">{html.escape(state)}</p>'
+        f'<p class="evidence-state-label">{html.escape(evidence.label)}</p>'
         "</div>"
-        f"{_render_evidence_banner(_banner_variant_for_state(state), message)}"
+        f"{_render_evidence_banner(evidence.banner_variant, evidence.message)}"
         f"{mismatch_banners}"
         f'<div class="evidence-grid">{body}</div>'
         "</section>"
     )
-
-
-def _banner_variant_for_state(state: str) -> str:
-    if state.startswith("PASS"):
-        return "pass"
-    if state.endswith("manifest mismatch"):
-        return "mismatch"
-    if state.endswith("partial evidence"):
-        return "partial"
-    if state.endswith("empty evidence"):
-        return "empty"
-    if state.endswith("ambiguous still-image evidence"):
-        return "ambiguous"
-    return "full"
 
 
 def _render_evidence_banner(variant: str, message: str) -> str:
