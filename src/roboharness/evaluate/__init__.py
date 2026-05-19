@@ -13,7 +13,6 @@ from roboharness.evaluate.batch import (
 )
 from roboharness.evaluate.constraints import load_constraints, save_constraints
 from roboharness.evaluate.defaults import GRASP_DEFAULTS
-from roboharness.evaluate.lerobot_env import create_native_env
 from roboharness.evaluate.lerobot_plugin import (
     EpisodeResult,
     LeRobotEvalConfig,
@@ -57,3 +56,11 @@ __all__ = [
     "load_constraints",
     "save_constraints",
 ]
+
+
+def __getattr__(name: str) -> object:
+    if name == "create_native_env":
+        from roboharness.evaluate.lerobot_env import create_native_env
+
+        return create_native_env
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
