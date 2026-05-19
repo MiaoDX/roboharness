@@ -21,22 +21,9 @@ __all__: list[str] = []
 
 # Conditional exports — only available when [demo] extras are installed
 try:
-    from roboharness.robots.unitree_g1.locomotion import (
-        GrootLocomotionController,
-        HolosomaLocomotionController,
-        MotionClip,
-        MotionClipLoader,
-        SonicLocomotionController,
-        SonicMode,
-    )
+    from roboharness.robots.unitree_g1 import locomotion as _locomotion
 
-    __all__ += [
-        "GrootLocomotionController",
-        "HolosomaLocomotionController",
-        "MotionClip",
-        "MotionClipLoader",
-        "SonicLocomotionController",
-        "SonicMode",
-    ]
+    __all__ += list(_locomotion.__all__)
+    globals().update({name: getattr(_locomotion, name) for name in _locomotion.__all__})
 except ImportError:
     pass
