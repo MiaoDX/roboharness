@@ -43,16 +43,11 @@ try:
         CANONICAL_REPORT_NAME,
         ContractCompileError,
         available_contract_presets,
-        build_alarms,
-        build_approval_report,
-        build_autonomous_report,
-        build_phase_manifest,
+        build_proof_pack,
         build_summary_html,
         collect_phase_metrics,
         compile_contract,
-        evaluate_autonomous_report,
         load_blessed_baseline,
-        resolve_evidence_pairs,
         write_artifact_pack,
     )
 except ModuleNotFoundError:  # pragma: no cover - script execution path
@@ -68,16 +63,11 @@ except ModuleNotFoundError:  # pragma: no cover - script execution path
         CANONICAL_REPORT_NAME,
         ContractCompileError,
         available_contract_presets,
-        build_alarms,
-        build_approval_report,
-        build_autonomous_report,
-        build_phase_manifest,
+        build_proof_pack,
         build_summary_html,
         collect_phase_metrics,
         compile_contract,
-        evaluate_autonomous_report,
         load_blessed_baseline,
-        resolve_evidence_pairs,
         write_artifact_pack,
     )
 
@@ -307,54 +297,29 @@ def main() -> None:
     baseline_visual_root = baseline_report_path.resolve().parent / "baseline_visual"
     baseline_report = load_blessed_baseline(baseline_report_path)
     snapshot_metrics = collect_phase_metrics(harness, backend, checkpoint_results)
-    autonomous_report = build_autonomous_report(
+    report_path = trial_dir / "autonomous_report.json"
+    proof_pack = build_proof_pack(
+        contract=contract,
         snapshot_metrics=snapshot_metrics,
         baseline_report=baseline_report,
         baseline_source=str(baseline_report_path),
-    )
-    report_path = trial_dir / "autonomous_report.json"
-    evaluation_result = evaluate_autonomous_report(
-        autonomous_report,
         report_path=str(report_path),
-        contract=contract,
-    )
-    alarms = build_alarms(autonomous_report, evaluation_result)
-    manifest = build_phase_manifest(autonomous_report, evaluation_result, alarms)
-
-    evidence_pairs = []
-    approval_report = build_approval_report(
-        contract=contract,
-        report=autonomous_report,
-        evaluation_result=evaluation_result,
-        manifest=manifest,
-        evidence_pairs=evidence_pairs,
+        trial_dir=trial_dir,
+        baseline_visual_root=baseline_visual_root,
     )
     canonical_report_path = output_dir / CANONICAL_REPORT_NAME
     if args.report:
-        evidence_pairs = resolve_evidence_pairs(
-            trial_dir=trial_dir,
-            baseline_visual_root=baseline_visual_root,
-            manifest=manifest,
-            report=autonomous_report,
-        )
-        approval_report = build_approval_report(
-            contract=contract,
-            report=autonomous_report,
-            evaluation_result=evaluation_result,
-            manifest=manifest,
-            evidence_pairs=evidence_pairs,
-        )
         html_report_path = generate_html_report(
             output_dir,
             summary_html=build_summary_html(
-                autonomous_report,
-                alarms,
-                manifest,
-                evidence_pairs,
-                contract=contract,
-                approval_report=approval_report,
+                proof_pack.report,
+                proof_pack.alarms,
+                proof_pack.manifest,
+                proof_pack.evidence_pairs,
+                contract=proof_pack.contract,
+                approval_report=proof_pack.approval_report,
             ),
-            evaluation_result=evaluation_result,
+            evaluation_result=proof_pack.evaluation_result,
         )
         shutil.copyfile(html_report_path, canonical_report_path)
         print(f"      HTML report: {canonical_report_path}")
@@ -363,12 +328,12 @@ def main() -> None:
 
     write_artifact_pack(
         trial_dir=trial_dir,
-        contract=contract,
-        approval_report=approval_report,
-        report=autonomous_report,
-        evaluation_result=evaluation_result,
-        alarms=alarms,
-        manifest=manifest,
+        contract=proof_pack.contract,
+        approval_report=proof_pack.approval_report,
+        report=proof_pack.report,
+        evaluation_result=proof_pack.evaluation_result,
+        alarms=proof_pack.alarms,
+        manifest=proof_pack.manifest,
         report_generated=args.report,
     )
 
@@ -380,28 +345,35 @@ def main() -> None:
 
     print("[5/5] Summary")
     total_images = len(list(trial_dir.rglob("*_rgb.png"))) if trial_dir.exists() else 0
-    selected_views = ", ".join(manifest.primary_views[:2]) if manifest.primary_views else "none"
+    selected_views = (
+        ", ".join(proof_pack.manifest.primary_views[:2])
+        if proof_pack.manifest.primary_views
+        else "none"
+    )
     print(f"      {total_images} images saved to: {trial_dir}")
     print(
         "      Run state: "
-        f"{approval_report['run_state_title']}"
-        f" | surfaced: {approval_report['summary']['cases_surfaced']}"
-        f" | suppressed: {approval_report['summary']['cases_suppressed']}"
+        f"{proof_pack.approval_report['run_state_title']}"
+        f" | surfaced: {proof_pack.approval_report['summary']['cases_surfaced']}"
+        f" | suppressed: {proof_pack.approval_report['summary']['cases_suppressed']}"
     )
     verdict_line = (
-        f"      Verdict: {evaluation_result.verdict.value.upper()}"
-        f" | failed phase: {manifest.failed_phase or 'none'}"
+        f"      Verdict: {proof_pack.evaluation_result.verdict.value.upper()}"
+        f" | failed phase: {proof_pack.manifest.failed_phase or 'none'}"
         f" | selected views: {selected_views}"
     )
-    if manifest.failed_phase_id is not None:
-        verdict_line += f" | rerun hint: {manifest.rerun_hint}"
+    if proof_pack.manifest.failed_phase_id is not None:
+        verdict_line += f" | rerun hint: {proof_pack.manifest.rerun_hint}"
     print(verdict_line)
     if args.report:
-        print(f"      Evidence status: {_describe_evidence_state(manifest, evidence_pairs)}")
-    print(f"      Baseline authority: {approval_report['baseline_authority']}")
-    print(f"      Agent next action: {manifest.agent_next_action}")
+        print(
+            "      Evidence status: "
+            f"{_describe_evidence_state(proof_pack.manifest, proof_pack.evidence_pairs)}"
+        )
+    print(f"      Baseline authority: {proof_pack.approval_report['baseline_authority']}")
+    print(f"      Agent next action: {proof_pack.manifest.agent_next_action}")
 
-    failures = [result.message for result in evaluation_result.failed]
+    failures = [result.message for result in proof_pack.evaluation_result.failed]
     if failures:
         print("      Alarm details:")
         for message in failures:
