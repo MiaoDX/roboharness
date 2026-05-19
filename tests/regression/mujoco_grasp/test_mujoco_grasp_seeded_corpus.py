@@ -8,14 +8,9 @@ from typing import Any
 from examples.demos.mujoco.wedge import (
     BASELINE_VISUAL_ROOT,
     KNOWN_BAD_VISUAL_ROOT,
-    build_alarms,
-    build_approval_report,
-    build_autonomous_report,
     build_default_contract,
-    build_phase_manifest,
-    evaluate_autonomous_report,
+    build_proof_pack,
     load_blessed_baseline,
-    resolve_evidence_pairs,
 )
 
 
@@ -31,27 +26,15 @@ def _evaluate_seeded_case(case_name: str) -> dict[str, Any]:
     elif case_name != "good":
         raise ValueError(f"Unknown seeded corpus case: {case_name}")
 
-    report = build_autonomous_report(
+    proof_pack = build_proof_pack(
+        contract=build_default_contract(baseline_source="fixture"),
         snapshot_metrics=current,
         baseline_report=baseline,
         baseline_source="fixture",
-    )
-    evaluation_result = evaluate_autonomous_report(report)
-    alarms = build_alarms(report, evaluation_result)
-    manifest = build_phase_manifest(report, evaluation_result, alarms)
-    evidence_pairs = resolve_evidence_pairs(
         trial_dir=KNOWN_BAD_VISUAL_ROOT,
         baseline_visual_root=BASELINE_VISUAL_ROOT,
-        manifest=manifest,
-        report=report,
     )
-    approval_report = build_approval_report(
-        contract=build_default_contract(baseline_source="fixture"),
-        report=report,
-        evaluation_result=evaluation_result,
-        manifest=manifest,
-        evidence_pairs=evidence_pairs,
-    )
+    approval_report = proof_pack.approval_report
     return {
         "case_name": case_name,
         "overall_verdict": approval_report["overall_verdict"],
@@ -64,7 +47,7 @@ def _evaluate_seeded_case(case_name: str) -> dict[str, Any]:
         "ambiguous_rules": [
             case["rules"]["ambiguous"] for case in approval_report["surfaced_cases"]
         ],
-        "evidence_statuses": [pair.status for pair in evidence_pairs],
+        "evidence_statuses": [pair.status for pair in proof_pack.evidence_pairs],
     }
 
 

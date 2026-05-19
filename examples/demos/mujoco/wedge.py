@@ -293,6 +293,19 @@ class PhaseManifest:
         }
 
 
+@dataclass
+class ProofPack:
+    """Complete MuJoCo trust-loop proof pack assembled from one evaluator run."""
+
+    contract: dict[str, Any]
+    report: dict[str, Any]
+    evaluation_result: EvaluationResult
+    alarms: list[AlarmRecord]
+    manifest: PhaseManifest
+    evidence_pairs: list[EvidencePair]
+    approval_report: dict[str, Any]
+
+
 @dataclass(frozen=True)
 class ErrorEnvelope:
     """User-facing error contract shared across contract and report failures."""
@@ -1058,6 +1071,56 @@ def resolve_evidence_pairs(
         ambiguity_selector=(
             (lambda _target: True) if _metric_set_is_ambiguous(metric_explanations) else None
         ),
+    )
+
+
+def build_proof_pack(
+    *,
+    contract: dict[str, Any],
+    snapshot_metrics: dict[str, dict[str, float]],
+    baseline_report: dict[str, Any],
+    baseline_source: str,
+    report_path: str = "",
+    trial_dir: Path | None = None,
+    baseline_visual_root: Path | None = None,
+    include_evidence: bool = True,
+) -> ProofPack:
+    """Build the full MuJoCo approval proof pack in canonical dependency order."""
+    report = build_autonomous_report(
+        snapshot_metrics=snapshot_metrics,
+        baseline_report=baseline_report,
+        baseline_source=baseline_source,
+    )
+    evaluation_result = evaluate_autonomous_report(
+        report,
+        report_path=report_path,
+        contract=contract,
+    )
+    alarms = build_alarms(report, evaluation_result)
+    manifest = build_phase_manifest(report, evaluation_result, alarms)
+    evidence_pairs: list[EvidencePair] = []
+    if include_evidence and trial_dir is not None and baseline_visual_root is not None:
+        evidence_pairs = resolve_evidence_pairs(
+            trial_dir=trial_dir,
+            baseline_visual_root=baseline_visual_root,
+            manifest=manifest,
+            report=report,
+        )
+    approval_report = build_approval_report(
+        contract=contract,
+        report=report,
+        evaluation_result=evaluation_result,
+        manifest=manifest,
+        evidence_pairs=evidence_pairs,
+    )
+    return ProofPack(
+        contract=contract,
+        report=report,
+        evaluation_result=evaluation_result,
+        alarms=alarms,
+        manifest=manifest,
+        evidence_pairs=evidence_pairs,
+        approval_report=approval_report,
     )
 
 

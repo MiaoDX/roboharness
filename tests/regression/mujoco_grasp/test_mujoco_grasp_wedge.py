@@ -29,6 +29,7 @@ from examples.demos.mujoco.wedge import (
     build_contract_from_preset,
     build_default_contract,
     build_phase_manifest,
+    build_proof_pack,
     build_summary_html,
     compile_contract,
     evaluate_autonomous_report,
@@ -452,6 +453,27 @@ def test_known_bad_fixture_resolves_two_ordered_evidence_pairs() -> None:
     assert manifest.rerun_hint == "restore:pre_grasp"
     assert [pair.view_name for pair in evidence_pairs] == ["side", "top"]
     assert [pair.status for pair in evidence_pairs] == ["full", "full"]
+
+
+def test_proof_pack_assembles_approval_with_evidence_in_canonical_order() -> None:
+    baseline = load_blessed_baseline()
+    current = copy.deepcopy(baseline["snapshot_metrics"])
+    current["approach"]["grip_center_error_mm"] += 25.0
+
+    proof_pack = build_proof_pack(
+        contract=build_default_contract(baseline_source="fixture"),
+        snapshot_metrics=current,
+        baseline_report=baseline,
+        baseline_source="fixture",
+        trial_dir=KNOWN_BAD_VISUAL_ROOT,
+        baseline_visual_root=BASELINE_VISUAL_ROOT,
+    )
+
+    assert proof_pack.evaluation_result.verdict is Verdict.FAIL
+    assert proof_pack.manifest.failed_phase_id == "approach"
+    assert [pair.status for pair in proof_pack.evidence_pairs] == ["full", "full"]
+    assert proof_pack.approval_report["overall_verdict"] == "FAIL"
+    assert proof_pack.approval_report["surfaced_cases"][0]["proof_panel"]["status"] == "full"
 
 
 def test_ambiguous_fixture_resolves_temporal_evidence_state() -> None:
