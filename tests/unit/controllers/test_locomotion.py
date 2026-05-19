@@ -108,6 +108,7 @@ def _patch_onnx_deps(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)  # type: ignore[arg-type]
     # Also invalidate any cached imports in the locomotion module
     monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
+    monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1", raising=False)
     monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
 
 
@@ -117,6 +118,19 @@ def _make_g1_state(nq: int = 36, nv: int = 35) -> dict[str, np.ndarray]:
     qpos[3] = 1.0  # quaternion w=1 (identity rotation)
     qvel = np.zeros(nv, dtype=np.float32)
     return {"qpos": qpos, "qvel": qvel}
+
+
+@pytest.mark.usefixtures("_patch_onnx_deps")
+def test_locomotion_compat_exports_match_unitree_g1_surface() -> None:
+    """The deprecated controller path should not own a second export list."""
+    from roboharness.controllers import locomotion as compat
+    from roboharness.robots import unitree_g1
+    from roboharness.robots.unitree_g1 import locomotion as canonical
+
+    assert compat.__all__ == canonical.__all__
+    assert unitree_g1.__all__ == canonical.__all__
+    assert compat.SONIC_DECODER_INPUT_DIM == canonical.SONIC_DECODER_INPUT_DIM
+    assert unitree_g1.NUM_BODY_JOINTS == canonical.NUM_BODY_JOINTS
 
 
 # ---------------------------------------------------------------------------

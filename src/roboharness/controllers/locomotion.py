@@ -2,57 +2,8 @@
 
 from __future__ import annotations
 
-from roboharness.robots.unitree_g1.locomotion import (  # noqa: F401
-    ACTION_SCALE,
-    ANG_VEL_SCALE,
-    CMD_SCALE,
-    DOF_POS_SCALE,
-    DOF_VEL_SCALE,
-    GROOT_BALANCE_FILE,
-    GROOT_DEFAULT_ANGLES,
-    GROOT_HF_REPO,
-    GROOT_WALK_FILE,
-    HOLOSOMA_ACTION_SCALE,
-    HOLOSOMA_DEFAULT_ANGLES,
-    HOLOSOMA_GAIT_PERIOD,
-    HOLOSOMA_HF_REPO,
-    HOLOSOMA_MODEL_FILE,
-    HOLOSOMA_OBS_DIM,
-    NUM_BODY_JOINTS,
-    NUM_LOWER_BODY_JOINTS,
-    OBS_FRAME_DIM,
-    OBS_HISTORY_LEN,
-    SONIC_CONTEXT_LEN,
-    SONIC_CONTROL_RATE,
-    SONIC_DECODER_FILE,
-    SONIC_DECODER_OUTPUT_DIM,
-    SONIC_DEFAULT_ANGLES,
-    SONIC_DEFAULT_HEIGHT,
-    SONIC_DEFAULT_NUM_TOKENS,
-    SONIC_ENCODER_FILE,
-    SONIC_ENCODER_INPUT_DIM,
-    SONIC_HF_REPO,
-    SONIC_LATENT_DIM,
-    SONIC_OUTPUT_RATE,
-    SONIC_PLANNER_DT,
-    SONIC_PLANNER_FILE,
-    SONIC_QPOS_DIM,
-    SONIC_ROBOT_STATE_DIM,
-    GrootLocomotionController,
-    HolosomaLocomotionController,
-    MotionClip,
-    MotionClipLoader,
-    SonicLocomotionController,
-    SonicMode,
-    get_gravity_orientation,
-)
+from roboharness.robots.unitree_g1 import locomotion as _locomotion
 
-__all__ = [
-    "GrootLocomotionController",
-    "HolosomaLocomotionController",
-    "MotionClip",
-    "MotionClipLoader",
-    "SonicLocomotionController",
-    "SonicMode",
-    "get_gravity_orientation",
-]
+__all__ = list(_locomotion.__all__)
+
+globals().update({name: getattr(_locomotion, name) for name in __all__})
