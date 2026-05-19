@@ -31,7 +31,6 @@ from typing import Any
 
 import numpy as np
 
-from roboharness.evaluate.lerobot_env import create_native_env
 from roboharness.evaluate.lerobot_policy_adapter import load_lerobot_policy
 from roboharness.evaluate.protocol import PolicyAdapter
 
@@ -150,6 +149,13 @@ PolicyFn = Callable[[np.ndarray], np.ndarray]
 
 #: Type alias for a custom metrics function: (episode_rewards, last_info) → metrics dict.
 MetricsFn = Callable[[list[float], dict[str, Any]], dict[str, float]]
+
+
+def create_native_env(*args: Any, **kwargs: Any) -> Any:
+    """Create a LeRobot native env without importing optional deps at package import time."""
+    from roboharness.evaluate.lerobot_env import create_native_env as _create_native_env
+
+    return _create_native_env(*args, **kwargs)
 
 
 def _save_checkpoint_screenshot(
