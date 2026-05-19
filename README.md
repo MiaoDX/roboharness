@@ -36,6 +36,16 @@ Use this when you are adding roboharness to an existing codebase. The published
 wheel installs the library and the `roboharness` CLI, not the repo's
 `examples/` directory.
 
+For the latest code, prefer installing from Git with `uv`:
+
+```bash
+uv pip install "roboharness @ git+https://github.com/MiaoDX/roboharness.git"
+roboharness --help
+```
+
+The PyPI package can briefly trail the current README because publishing is
+handled separately. If you need the latest published release instead, use:
+
 ```bash
 pip install roboharness
 roboharness --help
@@ -101,12 +111,15 @@ That is the job of the MuJoCo wedge today.
 ## Installation Matrix
 
 ```bash
-pip install roboharness                  # core (numpy only)
-pip install roboharness[demo]            # MuJoCo, Meshcat, Gymnasium, Rerun, Pillow
-pip install roboharness[demo,wbc]        # + whole-body control (Pinocchio, Pink)
-pip install roboharness[lerobot]         # LeRobot evaluation path
-pip install roboharness[dev]             # test/lint/type deps
+uv pip install "roboharness @ git+https://github.com/MiaoDX/roboharness.git"          # latest Git core
+uv pip install "roboharness[demo] @ git+https://github.com/MiaoDX/roboharness.git"    # MuJoCo, Meshcat, Gymnasium, Rerun, Pillow
+uv pip install "roboharness[demo,wbc] @ git+https://github.com/MiaoDX/roboharness.git" # + whole-body control (Pinocchio, Pink)
+uv pip install "roboharness[lerobot] @ git+https://github.com/MiaoDX/roboharness.git" # LeRobot evaluation path
+uv pip install "roboharness[dev] @ git+https://github.com/MiaoDX/roboharness.git"     # test/lint/type deps
 ```
+
+For PyPI installs, replace the `uv pip install "... @ git+..."` form with the
+same extra on the published package, for example `pip install roboharness[demo]`.
 
 ## Progressive Disclosure
 
