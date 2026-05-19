@@ -1,6 +1,6 @@
 # Roboharness Status
 
-Current as of 2026-05-13.
+Current as of 2026-05-19.
 
 ## What This Repo Is Now
 
@@ -28,11 +28,20 @@ The active milestone is v0.3: the MuJoCo contract-first trust loop.
 Current priorities:
 
 - keep the deterministic MuJoCo evaluator corpus grounded
+- keep MuJoCo proof-pack assembly, contract grounding, and approval decisions
+  localized in the maintained grasp wedge
 - keep invalid contracts fail-closed
 - ensure ambiguous evidence never self-promotes to pass
 - require explicit human blessing before migration-mode baselines become
   authoritative
 - keep release truth aligned across repo version, GitHub Releases, and PyPI
+
+Latest validation on 2026-05-19:
+
+- `pytest -q` passed with 511 passed, 13 skipped, and total coverage 92.95%
+- `ruff check .` passed
+- `ruff format --check .` passed
+- `mypy src/` passed
 
 During this milestone, avoid adding new simulator backends, splitting new
 showcase repos, expanding SONIC scope without real-model validation evidence, or
