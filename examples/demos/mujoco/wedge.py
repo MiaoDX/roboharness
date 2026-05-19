@@ -307,6 +307,27 @@ class ProofPack:
 
 
 @dataclass(frozen=True)
+class GroundedContractRule:
+    """Validated contract rule tied to one evaluator assertion template."""
+
+    rule_id: str
+    phase_id: str
+    metric: str
+    operator: Operator
+    threshold: float | tuple[float, float]
+    template: MetricAssertion
+
+    def to_assertion(self) -> MetricAssertion:
+        return MetricAssertion(
+            metric=self.template.metric,
+            operator=self.operator,
+            threshold=self.threshold,
+            severity=self.template.severity,
+            phase=self.template.phase,
+        )
+
+
+@dataclass(frozen=True)
 class ErrorEnvelope:
     """User-facing error contract shared across contract and report failures."""
 
@@ -505,149 +526,12 @@ def compile_contract(
 
 def validate_contract(contract: dict[str, Any]) -> None:
     """Validate that the contract can be grounded by the current MuJoCo wedge."""
-    if contract.get("schema_version") != CONTRACT_SCHEMA_VERSION:
-        raise _contract_error(
-            cause=(
-                "schema_version must be "
-                f"'{CONTRACT_SCHEMA_VERSION}', got {contract.get('schema_version')!r}."
-            ),
-            fix="Use the reviewed v1 contract schema for this wedge.",
-        )
-
-    if contract.get("mode") not in {"regression", "migration"}:
-        raise _contract_error(
-            cause=f"mode must be 'regression' or 'migration', got {contract.get('mode')!r}.",
-            fix="Set mode to 'regression' or 'migration'.",
-        )
-
-    rules = contract.get("rules")
-    if not isinstance(rules, list) or not rules:
-        raise _contract_error(
-            cause="rules must be a non-empty list.",
-            fix="Provide at least one grounded rule in the contract.",
-        )
-
-    supported_metrics = {assertion.metric for assertion in MUJOCO_GRASP_ASSERTIONS}
-    for rule in rules:
-        rule_id = rule.get("id", "<missing-id>")
-        rule_type = rule.get("type")
-        if rule_type != "metric_gate":
-            raise _contract_error(
-                cause=(
-                    f"rule '{rule_id}' uses type {rule_type!r}. The MuJoCo wedge grounds only "
-                    "metric_gate rules today."
-                ),
-                fix="Use metric_gate rules for this wedge or fall back to the default preset.",
-            )
-        judge = rule.get("judge")
-        if judge != "metric":
-            raise _contract_error(
-                cause=(
-                    f"rule '{rule_id}' uses judge {judge!r}. The MuJoCo wedge grounds only "
-                    "metric rules today."
-                ),
-                fix="Use metric rules for this wedge or fall back to the default preset.",
-            )
-
-        evidence_at = rule.get("evidence_at")
-        if not isinstance(evidence_at, list) or not evidence_at:
-            raise _contract_error(
-                cause=f"rule '{rule_id}' is missing a non-empty evidence_at list.",
-                fix="Add at least one phase grounding to evidence_at.",
-            )
-        if len(evidence_at) != 1:
-            raise _contract_error(
-                cause=(
-                    f"rule '{rule_id}' declares {len(evidence_at)} evidence locations. "
-                    "The current MuJoCo wedge supports exactly one grounded location per rule."
-                ),
-                fix="Use one evidence_at entry per rule for this wedge.",
-            )
-        for location in evidence_at:
-            if not isinstance(location, dict) or not location.get("phase"):
-                raise _contract_error(
-                    cause=f"rule '{rule_id}' has an invalid evidence_at entry: {location!r}.",
-                    fix="Each evidence_at entry needs at least a phase string.",
-                )
-            phase_id = location["phase"]
-            if phase_id not in SUPPORTED_CONTRACT_PHASES:
-                raise _contract_error(
-                    cause=(
-                        f"rule '{rule_id}' references unsupported phase {phase_id!r}. "
-                        f"Supported phases: {sorted(SUPPORTED_CONTRACT_PHASES)!r}."
-                    ),
-                    fix="Use one of the wedge's known phase ids or 'all' for summary metrics.",
-                )
-            view_name = location.get("view")
-            if view_name is not None and view_name not in MUJOCO_GRASP_CAMERAS:
-                raise _contract_error(
-                    cause=(
-                        f"rule '{rule_id}' references unsupported view {view_name!r}. "
-                        f"Supported views: {MUJOCO_GRASP_CAMERAS!r}."
-                    ),
-                    fix="Use one of the MuJoCo wedge camera names for evidence_at.view.",
-                )
-
-        pass_if = rule.get("pass_if")
-        if not isinstance(pass_if, dict):
-            raise _contract_error(
-                cause=f"rule '{rule_id}' is missing pass_if.",
-                fix="Add pass_if with metric, op, and value fields.",
-            )
-        metric = pass_if.get("metric")
-        if metric not in supported_metrics:
-            raise _contract_error(
-                cause=(
-                    f"rule '{rule_id}' references unsupported metric {metric!r}. "
-                    f"Supported metrics: {sorted(supported_metrics)!r}."
-                ),
-                fix="Use one of the wedge's supported evaluator metrics or omit --contract-json.",
-            )
-        _contract_operator(rule_id, pass_if.get("op"))
-        _contract_threshold(rule_id, pass_if.get("op"), pass_if.get("value"))
-        phase_id = evidence_at[0]["phase"]
-        if _contract_assertion_template(metric, phase_id) is None:
-            raise _contract_error(
-                cause=(
-                    f"rule '{rule_id}' cannot be grounded to the MuJoCo wedge evaluator for "
-                    f"phase {phase_id!r} and metric {metric!r}."
-                ),
-                fix=(
-                    "Use the phase/metric combinations from the reviewed preset, or omit "
-                    "--contract-json to use the default contract."
-                ),
-            )
+    _ground_contract_rules(contract)
 
 
 def contract_assertions(contract: dict[str, Any]) -> tuple[MetricAssertion, ...]:
     """Compile the validated contract into the assertion set used by the evaluator."""
-    assertions: list[MetricAssertion] = []
-    for rule in contract["rules"]:
-        pass_if = rule["pass_if"]
-        phase_id = rule["evidence_at"][0]["phase"]
-        template = _contract_assertion_template(pass_if["metric"], phase_id)
-        if template is None:
-            raise _contract_error(
-                cause=(
-                    f"rule '{rule.get('id', '<missing-id>')}' no longer matches the "
-                    "MuJoCo wedge evaluator."
-                ),
-                fix="Recompile the contract against the current wedge schema.",
-            )
-        assertions.append(
-            MetricAssertion(
-                metric=template.metric,
-                operator=_contract_operator(rule.get("id", "<missing-id>"), pass_if["op"]),
-                threshold=_contract_threshold(
-                    rule.get("id", "<missing-id>"),
-                    pass_if["op"],
-                    pass_if["value"],
-                ),
-                severity=template.severity,
-                phase=template.phase,
-            )
-        )
-    return tuple(assertions)
+    return tuple(rule.to_assertion() for rule in _ground_contract_rules(contract))
 
 
 def build_approval_report(
@@ -1569,19 +1453,20 @@ def _build_rule_outcomes(
     passed: list[str] = []
     failed: list[str] = []
     ambiguous: list[str] = []
-    for rule in contract["rules"]:
-        pass_if = rule.get("pass_if", {})
-        metric = pass_if.get("metric")
-        evidence_at = rule.get("evidence_at", [{}])
-        phase_id = evidence_at[0].get("phase", "all")
-        result = result_lookup.get((phase_id, metric))
+    try:
+        grounded_rules = _ground_contract_rules(contract)
+    except ContractCompileError:
+        grounded_rules = ()
+        ambiguous.append("<contract-invalid>")
+    for rule in grounded_rules:
+        result = result_lookup.get((rule.phase_id, rule.metric))
         if result is None:
-            ambiguous.append(rule["id"])
+            ambiguous.append(rule.rule_id)
             continue
         if result.passed:
-            passed.append(rule["id"])
+            passed.append(rule.rule_id)
         else:
-            failed.append(rule["id"])
+            failed.append(rule.rule_id)
     if overall_verdict == "AMBIGUOUS":
         ambiguous.append("still_image_review_required")
     return {
@@ -1632,6 +1517,134 @@ def _material_reasons(mode: str, overall_verdict: str, evidence_state: str) -> l
     if evidence_state == "FAIL/manifest mismatch":
         return ["hard_metric_failed", "evidence_contract_mismatch"]
     return ["hard_metric_failed"]
+
+
+def _ground_contract_rules(contract: dict[str, Any]) -> tuple[GroundedContractRule, ...]:
+    """Validate contract shape and ground rules to evaluator assertion templates."""
+    if contract.get("schema_version") != CONTRACT_SCHEMA_VERSION:
+        raise _contract_error(
+            cause=(
+                "schema_version must be "
+                f"'{CONTRACT_SCHEMA_VERSION}', got {contract.get('schema_version')!r}."
+            ),
+            fix="Use the reviewed v1 contract schema for this wedge.",
+        )
+
+    if contract.get("mode") not in {"regression", "migration"}:
+        raise _contract_error(
+            cause=f"mode must be 'regression' or 'migration', got {contract.get('mode')!r}.",
+            fix="Set mode to 'regression' or 'migration'.",
+        )
+
+    rules = contract.get("rules")
+    if not isinstance(rules, list) or not rules:
+        raise _contract_error(
+            cause="rules must be a non-empty list.",
+            fix="Provide at least one grounded rule in the contract.",
+        )
+    return tuple(_ground_contract_rule(rule) for rule in rules)
+
+
+def _ground_contract_rule(rule: dict[str, Any]) -> GroundedContractRule:
+    """Validate one metric gate and tie it to the MuJoCo evaluator corpus."""
+    supported_metrics = {assertion.metric for assertion in MUJOCO_GRASP_ASSERTIONS}
+    raw_rule_id = rule.get("id", "<missing-id>")
+    rule_id = raw_rule_id if isinstance(raw_rule_id, str) else str(raw_rule_id)
+    rule_type = rule.get("type")
+    if rule_type != "metric_gate":
+        raise _contract_error(
+            cause=(
+                f"rule '{rule_id}' uses type {rule_type!r}. The MuJoCo wedge grounds only "
+                "metric_gate rules today."
+            ),
+            fix="Use metric_gate rules for this wedge or fall back to the default preset.",
+        )
+    judge = rule.get("judge")
+    if judge != "metric":
+        raise _contract_error(
+            cause=(
+                f"rule '{rule_id}' uses judge {judge!r}. The MuJoCo wedge grounds only "
+                "metric rules today."
+            ),
+            fix="Use metric rules for this wedge or fall back to the default preset.",
+        )
+
+    evidence_at = rule.get("evidence_at")
+    if not isinstance(evidence_at, list) or not evidence_at:
+        raise _contract_error(
+            cause=f"rule '{rule_id}' is missing a non-empty evidence_at list.",
+            fix="Add at least one phase grounding to evidence_at.",
+        )
+    if len(evidence_at) != 1:
+        raise _contract_error(
+            cause=(
+                f"rule '{rule_id}' declares {len(evidence_at)} evidence locations. "
+                "The current MuJoCo wedge supports exactly one grounded location per rule."
+            ),
+            fix="Use one evidence_at entry per rule for this wedge.",
+        )
+    location = evidence_at[0]
+    if not isinstance(location, dict) or not location.get("phase"):
+        raise _contract_error(
+            cause=f"rule '{rule_id}' has an invalid evidence_at entry: {location!r}.",
+            fix="Each evidence_at entry needs at least a phase string.",
+        )
+    phase_id = location["phase"]
+    if not isinstance(phase_id, str) or phase_id not in SUPPORTED_CONTRACT_PHASES:
+        raise _contract_error(
+            cause=(
+                f"rule '{rule_id}' references unsupported phase {phase_id!r}. "
+                f"Supported phases: {sorted(SUPPORTED_CONTRACT_PHASES)!r}."
+            ),
+            fix="Use one of the wedge's known phase ids or 'all' for summary metrics.",
+        )
+    view_name = location.get("view")
+    if view_name is not None and view_name not in MUJOCO_GRASP_CAMERAS:
+        raise _contract_error(
+            cause=(
+                f"rule '{rule_id}' references unsupported view {view_name!r}. "
+                f"Supported views: {MUJOCO_GRASP_CAMERAS!r}."
+            ),
+            fix="Use one of the MuJoCo wedge camera names for evidence_at.view.",
+        )
+
+    pass_if = rule.get("pass_if")
+    if not isinstance(pass_if, dict):
+        raise _contract_error(
+            cause=f"rule '{rule_id}' is missing pass_if.",
+            fix="Add pass_if with metric, op, and value fields.",
+        )
+    metric = pass_if.get("metric")
+    if not isinstance(metric, str) or metric not in supported_metrics:
+        raise _contract_error(
+            cause=(
+                f"rule '{rule_id}' references unsupported metric {metric!r}. "
+                f"Supported metrics: {sorted(supported_metrics)!r}."
+            ),
+            fix="Use one of the wedge's supported evaluator metrics or omit --contract-json.",
+        )
+    operator = _contract_operator(rule_id, pass_if.get("op"))
+    threshold = _contract_threshold(rule_id, pass_if.get("op"), pass_if.get("value"))
+    template = _contract_assertion_template(metric, phase_id)
+    if template is None:
+        raise _contract_error(
+            cause=(
+                f"rule '{rule_id}' cannot be grounded to the MuJoCo wedge evaluator for "
+                f"phase {phase_id!r} and metric {metric!r}."
+            ),
+            fix=(
+                "Use the phase/metric combinations from the reviewed preset, or omit "
+                "--contract-json to use the default contract."
+            ),
+        )
+    return GroundedContractRule(
+        rule_id=rule_id,
+        phase_id=phase_id,
+        metric=metric,
+        operator=operator,
+        threshold=threshold,
+        template=template,
+    )
 
 
 def _contract_assertion_template(metric: Any, phase_id: Any) -> MetricAssertion | None:
@@ -1694,12 +1707,14 @@ def _ungrounded_rule_ids(
         ("all" if result.phase == "*" else result.phase, result.metric): result
         for result in evaluation_result.results
     }
+    try:
+        grounded_rules = _ground_contract_rules(contract)
+    except ContractCompileError:
+        return ["<contract-invalid>"]
     missing: list[str] = []
-    for rule in contract["rules"]:
-        pass_if = rule.get("pass_if", {})
-        phase_id = rule.get("evidence_at", [{}])[0].get("phase", "all")
-        if (phase_id, pass_if.get("metric")) not in result_lookup:
-            missing.append(rule.get("id", "<missing-id>"))
+    for rule in grounded_rules:
+        if (rule.phase_id, rule.metric) not in result_lookup:
+            missing.append(rule.rule_id)
     return missing
 
 
