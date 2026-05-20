@@ -1,0 +1,37 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "e647432b8bce30d37ab1d467cc764c0602ff508174a21e5d277adeb32c244146"
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "32e3659ba044b052802bb0fed51d5b5aebc14b656b7724d43e045288d6a01df7"
+    },
+    {
+      "path": "contract.snapshot.json",
+      "sha256": "8802f7be95f47b72405c29d30904530d4eb9af97dc3c88b5984ffc63aa786749"
+    },
+    {
+      "path": "schemas/generated-artifacts.schema.json",
+      "sha256": "2e078e554f66107aa030a643a8621751e3fc2b89df2a59c92e2b916df84677a2"
+    },
+    {
+      "path": "schemas/harness-contract.schema.json",
+      "sha256": "bfcc7fb28ef1154dfb024d440f97e449560da026acadc38fd24e33470f0cdb96"
+    },
+    {
+      "path": "scope-brief-template.md",
+      "sha256": "0f9b9938f5f812a4c9bed9d9f5aed4c825dfb098814b17c034fa6fc09ea47dfc"
+    },
+    {
+      "path": "stubs/run-validation.py",
+      "sha256": "9443b9a8310c6a6e313296943c2dd716cd26cc948377f8ab520c4f92defebaa8"
+    }
+  ],
+  "generator": "roboharness.contract/v1",
+  "project_slug": "roboharness",
+  "schema_version": "roboharness_generated_harness_skill/v1",
+  "snapshot_sha256": "8802f7be95f47b72405c29d30904530d4eb9af97dc3c88b5984ffc63aa786749",
+  "source": "contract.py"
+}

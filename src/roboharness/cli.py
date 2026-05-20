@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from roboharness._utils import load_json as _load_json
+from roboharness.contract import (
+    check_project_harness_skill,
+    generate_project_harness_skill,
+    load_contract_from_file,
+)
 from roboharness.evaluate.assertions import AssertionEngine
 from roboharness.evaluate.batch import (
     check_success_rate,
@@ -249,6 +254,13 @@ def trend_command(
     return trends
 
 
+def _default_contract_output_dir(contract_path: Path, project_slug: str) -> Path:
+    expected_dir_name = f"{project_slug}-harness"
+    if contract_path.name == "contract.py" and contract_path.parent.name == expected_dir_name:
+        return contract_path.parent
+    return Path("agent-skill") / expected_dir_name
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -362,6 +374,55 @@ def main(argv: list[str] | None = None) -> int:
         help="Minimum success rate (0.0-1.0) for CI pass/fail. Exit 1 if below.",
     )
 
+    # contract
+    contract_parser = subparsers.add_parser(
+        "contract",
+        help="Generate or drift-check project harness skill artifacts.",
+    )
+    contract_subparsers = contract_parser.add_subparsers(dest="contract_command")
+    contract_generate_parser = contract_subparsers.add_parser(
+        "generate",
+        help="Generate project harness skill artifacts from a Python contract.",
+    )
+    contract_generate_parser.add_argument(
+        "contract_path",
+        type=Path,
+        help="Path to contract.py defining CONTRACT or build_contract().",
+    )
+    contract_generate_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Generated skill directory. Defaults to agent-skill/<project-slug>-harness.",
+    )
+    contract_generate_parser.add_argument(
+        "--no-stubs",
+        action="store_true",
+        default=False,
+        help="Do not generate runnable validation stubs.",
+    )
+    contract_check_parser = contract_subparsers.add_parser(
+        "check",
+        help="Check generated project harness skill artifacts for drift.",
+    )
+    contract_check_parser.add_argument(
+        "contract_path",
+        type=Path,
+        help="Path to contract.py defining CONTRACT or build_contract().",
+    )
+    contract_check_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Generated skill directory. Defaults to agent-skill/<project-slug>-harness.",
+    )
+    contract_check_parser.add_argument(
+        "--no-stubs",
+        action="store_true",
+        default=False,
+        help="Expect no runnable validation stubs.",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command is None:
@@ -461,6 +522,43 @@ def main(argv: list[str] | None = None) -> int:
             elif batch.total_trials > 0 and batch.success_rate == 0.0:
                 exit_code = 1
         return exit_code
+
+    if args.command == "contract":
+        if args.contract_command is None:
+            contract_parser.print_help()
+            return 1
+        try:
+            contract = load_contract_from_file(args.contract_path)
+            output_dir = args.output_dir or _default_contract_output_dir(
+                args.contract_path,
+                contract.project_slug,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+        if args.contract_command == "generate":
+            result = generate_project_harness_skill(
+                contract,
+                output_dir,
+                include_stubs=not args.no_stubs,
+            )
+            print(f"Generated project harness skill in {result.output_dir}")
+            for path in result.files:
+                print(f"  {path.relative_to(result.output_dir)}")
+            return 0
+
+        if args.contract_command == "check":
+            drift_report = check_project_harness_skill(
+                contract,
+                output_dir,
+                include_stubs=not args.no_stubs,
+            )
+            if drift_report.ok:
+                print(f"Generated project harness skill is current: {drift_report.output_dir}")
+                return 0
+            print(json.dumps(drift_report.to_dict(), indent=2), file=sys.stderr)
+            return 1
 
     return 1
 

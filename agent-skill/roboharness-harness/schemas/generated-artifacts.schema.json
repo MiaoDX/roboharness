@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "generator": {
+      "const": "roboharness.contract/v1"
+    },
+    "project_slug": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "roboharness_generated_harness_skill/v1"
+    },
+    "snapshot_sha256": {
+      "type": "string"
+    },
+    "source": {
+      "const": "contract.py"
+    }
+  },
+  "required": [
+    "schema_version",
+    "generator",
+    "source",
+    "project_slug",
+    "snapshot_sha256",
+    "files"
+  ],
+  "title": "Roboharness Generated Harness Skill Manifest",
+  "type": "object"
+}

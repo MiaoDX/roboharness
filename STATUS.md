@@ -19,6 +19,8 @@ The package currently provides:
 - metric evaluation, batch evaluation, trend history, and approval evidence
 - bounded agent visual review package preparation, record validation, and
   approval-summary aggregation for the maintained MuJoCo/G1 proof surfaces
+- Python-authored project harness contracts that deterministically generate
+  drift-checked agent-skill artifacts under `agent-skill/<project-slug>-harness/`
 - a CLI for inspecting outputs, writing `report.json`, evaluating reports, and
   tracking trends
 - optional MCP tools for agent-driven checkpoint capture and evaluation
@@ -40,10 +42,11 @@ Current priorities:
 
 Latest validation on 2026-05-20:
 
-- `uv run pytest -q` passed with 526 passed, 13 skipped, and total coverage 91.28%
+- `uv run pytest -q` passed with 533 passed, 13 skipped, and total coverage 91.16%
 - `uv run ruff check .` passed
 - `uv run ruff format --check .` passed
 - `uv run mypy src/` passed
+- `uv run python -c "import pytest_cov; print('pytest-cov ok')"` passed
 
 During this milestone, avoid adding new simulator backends, splitting new
 showcase repos, expanding SONIC scope without real-model validation evidence, or

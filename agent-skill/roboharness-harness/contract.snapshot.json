@@ -1,0 +1,317 @@
+{
+  "approval_policy": {
+    "ambiguous_result": "never_self_promote_to_pass",
+    "human_scope_approval_required": true,
+    "out_of_scope_request": "draft_scope_brief_before_contract_change",
+    "require_user_blessing_for_new_baseline": true,
+    "surface_changed_cases_only": true
+  },
+  "description": "Use this harness to review roboharness trust-loop changes where metric-backed proof packs, bounded visual evidence, approval decisions, and release truth must stay aligned with the accepted project contract.",
+  "evidence_boundaries": [
+    {
+      "allowed_patterns": [
+        "**/*.json",
+        "**/*_rgb.png",
+        "**/*.html"
+      ],
+      "description": "Generated MuJoCo grasp trial proof packs.",
+      "id": "mujoco_trial",
+      "max_files": 500,
+      "root": "examples/demos/mujoco/output"
+    },
+    {
+      "allowed_patterns": [
+        "**/*.json",
+        "**/*_rgb.png",
+        "**/*.png"
+      ],
+      "description": "Blessed baseline and known-bad visual fixtures for the maintained wedge.",
+      "id": "mujoco_baseline",
+      "max_files": 200,
+      "root": "assets/example_mujoco_grasp"
+    },
+    {
+      "allowed_patterns": [
+        "pyproject.toml",
+        "src/roboharness/__init__.py",
+        "CHANGELOG.md",
+        "STATUS.md",
+        "docs/agents/release.md"
+      ],
+      "description": "Package metadata, version files, release docs, and status dashboard.",
+      "id": "release_truth",
+      "max_files": 20,
+      "root": "."
+    }
+  ],
+  "metric_gates": [
+    {
+      "description": "The maintained MuJoCo loop should not drift materially in runtime.",
+      "evidence": [
+        {
+          "boundary": "mujoco_trial",
+          "path": null,
+          "phase": "plan",
+          "view": null
+        }
+      ],
+      "id": "loop_runtime_drift",
+      "metric": "loop_runtime_s_abs_delta",
+      "operator": "lt",
+      "phase": null,
+      "severity": "warn",
+      "threshold": 1.0
+    },
+    {
+      "description": "Approach alignment must stay close to the blessed baseline.",
+      "evidence": [
+        {
+          "boundary": "mujoco_trial",
+          "path": "approach/side_rgb.png",
+          "phase": "approach",
+          "view": "side"
+        }
+      ],
+      "id": "approach_center_drift",
+      "metric": "grip_center_error_mm_abs_delta",
+      "operator": "lt",
+      "phase": "approach",
+      "severity": "fail",
+      "threshold": 12.0
+    },
+    {
+      "description": "The gripper fingers should bracket the cube without large gap drift.",
+      "evidence": [
+        {
+          "boundary": "mujoco_trial",
+          "path": "grasp/front_rgb.png",
+          "phase": "grasp",
+          "view": "front"
+        }
+      ],
+      "id": "grasp_gap_drift",
+      "metric": "pinch_gap_error_mm_abs_delta",
+      "operator": "lt",
+      "phase": "grasp",
+      "severity": "fail",
+      "threshold": 10.0
+    },
+    {
+      "description": "The lift phase requires at least one cube-finger contact.",
+      "evidence": [
+        {
+          "boundary": "mujoco_trial",
+          "path": "lift/front_rgb.png",
+          "phase": "lift",
+          "view": "front"
+        }
+      ],
+      "id": "lift_contact",
+      "metric": "contact_count",
+      "operator": "ge",
+      "phase": "lift",
+      "severity": "fail",
+      "threshold": 1.0
+    },
+    {
+      "description": "The cube must visibly and metrically leave the table.",
+      "evidence": [
+        {
+          "boundary": "mujoco_trial",
+          "path": "lift/side_rgb.png",
+          "phase": "lift",
+          "view": "side"
+        }
+      ],
+      "id": "lift_height",
+      "metric": "cube_height_mm",
+      "operator": "gt",
+      "phase": "lift",
+      "severity": "fail",
+      "threshold": 5.0
+    }
+  ],
+  "name": "Roboharness",
+  "phases": [
+    {
+      "cameras": [
+        "front",
+        "side",
+        "top"
+      ],
+      "description": "Confirm the deterministic MuJoCo grasp trajectory and target path.",
+      "id": "plan",
+      "label": "Plan"
+    },
+    {
+      "cameras": [
+        "front",
+        "side",
+        "top"
+      ],
+      "description": "Move the gripper above the cube before final approach.",
+      "id": "pre_grasp",
+      "label": "Pre-Grasp"
+    },
+    {
+      "cameras": [
+        "front",
+        "side",
+        "top"
+      ],
+      "description": "Approach the cube while preserving baseline alignment.",
+      "id": "approach",
+      "label": "Approach"
+    },
+    {
+      "cameras": [
+        "front",
+        "side",
+        "top"
+      ],
+      "description": "Close the gripper on the cube with plausible contact geometry.",
+      "id": "grasp",
+      "label": "Grasp"
+    },
+    {
+      "cameras": [
+        "front",
+        "side",
+        "top"
+      ],
+      "description": "Lift the cube and keep the proof pack grounded in paired evidence.",
+      "id": "lift",
+      "label": "Lift"
+    },
+    {
+      "cameras": [],
+      "description": "Keep package metadata, release tags, and public version claims aligned.",
+      "id": "release",
+      "label": "Release Truth"
+    }
+  ],
+  "project_slug": "roboharness",
+  "schema_version": "roboharness_harness_contract/v1",
+  "validation_commands": [
+    {
+      "command": "python -m roboharness.cli contract check agent-skill/roboharness-harness/contract.py --output-dir agent-skill/roboharness-harness",
+      "description": "Generated project harness skill artifacts match contract.py.",
+      "id": "contract_drift",
+      "required": true
+    },
+    {
+      "command": "python -m pytest --no-cov tests/regression/mujoco_grasp/test_mujoco_grasp_wedge.py tests/contract/test_approval_evidence.py",
+      "description": "Maintained MuJoCo trust-loop contract tests pass.",
+      "id": "mujoco_wedge_tests",
+      "required": true
+    },
+    {
+      "command": "python -m pytest --no-cov tests/contract/test_release_truth.py",
+      "description": "Version and release-truth contract tests pass.",
+      "id": "release_truth_tests",
+      "required": true
+    },
+    {
+      "command": "ruff check src/roboharness examples/demos/mujoco tests/contract",
+      "description": "Changed Python surfaces satisfy the repo lint gate.",
+      "id": "static_python_gate",
+      "required": true
+    }
+  ],
+  "version": "0.3.1",
+  "visual_review_dimensions": [
+    {
+      "description": "Check that the fingers visually bracket the cube like the baseline.",
+      "evidence_boundary": "mujoco_trial",
+      "id": "hand_pose",
+      "label": "Hand Pose",
+      "metric_fallback": [
+        "grip_center_error_mm_abs_delta",
+        "pinch_gap_error_mm_abs_delta"
+      ],
+      "phase": "grasp",
+      "required": true,
+      "views": [
+        "front",
+        "side"
+      ]
+    },
+    {
+      "description": "Check that the cube is lifted in the expected relation to the gripper.",
+      "evidence_boundary": "mujoco_trial",
+      "id": "object_relative_position",
+      "label": "Object Relative Position",
+      "metric_fallback": [
+        "cube_height_mm",
+        "contact_count"
+      ],
+      "phase": "lift",
+      "required": true,
+      "views": [
+        "front",
+        "side"
+      ]
+    },
+    {
+      "description": "Check that selected current-vs-baseline evidence paths match the manifest instead of silently falling back to unrelated images.",
+      "evidence_boundary": "mujoco_baseline",
+      "id": "proof_pack_integrity",
+      "label": "Proof Pack Integrity",
+      "metric_fallback": [
+        "loop_runtime_s_abs_delta"
+      ],
+      "phase": "plan",
+      "required": true,
+      "views": [
+        "front",
+        "top"
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "description": "Review changes to the deterministic MuJoCo grasp proof pack, including metric gates, visual review dimensions, evidence pairing, and approval semantics.",
+      "id": "mujoco_contract_trust_loop",
+      "label": "MuJoCo Contract Trust Loop",
+      "metric_gates": [
+        "loop_runtime_drift",
+        "approach_center_drift",
+        "grasp_gap_drift",
+        "lift_contact",
+        "lift_height"
+      ],
+      "phases": [
+        "plan",
+        "pre_grasp",
+        "approach",
+        "grasp",
+        "lift"
+      ],
+      "validation_commands": [
+        "contract_drift",
+        "mujoco_wedge_tests",
+        "static_python_gate"
+      ],
+      "visual_dimensions": [
+        "hand_pose",
+        "object_relative_position",
+        "proof_pack_integrity"
+      ]
+    },
+    {
+      "description": "Review release-facing changes where pyproject metadata, package version, status, and release documentation must tell the same truth.",
+      "id": "release_truth_alignment",
+      "label": "Release Truth Alignment",
+      "metric_gates": [],
+      "phases": [
+        "release"
+      ],
+      "validation_commands": [
+        "contract_drift",
+        "release_truth_tests",
+        "static_python_gate"
+      ],
+      "visual_dimensions": []
+    }
+  ]
+}

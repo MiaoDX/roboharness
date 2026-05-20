@@ -215,6 +215,55 @@ class TestMain:
         ret = main(["report", str(tmp_path / "nope")])
         assert ret == 1
 
+    def test_contract_generate_and_check(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        contract_path = tmp_path / "contract.py"
+        output_dir = tmp_path / "sample-bot-harness"
+        contract_path.write_text(
+            """
+from roboharness.contract import HarnessContract, HarnessWorkflow, SemanticPhase
+
+CONTRACT = HarnessContract(
+    project_slug="sample-bot",
+    name="Sample Bot",
+    version="0.1",
+    description="Temporary CLI contract.",
+    phases=(SemanticPhase(id="phase", label="Phase", description="Phase."),),
+    workflows=(HarnessWorkflow(id="workflow", label="Workflow", description="Workflow."),),
+)
+"""
+        )
+
+        ret = main(
+            [
+                "contract",
+                "generate",
+                str(contract_path),
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        assert ret == 0
+        captured = capsys.readouterr()
+        assert "Generated project harness skill" in captured.out
+        assert (output_dir / "SKILL.md").exists()
+
+        ret = main(
+            [
+                "contract",
+                "check",
+                str(contract_path),
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        assert ret == 0
+        captured = capsys.readouterr()
+        assert "is current" in captured.out
+
 
 class TestVariantLayout:
     """Test with TaskStore-style layout: task/variant/trial/checkpoint."""

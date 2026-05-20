@@ -135,6 +135,28 @@ same extra on the published package, for example `pip install roboharness[demo]`
 If a contract cannot be grounded safely, the run stops before execution and emits a
 user-facing error envelope with `problem`, `cause`, `fix`, `docs_url`, and `next_action`.
 
+## Project Harness Skills From Python Contracts
+
+Projects can author a trusted Python `HarnessContract` and generate an
+agent-facing harness skill from it:
+
+```bash
+roboharness contract generate agent-skill/<project-slug>-harness/contract.py \
+  --output-dir agent-skill/<project-slug>-harness
+roboharness contract check agent-skill/<project-slug>-harness/contract.py \
+  --output-dir agent-skill/<project-slug>-harness
+```
+
+The handwritten `contract.py` is the source of truth for semantic phases, hard
+metric gates, visual review dimensions, evidence boundaries, approval policy,
+validation commands, and named workflows. Generated `SKILL.md`,
+`contract.snapshot.json`, schemas, scope-brief template, stubs, and manifest
+live beside it under `agent-skill/<project-slug>-harness/`.
+
+This repo dogfoods that path in `agent-skill/roboharness-harness/contract.py`.
+The generated skill can guide agents, but it is not authoritative; out-of-scope
+checks require a Harness Scope Brief and a reviewed contract change first.
+
 ## Proof Surface
 
 The first screen is meant to be actionable without replay:

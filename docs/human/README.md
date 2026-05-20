@@ -12,6 +12,8 @@ strategy drafts; those are evidence, not the default review path.
    validation boundaries.
 3. `ARCHITECTURE.md` — subsystem map, data flow, public contracts, and extension
    points.
+4. `agent-skill/roboharness-harness/contract.py` — the dogfooded project
+   harness contract; generated files beside it are checked artifacts, not source.
 
 ## Supporting Human Docs
 
@@ -34,6 +36,9 @@ surface:
 - `.planning/**` — agent planning state.
 - `assets/**` and `harness_output/**` — proof bundles, screenshots, and
   generated run output.
+- `agent-skill/*/SKILL.md`, `contract.snapshot.json`, `schemas/`, and
+  `.generated-manifest.json` — generated project harness skill artifacts. Read
+  `contract.py` first when reviewing source truth.
 - `blog/**`, `docs/community/**`, `docs/funding/**`, and `docs/academic/**` —
   outreach, strategy, and application drafts.
 

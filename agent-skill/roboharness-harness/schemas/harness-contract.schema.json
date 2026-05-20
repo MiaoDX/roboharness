@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "approval_policy": {
+      "type": "object"
+    },
+    "description": {
+      "type": "string"
+    },
+    "evidence_boundaries": {
+      "type": "array"
+    },
+    "metric_gates": {
+      "type": "array"
+    },
+    "name": {
+      "type": "string"
+    },
+    "phases": {
+      "minItems": 1,
+      "type": "array"
+    },
+    "project_slug": {
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "roboharness_harness_contract/v1"
+    },
+    "validation_commands": {
+      "type": "array"
+    },
+    "version": {
+      "type": "string"
+    },
+    "visual_review_dimensions": {
+      "type": "array"
+    },
+    "workflows": {
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "project_slug",
+    "name",
+    "version",
+    "phases",
+    "approval_policy",
+    "workflows"
+  ],
+  "title": "Roboharness Harness Contract Snapshot",
+  "type": "object"
+}

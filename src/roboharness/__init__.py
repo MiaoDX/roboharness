@@ -2,6 +2,17 @@
 
 __version__ = "0.3.1"
 
+from roboharness.contract import (
+    ApprovalPolicy,
+    EvidenceBoundary,
+    EvidenceReference,
+    HarnessContract,
+    HarnessWorkflow,
+    MetricGate,
+    SemanticPhase,
+    ValidationCommand,
+    VisualReviewDimension,
+)
 from roboharness.core.capture import CaptureResult
 from roboharness.core.checkpoint import Checkpoint, CheckpointStore
 from roboharness.core.controller import Controller
@@ -42,6 +53,7 @@ __all__ = [
     "LOCOMOTION_PROTOCOL",
     "LOCO_MANIPULATION_PROTOCOL",
     "REACH_PROTOCOL",
+    "ApprovalPolicy",
     "AssertionEngine",
     "BatchResult",
     "CaptureResult",
@@ -54,20 +66,28 @@ __all__ = [
     "EvaluationHistory",
     "EvaluationRecord",
     "EvaluationResult",
+    "EvidenceBoundary",
+    "EvidenceReference",
     "ExpirationHorizon",
     "Harness",
+    "HarnessContract",
+    "HarnessWorkflow",
     "LeRobotEvalConfig",
     "LeRobotEvalReport",
     "LifecycleRegistry",
     "MetricAssertion",
+    "MetricGate",
     "Operator",
     "ParallelTrialRunner",
+    "SemanticPhase",
     "Severity",
     "TaskPhase",
     "TaskProtocol",
     "TrendResult",
     "TrialSpec",
+    "ValidationCommand",
     "Verdict",
+    "VisualReviewDimension",
     "check_eval_threshold",
     "default_registry",
     "evaluate_policy",
