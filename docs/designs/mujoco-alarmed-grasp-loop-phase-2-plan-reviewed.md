@@ -1329,7 +1329,7 @@ artifact pack itself.
 Approved by user on 2026-04-15.
 
 - Final reviewed artifact: this file
-- Deferred follow-ups mirrored to repo-root `TODOS.md`
+- Deferred follow-ups mirrored to `docs/plans/completed-maintenance-log.md`
 - Implementation can proceed directly from the locked design, engineering, and DX
   sections above
 

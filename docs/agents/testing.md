@@ -12,18 +12,13 @@ verify `pytest-cov`:
 
 ```bash
 uv --version
-uv sync --dev
+uv pip install -e ".[dev]"
 python -c "import pytest_cov; print('pytest-cov ok')"
 pytest -q
 ```
 
-If the repo is not using a lockfile/workspace setup, use:
-
-```bash
-uv pip install -e ".[dev]"
-```
-
-Fallback:
+This repo intentionally does not track `uv.lock`, so do not treat a local
+ignored `uv.lock` as shared setup state. If `uv` is unavailable, use:
 
 ```bash
 python -m pip install -e ".[dev]"

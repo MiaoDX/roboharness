@@ -131,11 +131,11 @@ def _load_controller(name: str) -> Any:
     """Load a single locomotion controller by name. Returns None on failure."""
     try:
         if name == "groot":
-            from roboharness.controllers.locomotion import GrootLocomotionController
+            from roboharness.robots.unitree_g1 import GrootLocomotionController
 
             return GrootLocomotionController()
         if name == "sonic":
-            from roboharness.controllers.locomotion import SonicLocomotionController
+            from roboharness.robots.unitree_g1 import SonicLocomotionController
 
             return SonicLocomotionController()
     except (ImportError, Exception) as exc:

@@ -44,8 +44,8 @@ When a request clearly matches an available skill, invoke that skill first.
 
 Do not run unit tests in a fresh environment before dependency preflight.
 
-Use `uv` when available. Check with `uv --version`; prefer `uv sync --dev`. If
-no lockfile/workspace setup is present, use:
+Use `uv` when available. Check with `uv --version`. This repo intentionally
+does not track `uv.lock`; use the editable dev install instead of `uv sync`:
 
 ```bash
 uv pip install -e ".[dev]"

@@ -13,7 +13,7 @@ from examples.demos.sonic.locomotion import (
     _quat_to_rotvec,
     command_for_step,
 )
-from roboharness.controllers.locomotion import SonicMode
+from roboharness.robots.unitree_g1 import SonicMode
 
 
 def test_quat_to_rotvec_identity_returns_zero() -> None:

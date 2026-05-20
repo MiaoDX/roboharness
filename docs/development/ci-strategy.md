@@ -29,9 +29,15 @@
 
 ## 当前状态
 
-- GitHub Actions `ubuntu-latest`，纯 CPU
-- lint (ruff) + pytest 矩阵测试 (Python 3.9–3.12)
-- 29 个单元测试，全部 mock SimulatorBackend，不涉及真实仿真器或 GPU
+This document is a CI strategy record. For latest validation numbers, use
+`STATUS.md`.
+
+- GitHub Actions runs lint/type checks, a Python 3.10-3.13 test matrix, a
+  MuJoCo headless lane, example-report lanes, and gated GPU jobs.
+- Default CPU tests cover core logic, wrappers, CLI/report behavior, mocked
+  compatibility paths, and regression fixtures without requiring GPU hardware.
+- GPU end-to-end validation remains gated by labels/path filters and requires
+  the configured Cirun/self-hosted GPU runner.
 
 ## 分层 CI 策略
 
@@ -41,7 +47,7 @@
 **GPU 需求不应拖慢或阻塞基础 CI。**
 
 ```yaml
-# 现有 ci.yml，无需改动
+# CPU jobs use GitHub-hosted runners.
 runs-on: ubuntu-latest
 ```
 

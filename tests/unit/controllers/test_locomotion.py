@@ -106,8 +106,7 @@ def _patch_onnx_deps(monkeypatch: pytest.MonkeyPatch) -> None:
     _FakeSession.instances = {}
     monkeypatch.setitem(sys.modules, "onnxruntime", fake_ort)  # type: ignore[arg-type]
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_hf)  # type: ignore[arg-type]
-    # Also invalidate any cached imports in the locomotion module
-    monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
+    # Also invalidate any cached imports in the locomotion module.
     monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1", raising=False)
     monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
 
@@ -120,26 +119,13 @@ def _make_g1_state(nq: int = 36, nv: int = 35) -> dict[str, np.ndarray]:
     return {"qpos": qpos, "qvel": qvel}
 
 
-@pytest.mark.usefixtures("_patch_onnx_deps")
-def test_locomotion_compat_exports_match_unitree_g1_surface() -> None:
-    """The deprecated controller path should not own a second export list."""
-    from roboharness.controllers import locomotion as compat
-    from roboharness.robots import unitree_g1
-    from roboharness.robots.unitree_g1 import locomotion as canonical
-
-    assert compat.__all__ == canonical.__all__
-    assert unitree_g1.__all__ == canonical.__all__
-    assert compat.SONIC_DECODER_INPUT_DIM == canonical.SONIC_DECODER_INPUT_DIM
-    assert unitree_g1.NUM_BODY_JOINTS == canonical.NUM_BODY_JOINTS
-
-
 # ---------------------------------------------------------------------------
 # GR00T controller tests
 # ---------------------------------------------------------------------------
 @pytest.mark.usefixtures("_patch_onnx_deps")
 class TestGrootLocomotionController:
     def _make_controller(self) -> Any:
-        from roboharness.controllers.locomotion import GrootLocomotionController
+        from roboharness.robots.unitree_g1 import GrootLocomotionController
 
         return GrootLocomotionController()
 
@@ -203,7 +189,7 @@ class TestGrootLocomotionController:
         state = _make_g1_state()
         for _ in range(10):
             ctrl.compute(command={"velocity": [0.5, 0, 0]}, state=state)
-        from roboharness.controllers.locomotion import OBS_HISTORY_LEN
+        from roboharness.robots.unitree_g1 import OBS_HISTORY_LEN
 
         assert len(ctrl._obs_history) == OBS_HISTORY_LEN
 
@@ -214,7 +200,7 @@ class TestGrootLocomotionController:
 @pytest.mark.usefixtures("_patch_onnx_deps")
 class TestHolosomaLocomotionController:
     def _make_controller(self) -> Any:
-        from roboharness.controllers.locomotion import HolosomaLocomotionController
+        from roboharness.robots.unitree_g1 import HolosomaLocomotionController
 
         return HolosomaLocomotionController()
 
@@ -283,7 +269,7 @@ class TestHolosomaLocomotionController:
         ctrl = self._make_controller()
         state = _make_g1_state()
         action = ctrl.compute(command={"velocity": [0, 0, 0]}, state=state)
-        from roboharness.controllers.locomotion import HOLOSOMA_DEFAULT_ANGLES
+        from roboharness.robots.unitree_g1 import HOLOSOMA_DEFAULT_ANGLES
 
         np.testing.assert_allclose(action, HOLOSOMA_DEFAULT_ANGLES)
 
@@ -316,7 +302,7 @@ class TestHolosomaLocomotionController:
 @pytest.mark.usefixtures("_patch_onnx_deps")
 class TestLocomotionUtilities:
     def test_get_gravity_orientation_identity(self) -> None:
-        from roboharness.controllers.locomotion import get_gravity_orientation
+        from roboharness.robots.unitree_g1 import get_gravity_orientation
 
         # Identity quaternion [w=1, x=0, y=0, z=0] → gravity = [0, 0, -1]
         grav = get_gravity_orientation(np.array([1, 0, 0, 0], dtype=np.float32))
@@ -324,7 +310,7 @@ class TestLocomotionUtilities:
         np.testing.assert_allclose(grav, [0, 0, -1], atol=1e-6)
 
     def test_get_gravity_orientation_90deg_pitch(self) -> None:
-        from roboharness.controllers.locomotion import get_gravity_orientation
+        from roboharness.robots.unitree_g1 import get_gravity_orientation
 
         # 90-degree pitch rotation about Y: q = [cos(45°), 0, sin(45°), 0]
         # Body pitches forward 90°, world -z maps to body +x
@@ -339,7 +325,6 @@ class TestLocomotionUtilities:
         monkeypatch.delitem(sys.modules, "huggingface_hub", raising=False)
         monkeypatch.delitem(sys.modules, "huggingface_hub.utils", raising=False)
         monkeypatch.delitem(sys.modules, "huggingface_hub.utils._http", raising=False)
-        monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
         monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
 
         # Block huggingface_hub from being re-imported from disk
@@ -364,7 +349,6 @@ class TestLocomotionUtilities:
         # Ensure hf_hub is available but ort is not
         monkeypatch.setitem(sys.modules, "huggingface_hub", _FakeHfHub())  # type: ignore[arg-type]
         monkeypatch.delitem(sys.modules, "onnxruntime", raising=False)
-        monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
 
         # Block onnxruntime from being re-imported from disk
         import builtins
@@ -377,9 +361,8 @@ class TestLocomotionUtilities:
             return _real_import(name, *args, **kwargs)
 
         monkeypatch.setattr(builtins, "__import__", _block_ort)
-        monkeypatch.delitem(sys.modules, "roboharness.controllers.locomotion", raising=False)
         monkeypatch.delitem(sys.modules, "roboharness.robots.unitree_g1.locomotion", raising=False)
-        from roboharness.controllers.locomotion import HolosomaLocomotionController
+        from roboharness.robots.unitree_g1 import HolosomaLocomotionController
 
         with pytest.raises(ImportError, match="onnxruntime"):
             HolosomaLocomotionController()
@@ -391,7 +374,7 @@ class TestLocomotionUtilities:
 @pytest.mark.usefixtures("_patch_onnx_deps")
 class TestSonicLocomotionController:
     def _make_controller(self, **kwargs: Any) -> Any:
-        from roboharness.controllers.locomotion import SonicLocomotionController
+        from roboharness.robots.unitree_g1 import SonicLocomotionController
 
         return SonicLocomotionController(**kwargs)
 
@@ -419,7 +402,7 @@ class TestSonicLocomotionController:
         assert action.shape == (29,)
 
     def test_compute_with_mode(self) -> None:
-        from roboharness.controllers.locomotion import SonicMode
+        from roboharness.robots.unitree_g1 import SonicMode
 
         ctrl = self._make_controller()
         state = _make_g1_state()
@@ -469,7 +452,7 @@ class TestSonicLocomotionController:
         assert action.shape == (29,)
 
     def test_context_window_size(self) -> None:
-        from roboharness.controllers.locomotion import SONIC_CONTEXT_LEN
+        from roboharness.robots.unitree_g1 import SONIC_CONTEXT_LEN
 
         ctrl = self._make_controller()
         state = _make_g1_state()
@@ -486,7 +469,7 @@ class TestSonicLocomotionController:
         assert action.shape == (29,)
 
     def test_sonic_modes_enum(self) -> None:
-        from roboharness.controllers.locomotion import SonicMode
+        from roboharness.robots.unitree_g1 import SonicMode
 
         assert SonicMode.IDLE == 0
         assert SonicMode.SLOW_WALK == 1
@@ -495,13 +478,13 @@ class TestSonicLocomotionController:
         assert SonicMode.BOXING == 4
 
     def test_default_mode(self) -> None:
-        from roboharness.controllers.locomotion import SonicMode
+        from roboharness.robots.unitree_g1 import SonicMode
 
         ctrl = self._make_controller()
         assert ctrl._default_mode == SonicMode.WALK
 
     def test_custom_default_mode(self) -> None:
-        from roboharness.controllers.locomotion import SonicMode
+        from roboharness.robots.unitree_g1 import SonicMode
 
         ctrl = self._make_controller(default_mode=SonicMode.RUN)
         assert ctrl._default_mode == SonicMode.RUN
@@ -672,7 +655,7 @@ class TestMotionClipLoader:
 @pytest.mark.usefixtures("_patch_onnx_deps")
 class TestSonicTrackingMode:
     def _make_controller(self, **kwargs: Any) -> Any:
-        from roboharness.controllers.locomotion import SonicLocomotionController
+        from roboharness.robots.unitree_g1 import SonicLocomotionController
 
         return SonicLocomotionController(**kwargs)
 

@@ -27,7 +27,8 @@ strategy drafts; those are evidence, not the default review path.
 The following buckets are intentionally not part of the default human review
 surface:
 
-- `docs/designs/**` — design reviews, plans, and audit artifacts.
+- `docs/designs/**` and `docs/plans/**` — design reviews, approved plans,
+  completed maintenance logs, and audit artifacts.
 - `docs/steering/**` — milestone steering notes used as source evidence for
   `STATUS.md`.
 - `.planning/**` — agent planning state.

@@ -1,6 +1,7 @@
-# TODOS
+# Completed Maintenance Log
 
-This file captures deferred work from approved planning and review artifacts.
+This file preserves completed deferred work from approved planning and review
+artifacts. It is process history, not the current repo TODO list.
 
 ## Completed
 
@@ -46,8 +47,8 @@ This file captures deferred work from approved planning and review artifacts.
 - **Completed:** 2026-04-20
 - `docs/designs/unattended-refactor-harness-v1.md` is the canonical product/design
   contract.
-- `showcase-repo-plan.md` remains the reviewed plan and rationale log, and both files
-  now state that split explicitly.
+- `docs/plans/unattended-refactor-harness-plan.md` remains the reviewed plan and
+  rationale log, and both files now state that split explicitly.
 
 ### Extract the shared evidence contract once a second stack needs it
 

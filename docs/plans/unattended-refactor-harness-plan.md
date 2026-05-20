@@ -1,4 +1,3 @@
-<!-- /autoplan restore point: /home/mi/.gstack/projects/MiaoDX-roboharness/main-autoplan-restore-20260417-175048.md -->
 # Roboharness Unattended Refactor Harness Plan
 
 Status: APPROVED via `/autoplan` on 2026-04-18. Draft rewritten on 2026-04-17 from the earlier showcase-split plan.
@@ -402,7 +401,7 @@ a scattered visual-demo story.   README/front-door alignment.     contracts, and
 ### 0C-bis. Implementation Alternatives
 
 APPROACH A: Full Contract-First Unattended Refactor Product Now
-  Summary: treat `showcase-repo-plan.md` literally as v1 product scope: freeform
+  Summary: treat this plan literally as v1 product scope: freeform
   prompt compilation, unattended regression and migration runs, approval queue, and
   baseline blessing flow all in one push.
   Effort:  L
@@ -1610,7 +1609,7 @@ Approved by user on 2026-04-18 via the final `/autoplan` approval gate.
 
 - Final reviewed artifact: this file
 - Canonical product/design contract remains `docs/designs/unattended-refactor-harness-v1.md`
-- Deferred follow-ups mirrored to repo-root `TODOS.md`
+- Deferred follow-ups mirrored to `docs/plans/completed-maintenance-log.md`
 - `assets/g1/` remains untouched and out of scope for this wedge
 - Implementation can proceed from the locked Design, Engineering, and DX sections above
 
