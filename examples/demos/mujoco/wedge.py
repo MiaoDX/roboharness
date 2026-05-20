@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import html
 import json
-from dataclasses import dataclass
+import shutil
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -26,8 +27,16 @@ from roboharness.approval.evidence import (
 from roboharness.approval.evidence import (
     resolve_evidence_pairs as resolve_shared_evidence_pairs,
 )
+from roboharness.approval.visual_review import (
+    MANIFEST_SCHEMA_VERSION as VISUAL_REVIEW_MANIFEST_SCHEMA_VERSION,
+)
+from roboharness.approval.visual_review import (
+    VisualReviewPackage,
+    VisualReviewResult,
+    write_visual_review_package,
+)
 from roboharness.evaluate.assertions import AssertionEngine, MetricAssertion
-from roboharness.evaluate.result import EvaluationResult, Operator, Severity
+from roboharness.evaluate.result import EvaluationResult, Operator, Severity, Verdict
 
 try:
     from examples.demos.mujoco.fixture import (
@@ -54,6 +63,7 @@ ASSET_ROOT = Path(__file__).resolve().parents[3] / "assets" / "example_mujoco_gr
 BASELINE_REPORT_PATH = ASSET_ROOT / "baseline_autonomous_report.json"
 BASELINE_VISUAL_ROOT = ASSET_ROOT / "baseline_visual"
 KNOWN_BAD_VISUAL_ROOT = ASSET_ROOT / "known_bad_visual"
+VISUAL_REVIEW_INPUT_DIR = "visual_review_inputs"
 CONTRACT_SCHEMA_VERSION = "roboharness_contract/v1"
 APPROVAL_REPORT_SCHEMA_VERSION = "roboharness_report/v1"
 DEFAULT_CONTRACT_PRESET = "mujoco_regression_v1"
@@ -604,6 +614,7 @@ def build_approval_report(
     evaluation_result: EvaluationResult,
     manifest: PhaseManifest,
     evidence_pairs: list[EvidencePair],
+    visual_review: VisualReviewResult | None = None,
 ) -> dict[str, Any]:
     """Build the single-case approval artifact returned by the MuJoCo wedge."""
     case_id = str(report.get("case_id", "deterministic_mujoco_grasp"))
@@ -613,6 +624,7 @@ def build_approval_report(
         evaluation_result=evaluation_result,
         evidence=evidence,
         has_ungrounded_rules=bool(_ungrounded_rule_ids(contract, evaluation_result)),
+        visual_review=visual_review,
     )
     surfaced_cases: list[dict[str, Any]] = []
     suppressed_cases: list[dict[str, Any]] = []
@@ -627,6 +639,7 @@ def build_approval_report(
                 evidence_pairs=evidence_pairs,
                 case_id=case_id,
                 decision=decision,
+                visual_review=visual_review,
             )
         )
     else:
@@ -638,7 +651,7 @@ def build_approval_report(
             }
         )
 
-    return {
+    approval_report = {
         "schema_version": APPROVAL_REPORT_SCHEMA_VERSION,
         "contract_id": contract["contract_id"],
         "mode": contract["mode"],
@@ -666,6 +679,9 @@ def build_approval_report(
             "review_case_ids": [case["case_id"] for case in surfaced_cases],
         },
     }
+    if visual_review is not None:
+        approval_report["visual_review"] = visual_review.summary
+    return approval_report
 
 
 def load_blessed_baseline(path: str | Path | None = None) -> dict[str, Any]:
@@ -1005,6 +1021,156 @@ def resolve_evidence_pairs(
     )
 
 
+def build_mujoco_visual_review_manifest(
+    *,
+    contract: dict[str, Any],
+    report: dict[str, Any],
+    manifest: PhaseManifest,
+    current_prefix: str = "",
+    baseline_prefix: str = "",
+) -> dict[str, Any]:
+    """Build the bounded visual-review manifest for the MuJoCo grasp wedge."""
+    phase_id = manifest.failed_phase_id or "lift"
+    phase_label = MUJOCO_GRASP_PHASE_LABELS[phase_id]
+    views = (
+        list(manifest.primary_views[:2])
+        if manifest.failed_phase_id is not None
+        else list(MUJOCO_GRASP_PRIMARY_VIEWS[phase_id])
+    )
+    current_paths = [_prefixed_visual_path(current_prefix, phase_id, view) for view in views]
+    baseline_paths = [_prefixed_visual_path(baseline_prefix, phase_id, view) for view in views]
+    phase_metrics = report["snapshot_metrics"][phase_id]
+    metric_summary = {
+        "overall_metric_verdict": manifest.verdict,
+        "phase": phase_id,
+        "phase_label": phase_label,
+        "selected_views": views,
+        "regressions": list(manifest.regressions),
+        "metrics": {
+            key: phase_metrics[key]
+            for key in (
+                "grip_center_error_mm",
+                "pinch_gap_error_mm",
+                "pinch_elevation_deg",
+                "gripper_skew_deg",
+                "cube_height_mm",
+                "contact_count",
+            )
+            if key in phase_metrics
+        },
+    }
+    return {
+        "schema_version": VISUAL_REVIEW_MANIFEST_SCHEMA_VERSION,
+        "case_id": str(report.get("case_id", "deterministic_mujoco_grasp")),
+        "mode": contract["mode"],
+        "task_intent": (
+            "The cube should be grasped and lifted with a plausible gripper pose while "
+            "remaining aligned with the blessed MuJoCo grasp baseline."
+        ),
+        "dimensions": [
+            _build_visual_dimension(
+                dimension_id="hand_pose",
+                phase_id=phase_id,
+                views=views,
+                current_paths=current_paths,
+                baseline_paths=baseline_paths,
+                metric_fallback=[
+                    "grip_center_error_mm",
+                    "pinch_gap_error_mm",
+                    "pinch_elevation_deg",
+                    "gripper_skew_deg",
+                ],
+                why_not_metricized=(
+                    "The exact gripper attitude and whether the fingers visually bracket the "
+                    "cube are not fully captured by scalar grasp metrics."
+                ),
+            ),
+            _build_visual_dimension(
+                dimension_id="object_relative_position",
+                phase_id=phase_id,
+                views=views,
+                current_paths=current_paths,
+                baseline_paths=baseline_paths,
+                metric_fallback=["grip_center_error_mm", "cube_height_mm", "contact_count"],
+                why_not_metricized=(
+                    "The metrics describe distances and contact count, while the review checks "
+                    "whether the cube visually sits in a plausible grasp location."
+                ),
+            ),
+            _build_visual_dimension(
+                dimension_id="obvious_collision_or_penetration",
+                phase_id=phase_id,
+                views=views,
+                current_paths=current_paths,
+                baseline_paths=baseline_paths,
+                metric_fallback=["contact_count", "max_abs_qvel"],
+                why_not_metricized=(
+                    "The wedge has contact and velocity signals, but still images can reveal "
+                    "gross interpenetration or impossible pose artifacts."
+                ),
+            ),
+            _build_visual_dimension(
+                dimension_id="task_success_visual_check",
+                phase_id=phase_id,
+                views=views,
+                current_paths=current_paths,
+                baseline_paths=baseline_paths,
+                metric_fallback=["cube_height_mm", "contact_count"],
+                why_not_metricized=(
+                    "Metric gates remain authoritative, but final visual agreement can catch "
+                    "obvious false positives in the selected proof views."
+                ),
+            ),
+        ],
+        "metric_summary": metric_summary,
+        "review_policy": {
+            "requires_paired_evidence": True,
+            "allow_automatic_visual_pass": contract["mode"] == "regression",
+            "hard_metric_failures_remain_failures": True,
+            "current_only_auto_pass_allowed": False,
+        },
+    }
+
+
+def prepare_mujoco_visual_review_package(
+    *,
+    trial_dir: Path,
+    baseline_visual_root: Path,
+    contract: dict[str, Any],
+    report: dict[str, Any],
+    manifest: PhaseManifest,
+) -> VisualReviewPackage:
+    """Copy selected MuJoCo evidence into the trial pack and write review files."""
+    phase_id = manifest.failed_phase_id or "lift"
+    views = (
+        list(manifest.primary_views[:2])
+        if manifest.failed_phase_id is not None
+        else list(MUJOCO_GRASP_PRIMARY_VIEWS[phase_id])
+    )
+    current_prefix = f"{VISUAL_REVIEW_INPUT_DIR}/current"
+    baseline_prefix = f"{VISUAL_REVIEW_INPUT_DIR}/baseline"
+
+    for view in views:
+        relative_path = Path(phase_id) / f"{view}_rgb.png"
+        _copy_visual_review_input(
+            source=trial_dir / relative_path,
+            destination=trial_dir / current_prefix / relative_path,
+        )
+        _copy_visual_review_input(
+            source=baseline_visual_root / relative_path,
+            destination=trial_dir / baseline_prefix / relative_path,
+        )
+
+    review_manifest = build_mujoco_visual_review_manifest(
+        contract=contract,
+        report=report,
+        manifest=manifest,
+        current_prefix=current_prefix,
+        baseline_prefix=baseline_prefix,
+    )
+    return write_visual_review_package(trial_dir, review_manifest, current_root=trial_dir)
+
+
 def build_proof_pack(
     *,
     contract: dict[str, Any],
@@ -1015,6 +1181,7 @@ def build_proof_pack(
     trial_dir: Path | None = None,
     baseline_visual_root: Path | None = None,
     include_evidence: bool = True,
+    visual_review: VisualReviewResult | None = None,
 ) -> ProofPack:
     """Build the full MuJoCo approval proof pack in canonical dependency order."""
     report = build_autonomous_report(
@@ -1043,6 +1210,7 @@ def build_proof_pack(
         evaluation_result=evaluation_result,
         manifest=manifest,
         evidence_pairs=evidence_pairs,
+        visual_review=visual_review,
     )
     return ProofPack(
         contract=contract,
@@ -1065,6 +1233,7 @@ def write_artifact_pack(
     alarms: list[AlarmRecord],
     manifest: PhaseManifest,
     report_generated: bool,
+    visual_review_artifacts: dict[str, str] | None = None,
 ) -> None:
     """Write the machine-readable wedge artifacts into the trial directory."""
     report_with_evaluation = dict(report)
@@ -1082,6 +1251,8 @@ def write_artifact_pack(
     }
     if report_generated:
         artifacts["report_html"] = CANONICAL_REPORT_NAME
+    if visual_review_artifacts is not None:
+        artifacts.update(visual_review_artifacts)
     report_with_evaluation["artifacts"] = artifacts
 
     save_json(contract, trial_dir / "contract.json")
@@ -1287,6 +1458,41 @@ def _build_agent_next_action(
     )
 
 
+def _prefixed_visual_path(prefix: str, phase_id: str, view: str) -> str:
+    path = f"{phase_id}/{view}_rgb.png"
+    return f"{prefix.rstrip('/')}/{path}" if prefix else path
+
+
+def _build_visual_dimension(
+    *,
+    dimension_id: str,
+    phase_id: str,
+    views: list[str],
+    current_paths: list[str],
+    baseline_paths: list[str],
+    metric_fallback: list[str],
+    why_not_metricized: str,
+) -> dict[str, Any]:
+    return {
+        "id": dimension_id,
+        "required": True,
+        "phase": phase_id,
+        "evidence_type": "paired_keyframe",
+        "views": list(views),
+        "current": list(current_paths),
+        "baseline": list(baseline_paths),
+        "metric_fallback": list(metric_fallback),
+        "why_not_metricized": why_not_metricized,
+    }
+
+
+def _copy_visual_review_input(*, source: Path, destination: Path) -> None:
+    if not source.exists():
+        raise FileNotFoundError(f"visual review evidence not found: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(source, destination)
+
+
 def _build_failure_taxonomy(
     evaluation_result: EvaluationResult,
 ) -> tuple[list[dict[str, str]], list[str]]:
@@ -1366,6 +1572,7 @@ def _build_approval_decision(
     evaluation_result: EvaluationResult,
     evidence: EvidenceSummary,
     has_ungrounded_rules: bool,
+    visual_review: VisualReviewResult | None = None,
 ) -> ApprovalDecision:
     overall_verdict = _approval_overall_verdict(
         evaluation_result,
@@ -1379,7 +1586,7 @@ def _build_approval_decision(
         mode=mode,
         surfaces_case=surfaces_case,
     )
-    return ApprovalDecision(
+    decision = ApprovalDecision(
         evidence=evidence,
         overall_verdict=overall_verdict,
         surfaces_case=surfaces_case,
@@ -1397,6 +1604,81 @@ def _build_approval_decision(
         needs_baseline_blessing=mode == "migration" and overall_verdict == "PASS" and surfaces_case,
         reruns=0 if overall_verdict == "PASS" else 1,
     )
+    if visual_review is None:
+        return decision
+    return _apply_visual_review_decision(
+        decision,
+        mode=mode,
+        evaluation_result=evaluation_result,
+        visual_review=visual_review,
+    )
+
+
+def _apply_visual_review_decision(
+    decision: ApprovalDecision,
+    *,
+    mode: str,
+    evaluation_result: EvaluationResult,
+    visual_review: VisualReviewResult,
+) -> ApprovalDecision:
+    visual_verdict = visual_review.effective_visual_verdict
+    if visual_verdict == "PASS":
+        return decision
+    if visual_verdict == "REVIEW_INVALID":
+        run_state, run_title, run_message = _run_fields_for_decision(
+            overall_verdict="REVIEW_INVALID",
+            evidence_state=decision.evidence.state,
+            mode=mode,
+            surfaces_case=True,
+        )
+        return replace(
+            decision,
+            overall_verdict="REVIEW_INVALID",
+            surfaces_case=True,
+            surfaced_case_status="REVIEW_INVALID",
+            material_reasons=("visual_review_invalid",),
+            stop_reason="visual_review_invalid",
+            run_state=run_state,
+            run_state_title=run_title,
+            run_state_message=run_message,
+            needs_baseline_blessing=False,
+            reruns=0,
+        )
+
+    visual_reason = (
+        "visual_dimension_failed" if visual_verdict == "FAIL" else "visual_review_needs_human"
+    )
+    if evaluation_result.verdict is not Verdict.PASS:
+        return replace(
+            decision,
+            material_reasons=_append_reason(decision.material_reasons, visual_reason),
+        )
+
+    overall_verdict = "FAIL" if visual_verdict == "FAIL" else "NEEDS_HUMAN"
+    run_state, run_title, run_message = _run_fields_for_decision(
+        overall_verdict=overall_verdict,
+        evidence_state=decision.evidence.state,
+        mode=mode,
+        surfaces_case=True,
+    )
+    return replace(
+        decision,
+        overall_verdict=overall_verdict,
+        surfaces_case=True,
+        surfaced_case_status=_surfaced_case_status_for_decision(mode, overall_verdict),
+        material_reasons=(visual_reason,),
+        stop_reason=_stop_reason_for_decision(
+            mode=mode,
+            overall_verdict=overall_verdict,
+            evidence_state=decision.evidence.state,
+            surfaces_case=True,
+        ),
+        run_state=run_state,
+        run_state_title=run_title,
+        run_state_message=run_message,
+        needs_baseline_blessing=mode == "migration",
+        reruns=0 if visual_verdict == "NEEDS_HUMAN" else 1,
+    )
 
 
 def _run_fields_for_decision(
@@ -1413,6 +1695,24 @@ def _run_fields_for_decision(
             (
                 "The compiled contract does not match the current MuJoCo wedge. "
                 "Do not trust or bless this run."
+            ),
+        )
+    if overall_verdict == "REVIEW_INVALID":
+        return (
+            "review_invalid",
+            "Visual review invalid",
+            (
+                "The visual review record failed validation. Do not trust or bless "
+                "this run until the review output is fixed."
+            ),
+        )
+    if overall_verdict == "NEEDS_HUMAN":
+        return (
+            "visual_review_needs_human",
+            "Human visual review needed",
+            (
+                "Metric gates passed, but the agent visual review escalated at least one "
+                "required dimension."
             ),
         )
     if overall_verdict == "PASS" and surfaces_case and mode == "migration":
@@ -1458,6 +1758,10 @@ def _stop_reason_for_decision(
 ) -> str:
     if overall_verdict == "CONTRACT_INVALID":
         return "contract_invalid"
+    if overall_verdict == "REVIEW_INVALID":
+        return "visual_review_invalid"
+    if overall_verdict == "NEEDS_HUMAN":
+        return "visual_review_needs_human"
     if overall_verdict == "PASS" and mode == "migration" and surfaces_case:
         return "awaiting_user_blessing"
     if overall_verdict == "PASS":
@@ -1476,6 +1780,10 @@ def _stop_reason_for_decision(
 def _surfaced_case_status_for_decision(mode: str, overall_verdict: str) -> str:
     if overall_verdict == "CONTRACT_INVALID":
         return "CONTRACT_INVALID"
+    if overall_verdict == "REVIEW_INVALID":
+        return "REVIEW_INVALID"
+    if overall_verdict == "NEEDS_HUMAN":
+        return "NEEDS_HUMAN"
     if overall_verdict == "AMBIGUOUS":
         return "AMBIGUOUS"
     if mode == "migration" and overall_verdict == "PASS":
@@ -1490,6 +1798,10 @@ def _material_reasons_for_decision(
 ) -> tuple[str, ...]:
     if overall_verdict == "CONTRACT_INVALID":
         return ("contract_invalid",)
+    if overall_verdict == "REVIEW_INVALID":
+        return ("visual_review_invalid",)
+    if overall_verdict == "NEEDS_HUMAN":
+        return ("visual_review_needs_human",)
     if overall_verdict == "AMBIGUOUS":
         return ("visual_intent_unclear",)
     if mode == "migration" and overall_verdict == "PASS":
@@ -1501,6 +1813,10 @@ def _material_reasons_for_decision(
     if evidence_state is EvidenceState.MANIFEST_MISMATCH:
         return ("hard_metric_failed", "evidence_contract_mismatch")
     return ("hard_metric_failed",)
+
+
+def _append_reason(reasons: tuple[str, ...], reason: str) -> tuple[str, ...]:
+    return reasons if reason in reasons else (*reasons, reason)
 
 
 def _baseline_authority_copy(mode: str) -> str:
@@ -1524,16 +1840,22 @@ def _build_surfaced_case(
     evidence_pairs: list[EvidencePair],
     case_id: str,
     decision: ApprovalDecision,
+    visual_review: VisualReviewResult | None = None,
 ) -> dict[str, Any]:
     proof_pair = next((pair for pair in evidence_pairs if pair.status != "mismatch"), None)
     rules = _build_rule_outcomes(contract, evaluation_result, decision.overall_verdict)
-    metrics = _build_metric_observations(evaluation_result, report)
+    metrics = _build_metric_observations(evaluation_result, report, visual_review=visual_review)
+    visual_panel = _visual_panel_context(visual_review)
     return {
         "case_id": case_id,
         "status": decision.surfaced_case_status,
         "material_reason": list(decision.material_reasons),
         "proof_panel": {
-            "phase_id": proof_pair.phase_id if proof_pair is not None else manifest.failed_phase_id,
+            "phase_id": (
+                proof_pair.phase_id
+                if proof_pair is not None
+                else manifest.failed_phase_id or visual_panel.get("phase")
+            ),
             "view": proof_pair.view_name if proof_pair is not None else None,
             "status": proof_pair.status if proof_pair is not None else "empty",
             "current_image": (
@@ -1584,6 +1906,10 @@ def _build_rule_outcomes(
             failed.append(rule.rule_id)
     if overall_verdict == "AMBIGUOUS":
         ambiguous.append("still_image_review_required")
+    if overall_verdict == "NEEDS_HUMAN":
+        ambiguous.append("agent_visual_review_needs_human")
+    if overall_verdict == "REVIEW_INVALID":
+        ambiguous.append("agent_visual_review_invalid")
     return {
         "passed": passed,
         "failed": failed,
@@ -1594,6 +1920,8 @@ def _build_rule_outcomes(
 def _build_metric_observations(
     evaluation_result: EvaluationResult,
     report: dict[str, Any],
+    *,
+    visual_review: VisualReviewResult | None = None,
 ) -> list[dict[str, Any]]:
     observations: list[dict[str, Any]] = []
     for result in evaluation_result.failed[:2]:
@@ -1605,7 +1933,43 @@ def _build_metric_observations(
                 "baseline": _lookup_baseline_value(report, result.phase, result.metric),
             }
         )
+    if visual_review is not None:
+        observations.extend(_visual_metric_observations(visual_review))
     return observations
+
+
+def _visual_metric_observations(visual_review: VisualReviewResult) -> list[dict[str, Any]]:
+    observations: list[dict[str, Any]] = []
+    for finding in visual_review.summary.get("metric_findings", []):
+        if not isinstance(finding, dict):
+            continue
+        observations.append(
+            {
+                "id": finding.get("id"),
+                "verdict": finding.get("verdict"),
+                "observed": finding.get("confidence"),
+                "baseline": None,
+                "dimension_id": finding.get("dimension_id"),
+                "phase": finding.get("phase"),
+                "metric_fallback": finding.get("metric_fallback", []),
+            }
+        )
+    return observations
+
+
+def _visual_panel_context(visual_review: VisualReviewResult | None) -> dict[str, Any]:
+    if visual_review is None:
+        return {}
+    blocking = visual_review.summary.get("blocking_dimensions", [])
+    findings = visual_review.summary.get("metric_findings", [])
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        dimension_id = finding.get("dimension_id")
+        if isinstance(blocking, list) and dimension_id not in blocking:
+            continue
+        return finding
+    return {}
 
 
 def _ground_contract_rules(contract: dict[str, Any]) -> tuple[GroundedContractRule, ...]:

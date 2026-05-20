@@ -10,14 +10,38 @@ from roboharness.approval.evidence import (
     resolve_evidence_pairs,
     resolve_evidence_path,
 )
+from roboharness.approval.visual_review import (
+    MANIFEST_SCHEMA_VERSION,
+    RECORD_SCHEMA_VERSION,
+    VisualReviewPackage,
+    VisualReviewResult,
+    VisualReviewValidationError,
+    build_visual_review_prompt,
+    build_visual_review_schema,
+    ingest_visual_review_record,
+    validate_visual_review_manifest,
+    validate_visual_review_record,
+    write_visual_review_package,
+)
 
 __all__ = [
+    "MANIFEST_SCHEMA_VERSION",
+    "RECORD_SCHEMA_VERSION",
     "EvidencePair",
     "EvidenceStatus",
     "EvidenceTarget",
     "MetricExplanation",
+    "VisualReviewPackage",
+    "VisualReviewResult",
+    "VisualReviewValidationError",
+    "build_visual_review_prompt",
+    "build_visual_review_schema",
+    "ingest_visual_review_record",
     "render_lightbox_shell",
     "render_zoomable_image",
     "resolve_evidence_pairs",
     "resolve_evidence_path",
+    "validate_visual_review_manifest",
+    "validate_visual_review_record",
+    "write_visual_review_package",
 ]
