@@ -338,7 +338,7 @@ def main() -> None:
     print(f"      Act space: {env.action_space.shape}")
 
     # 2. Load GR00T locomotion controller
-    from roboharness.controllers.locomotion import GrootLocomotionController
+    from roboharness.robots.unitree_g1 import GrootLocomotionController
 
     print("[2/5] Loading GR00T locomotion controller ...")
     loco = GrootLocomotionController()

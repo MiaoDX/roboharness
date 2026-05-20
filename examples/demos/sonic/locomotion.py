@@ -43,8 +43,8 @@ except ImportError:
     print("ERROR: mujoco is required. Install with: pip install roboharness[demo]")
     sys.exit(1)
 
-from roboharness.controllers.locomotion import SonicMode
 from roboharness.core.protocol import TaskPhase, TaskProtocol
+from roboharness.robots.unitree_g1 import SonicMode
 from roboharness.wrappers import RobotHarnessWrapper
 
 # ---------------------------------------------------------------------------
@@ -361,7 +361,7 @@ def main() -> None:
     print(f"      Obs space: {env.observation_space.shape}")
 
     # 2. Load SONIC controller
-    from roboharness.controllers.locomotion import SonicLocomotionController
+    from roboharness.robots.unitree_g1 import SonicLocomotionController
 
     print("[2/4] Loading SONIC locomotion controller ...")
     sonic = SonicLocomotionController()
