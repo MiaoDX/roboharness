@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MuJoCo grasp wedge with evaluator-backed alarms and agent-readable artifacts.
 
-This example runs one deterministic grasp loop, emits five machine-readable
+This example runs one deterministic grasp loop, emits machine-readable
 artifacts, and optionally renders an HTML report:
 
   1. ``contract.json`` — compiled regression contract for the current wedge run
@@ -9,7 +9,10 @@ artifacts, and optionally renders an HTML report:
   3. ``alarms.json`` — evaluator-derived alarm cards and statuses
   4. ``phase_manifest.json`` — failed phase, views to inspect, and rerun hint
   5. ``approval_report.json`` — surfaced/suppressed review decision for the run
-  6. ``report.html`` — optional HTML report when ``--report`` is requested
+  6. ``visual_review_manifest.json`` — bounded agent visual review input
+  7. ``visual_review_prompt.md`` — reviewer instructions
+  8. ``visual_review_schema.json`` — expected structured review record schema
+  9. ``report.html`` — optional HTML report when ``--report`` is requested
 
 Run:
     pip install roboharness[demo]
@@ -48,6 +51,7 @@ try:
         collect_phase_metrics,
         compile_contract,
         load_blessed_baseline,
+        prepare_mujoco_visual_review_package,
         write_artifact_pack,
     )
 except ModuleNotFoundError:  # pragma: no cover - script execution path
@@ -68,6 +72,7 @@ except ModuleNotFoundError:  # pragma: no cover - script execution path
         collect_phase_metrics,
         compile_contract,
         load_blessed_baseline,
+        prepare_mujoco_visual_review_package,
         write_artifact_pack,
     )
 
@@ -326,6 +331,13 @@ def main() -> None:
     else:
         html_report_path = None
 
+    visual_review_package = prepare_mujoco_visual_review_package(
+        trial_dir=trial_dir,
+        baseline_visual_root=baseline_visual_root,
+        contract=proof_pack.contract,
+        report=proof_pack.report,
+        manifest=proof_pack.manifest,
+    )
     write_artifact_pack(
         trial_dir=trial_dir,
         contract=proof_pack.contract,
@@ -335,6 +347,7 @@ def main() -> None:
         alarms=proof_pack.alarms,
         manifest=proof_pack.manifest,
         report_generated=args.report,
+        visual_review_artifacts=visual_review_package.artifact_paths(trial_dir),
     )
 
     print(f"      contract.json: {trial_dir / 'contract.json'}")
@@ -342,6 +355,9 @@ def main() -> None:
     print(f"      alarms.json: {trial_dir / 'alarms.json'}")
     print(f"      phase_manifest.json: {trial_dir / 'phase_manifest.json'}")
     print(f"      approval_report.json: {trial_dir / 'approval_report.json'}")
+    print(f"      visual_review_manifest.json: {visual_review_package.manifest_path}")
+    print(f"      visual_review_prompt.md: {visual_review_package.prompt_path}")
+    print(f"      visual_review_schema.json: {visual_review_package.schema_path}")
 
     print("[5/5] Summary")
     total_images = len(list(trial_dir.rglob("*_rgb.png"))) if trial_dir.exists() else 0

@@ -189,12 +189,19 @@ surfaces. It resolves requested evidence paths under bounded roots, rejects path
 escapes, and classifies each requested proof pair as full, ambiguous, partial,
 empty, or mismatched.
 
+It also owns the provider-neutral agent visual review boundary: manifest,
+prompt, and schema preparation; structured review-record validation; evidence
+reference checks against declared manifest paths; and approval-summary
+aggregation for visual PASS/FAIL/NEEDS_HUMAN/REVIEW_INVALID outcomes.
+
 The MuJoCo trust loop builds on this layer to produce:
 
 - `contract.json` — compiled approval contract
 - `autonomous_report.json` — canonical metrics and baseline comparison
 - `alarms.json` — evaluator-derived alarm cards
 - `phase_manifest.json` — first failing phase, view selection, and rerun hint
+- `visual_review_manifest.json`, `visual_review_prompt.md`, and
+  `visual_review_schema.json` — bounded agent visual review inputs
 - `approval_report.json` — surfaced vs suppressed review decision
 - `report.html` — first-screen proof surface for human review
 

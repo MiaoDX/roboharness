@@ -1,6 +1,6 @@
 # Roboharness Status
 
-Current as of 2026-05-19.
+Current as of 2026-05-20.
 
 ## What This Repo Is Now
 
@@ -17,6 +17,8 @@ The package currently provides:
 - LeRobot and Unitree G1 demo/evaluation paths, including SONIC planner and
   tracking examples
 - metric evaluation, batch evaluation, trend history, and approval evidence
+- bounded agent visual review package preparation, record validation, and
+  approval-summary aggregation for the maintained MuJoCo/G1 proof surfaces
 - a CLI for inspecting outputs, writing `report.json`, evaluating reports, and
   tracking trends
 - optional MCP tools for agent-driven checkpoint capture and evaluation
@@ -36,12 +38,12 @@ Current priorities:
   authoritative
 - keep release truth aligned across repo version, GitHub Releases, and PyPI
 
-Latest validation on 2026-05-19:
+Latest validation on 2026-05-20:
 
-- `pytest -q` passed with 511 passed, 13 skipped, and total coverage 92.95%
-- `ruff check .` passed
-- `ruff format --check .` passed
-- `mypy src/` passed
+- `uv run pytest -q` passed with 526 passed, 13 skipped, and total coverage 91.28%
+- `uv run ruff check .` passed
+- `uv run ruff format --check .` passed
+- `uv run mypy src/` passed
 
 During this milestone, avoid adding new simulator backends, splitting new
 showcase repos, expanding SONIC scope without real-model validation evidence, or

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import copy
 import json
+import shutil
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -28,16 +29,19 @@ from examples.demos.mujoco.wedge import (
     build_autonomous_report,
     build_contract_from_preset,
     build_default_contract,
+    build_mujoco_visual_review_manifest,
     build_phase_manifest,
     build_proof_pack,
     build_summary_html,
     compile_contract,
     evaluate_autonomous_report,
     load_blessed_baseline,
+    prepare_mujoco_visual_review_package,
     resolve_evidence_pairs,
     validate_contract,
     write_artifact_pack,
 )
+from roboharness.approval.visual_review import RECORD_SCHEMA_VERSION, ingest_visual_review_record
 from roboharness.evaluate.result import Verdict
 
 _ONE_PIXEL_PNG = base64.b64decode(
@@ -95,6 +99,60 @@ def _build_review_bundle() -> tuple[dict[str, Any], dict[str, Any], Any, list[An
         evidence_pairs=evidence_pairs,
     )
     return contract, approval_report, report, result, alarms, evidence_pairs
+
+
+def _build_metric_pass_bundle() -> tuple[dict[str, Any], Any, list[Any], Any, dict[str, Any]]:
+    baseline = load_blessed_baseline()
+    contract = build_default_contract(baseline_source="fixture")
+    report = build_autonomous_report(
+        snapshot_metrics=copy.deepcopy(baseline["snapshot_metrics"]),
+        baseline_report=baseline,
+        baseline_source="fixture",
+    )
+    result = evaluate_autonomous_report(report)
+    alarms = build_alarms(report, result)
+    manifest = build_phase_manifest(report, result, alarms)
+    return report, result, alarms, manifest, contract
+
+
+def _visual_record(
+    review_manifest: dict[str, Any],
+    *,
+    dimension_verdicts: dict[str, str] | None = None,
+    low_confidence: str | None = None,
+    extra_evidence: str | None = None,
+) -> dict[str, Any]:
+    verdicts = dimension_verdicts or {}
+    dimensions = []
+    overall = "PASS"
+    for dimension in review_manifest["dimensions"]:
+        dimension_id = dimension["id"]
+        verdict = verdicts.get(dimension_id, "PASS")
+        if verdict == "FAIL":
+            overall = "FAIL"
+        elif verdict in {"INSUFFICIENT_EVIDENCE", "NEEDS_HUMAN"} and overall != "FAIL":
+            overall = verdict
+        evidence = list(dimension["current"])
+        evidence.extend(dimension.get("baseline", []))
+        if extra_evidence is not None and dimension_id == review_manifest["dimensions"][0]["id"]:
+            evidence.append(extra_evidence)
+        dimensions.append(
+            {
+                "id": dimension_id,
+                "verdict": verdict,
+                "confidence": "low" if low_confidence == dimension_id else "medium",
+                "evidence": evidence,
+                "rationale": f"{dimension_id} looks consistent with the selected proof views.",
+            }
+        )
+    return {
+        "schema_version": RECORD_SCHEMA_VERSION,
+        "case_id": review_manifest["case_id"],
+        "reviewer_context": "agent_visual_review",
+        "overall_visual_verdict": overall,
+        "dimensions": dimensions,
+        "needs_human_reasons": [],
+    }
 
 
 def _write_png(path: Path) -> None:
@@ -322,6 +380,146 @@ def test_write_artifact_pack_skips_report_html_when_report_not_generated(tmp_pat
     assert approval_json["summary"]["cases_surfaced"] == 0
     assert alarms_report["verdict"] == "pass"
     assert phase_manifest["failed_phase_id"] is None
+
+
+def test_mujoco_visual_review_package_copies_selected_evidence(tmp_path: Path) -> None:
+    report, result, _alarms, manifest = _build_known_bad_contract()
+    contract = build_default_contract(baseline_source="fixture")
+    trial_dir = tmp_path / "trial_001"
+    shutil.copytree(KNOWN_BAD_VISUAL_ROOT, trial_dir)
+
+    package = prepare_mujoco_visual_review_package(
+        trial_dir=trial_dir,
+        baseline_visual_root=BASELINE_VISUAL_ROOT,
+        contract=contract,
+        report=report,
+        manifest=manifest,
+    )
+
+    assert result.verdict is Verdict.FAIL
+    review_manifest = json.loads(package.manifest_path.read_text())
+    assert review_manifest["case_id"] == "deterministic_mujoco_grasp"
+    assert review_manifest["metric_summary"]["phase"] == "approach"
+    assert review_manifest["dimensions"][0]["metric_fallback"]
+    assert (trial_dir / "visual_review_inputs/current/approach/side_rgb.png").exists()
+    assert (trial_dir / "visual_review_inputs/baseline/approach/side_rgb.png").exists()
+    assert package.prompt_path.exists()
+    assert package.schema_path.exists()
+
+
+def test_visual_review_failure_vetoes_metric_pass_and_feeds_metric_observations() -> None:
+    report, result, _alarms, manifest, contract = _build_metric_pass_bundle()
+    review_manifest = build_mujoco_visual_review_manifest(
+        contract=contract,
+        report=report,
+        manifest=manifest,
+    )
+    visual_review = ingest_visual_review_record(
+        review_manifest,
+        _visual_record(review_manifest, dimension_verdicts={"hand_pose": "FAIL"}),
+    )
+
+    approval_report = build_approval_report(
+        contract=contract,
+        report=report,
+        evaluation_result=result,
+        manifest=manifest,
+        evidence_pairs=[],
+        visual_review=visual_review,
+    )
+
+    assert result.verdict is Verdict.PASS
+    assert approval_report["overall_verdict"] == "FAIL"
+    assert approval_report["visual_review"]["effective_visual_verdict"] == "FAIL"
+    assert approval_report["surfaced_cases"][0]["material_reason"] == ["visual_dimension_failed"]
+    assert any(
+        metric["id"] == "visual.hand_pose"
+        for metric in approval_report["surfaced_cases"][0]["metrics"]
+    )
+
+
+def test_metric_failure_cannot_be_rescued_by_visual_pass() -> None:
+    report, result, _alarms, manifest = _build_known_bad_contract()
+    contract = build_default_contract(baseline_source="fixture")
+    evidence_pairs = resolve_evidence_pairs(
+        trial_dir=KNOWN_BAD_VISUAL_ROOT,
+        baseline_visual_root=BASELINE_VISUAL_ROOT,
+        manifest=manifest,
+        report=report,
+    )
+    review_manifest = build_mujoco_visual_review_manifest(
+        contract=contract,
+        report=report,
+        manifest=manifest,
+    )
+    visual_review = ingest_visual_review_record(review_manifest, _visual_record(review_manifest))
+
+    approval_report = build_approval_report(
+        contract=contract,
+        report=report,
+        evaluation_result=result,
+        manifest=manifest,
+        evidence_pairs=evidence_pairs,
+        visual_review=visual_review,
+    )
+
+    assert result.verdict is Verdict.FAIL
+    assert visual_review.effective_visual_verdict == "PASS"
+    assert approval_report["overall_verdict"] == "FAIL"
+    assert approval_report["surfaced_cases"][0]["material_reason"] == ["hard_metric_failed"]
+
+
+def test_low_confidence_visual_pass_escalates_metric_pass() -> None:
+    report, result, _alarms, manifest, contract = _build_metric_pass_bundle()
+    review_manifest = build_mujoco_visual_review_manifest(
+        contract=contract,
+        report=report,
+        manifest=manifest,
+    )
+    visual_review = ingest_visual_review_record(
+        review_manifest,
+        _visual_record(review_manifest, low_confidence="hand_pose"),
+    )
+
+    approval_report = build_approval_report(
+        contract=contract,
+        report=report,
+        evaluation_result=result,
+        manifest=manifest,
+        evidence_pairs=[],
+        visual_review=visual_review,
+    )
+
+    assert result.verdict is Verdict.PASS
+    assert visual_review.effective_visual_verdict == "NEEDS_HUMAN"
+    assert approval_report["overall_verdict"] == "NEEDS_HUMAN"
+    assert approval_report["visual_review"]["needs_human_reasons"] == ["low_confidence_high_risk"]
+
+
+def test_invalid_visual_review_record_produces_review_invalid() -> None:
+    report, result, _alarms, manifest, contract = _build_metric_pass_bundle()
+    review_manifest = build_mujoco_visual_review_manifest(
+        contract=contract,
+        report=report,
+        manifest=manifest,
+    )
+    visual_review = ingest_visual_review_record(
+        review_manifest,
+        _visual_record(review_manifest, extra_evidence="lift/unlisted_rgb.png"),
+    )
+
+    approval_report = build_approval_report(
+        contract=contract,
+        report=report,
+        evaluation_result=result,
+        manifest=manifest,
+        evidence_pairs=[],
+        visual_review=visual_review,
+    )
+
+    assert visual_review.effective_visual_verdict == "REVIEW_INVALID"
+    assert approval_report["overall_verdict"] == "REVIEW_INVALID"
+    assert approval_report["visual_review"]["validation_errors"]
 
 
 def test_approval_report_surfaces_the_first_regression_case() -> None:

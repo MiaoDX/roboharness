@@ -27,6 +27,10 @@ from pathlib import Path
 
 import numpy as np
 
+from roboharness.approval.visual_review import (
+    MANIFEST_SCHEMA_VERSION as VISUAL_REVIEW_MANIFEST_SCHEMA_VERSION,
+)
+from roboharness.approval.visual_review import VisualReviewPackage, write_visual_review_package
 from roboharness.core.protocol import TaskPhase, TaskProtocol
 
 # ---------------------------------------------------------------------------
@@ -53,6 +57,8 @@ G1_REACH_PROTOCOL = TaskProtocol(
         ),
     ],
 )
+G1_VISUAL_REVIEW_PHASE = "reach_both"
+G1_VISUAL_REVIEW_VIEWS = ["front", "side", "top", "close_up"]
 
 
 # ---------------------------------------------------------------------------
@@ -344,6 +350,127 @@ def generate_html_report(output_dir: Path, task_name: str = "g1_wbc_reach") -> P
     )
 
 
+def build_g1_wbc_visual_review_manifest(
+    *,
+    task_name: str = "g1_wbc_reach",
+    phase_name: str = G1_VISUAL_REVIEW_PHASE,
+    views: list[str] | None = None,
+) -> dict[str, object]:
+    """Build the current-only static-pose visual review manifest for G1 WBC reach."""
+    selected_views = list(views or G1_VISUAL_REVIEW_VIEWS)
+    current_paths = [f"{phase_name}/{view}_rgb.png" for view in selected_views]
+    return {
+        "schema_version": VISUAL_REVIEW_MANIFEST_SCHEMA_VERSION,
+        "case_id": task_name,
+        "mode": "current_only",
+        "task_intent": (
+            "The Unitree G1 should remain upright while reaching both hands toward the "
+            "table targets with plausible arm posture and no obvious static collision."
+        ),
+        "dimensions": [
+            _build_g1_visual_dimension(
+                dimension_id="robot_posture",
+                phase_name=phase_name,
+                selected_views=selected_views,
+                current_paths=current_paths,
+                metric_fallback=["base_height_m", "max_abs_qvel"],
+                why_not_metricized=(
+                    "The assertion checks base height and stability, while visual review checks "
+                    "whether the whole-body posture is obviously collapsed or implausible."
+                ),
+            ),
+            _build_g1_visual_dimension(
+                dimension_id="hand_pose",
+                phase_name=phase_name,
+                selected_views=selected_views,
+                current_paths=current_paths,
+                metric_fallback=["left_hand_target_distance_m", "right_hand_target_distance_m"],
+                why_not_metricized=(
+                    "End-effector distance does not fully capture wrist orientation or whether "
+                    "the hands appear plausibly aimed at the targets."
+                ),
+            ),
+            _build_g1_visual_dimension(
+                dimension_id="object_relative_position",
+                phase_name=phase_name,
+                selected_views=selected_views,
+                current_paths=current_paths,
+                metric_fallback=["left_hand_target_distance_m", "right_hand_target_distance_m"],
+                why_not_metricized=(
+                    "Distance metrics are the safety floor; visual review checks obvious "
+                    "hand-to-target mismatch in the rendered pose."
+                ),
+            ),
+            _build_g1_visual_dimension(
+                dimension_id="obvious_collision_or_penetration",
+                phase_name=phase_name,
+                selected_views=selected_views,
+                current_paths=current_paths,
+                metric_fallback=["max_abs_qvel"],
+                why_not_metricized=(
+                    "The demo has no full collision metric for every body pair, so the reviewer "
+                    "may flag only gross static interpenetration."
+                ),
+            ),
+            _build_g1_visual_dimension(
+                dimension_id="task_success_visual_check",
+                phase_name=phase_name,
+                selected_views=selected_views,
+                current_paths=current_paths,
+                metric_fallback=["assert_reach_success"],
+                why_not_metricized=(
+                    "The visual check is limited to static agreement with the reach intent and "
+                    "cannot approve motion quality."
+                ),
+            ),
+        ],
+        "metric_summary": {
+            "assertion_helper": "assert_reach_success",
+            "phase": phase_name,
+            "selected_views": selected_views,
+            "distance_threshold_m": EE_DISTANCE_THRESHOLD,
+            "min_base_height_m": MIN_BASE_HEIGHT,
+            "qvel_max": QVEL_MAX,
+        },
+        "review_policy": {
+            "requires_paired_evidence": False,
+            "allow_automatic_visual_pass": False,
+            "current_only_auto_pass_allowed": False,
+        },
+    }
+
+
+def prepare_g1_wbc_visual_review_package(
+    *,
+    trial_dir: Path,
+    task_name: str = "g1_wbc_reach",
+) -> VisualReviewPackage:
+    """Write the current-only G1 WBC visual review files into a trial directory."""
+    manifest = build_g1_wbc_visual_review_manifest(task_name=task_name)
+    return write_visual_review_package(trial_dir, manifest, current_root=trial_dir)
+
+
+def _build_g1_visual_dimension(
+    *,
+    dimension_id: str,
+    phase_name: str,
+    selected_views: list[str],
+    current_paths: list[str],
+    metric_fallback: list[str],
+    why_not_metricized: str,
+) -> dict[str, object]:
+    return {
+        "id": dimension_id,
+        "required": True,
+        "phase": phase_name,
+        "evidence_type": "current_static_keyframe",
+        "views": list(selected_views),
+        "current": list(current_paths),
+        "metric_fallback": list(metric_fallback),
+        "why_not_metricized": why_not_metricized,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -529,6 +656,14 @@ def main() -> None:
     if args.report:
         report_path = generate_html_report(output_dir, task_name)
         print(f"      HTML report: {report_path}")
+
+    visual_review_package = prepare_g1_wbc_visual_review_package(
+        trial_dir=trial_dir,
+        task_name=task_name,
+    )
+    print(f"      Visual review manifest: {visual_review_package.manifest_path}")
+    print(f"      Visual review prompt: {visual_review_package.prompt_path}")
+    print(f"      Visual review schema: {visual_review_package.schema_path}")
 
     print("\n  Output structure:")
     if trial_dir.exists():
