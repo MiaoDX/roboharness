@@ -31,6 +31,9 @@ surface:
 
 - `docs/designs/**` and `docs/plans/**` — design reviews, approved plans,
   completed maintenance logs, and audit artifacts.
+- `docs/research-checkpoints/**` — periodic ecosystem-research snapshots,
+  produced via the mithaq Mode A workflow. See the directory README for
+  cadence and how to produce a new checkpoint.
 - `docs/steering/**` — milestone steering notes used as source evidence for
   `STATUS.md`.
 - `.planning/**` — agent planning state.
