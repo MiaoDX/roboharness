@@ -29,11 +29,12 @@ class LeRobotPolicyAdapter:
         import torch
 
         with torch.inference_mode():
+            policy_obs: Any
             if isinstance(obs, dict):
-                tensor_obs = {k: torch.as_tensor(v, device=self.device) for k, v in obs.items()}
+                policy_obs = {k: torch.as_tensor(v, device=self.device) for k, v in obs.items()}
             else:
-                tensor_obs = torch.as_tensor(obs, device=self.device)
-            action = self.policy.select_action(tensor_obs)
+                policy_obs = torch.as_tensor(obs, device=self.device)
+            action = self.policy.select_action(policy_obs)
             if hasattr(action, "cpu"):
                 action = action.cpu()
             if hasattr(action, "numpy"):
