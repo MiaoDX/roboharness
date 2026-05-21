@@ -13,7 +13,7 @@ FROM python:3.12-slim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libosmesa6-dev \
-        libgl1-mesa-glx \
+        libgl1 \
         git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,6 +26,7 @@ ENV UV_SYSTEM_PYTHON=1
 # Copy only dependency metadata first (for layer caching)
 WORKDIR /opt/roboharness
 COPY pyproject.toml .
+COPY README.md .
 RUN mkdir -p src/roboharness && \
     echo '__version__ = "0.0.0"' > src/roboharness/__init__.py
 
