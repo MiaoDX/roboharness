@@ -25,3 +25,12 @@ def test_dockerfiles_copy_readme_before_editable_install() -> None:
         install_index = dockerfile.index('RUN uv pip install -e "')
 
         assert readme_index < install_index
+
+
+def test_cpu_dockerfile_has_unitree_build_toolchain() -> None:
+    dockerfile = _dockerfile("Dockerfile")
+    unitree_install_index = dockerfile.index('RUN uv pip install "unitree-sdk2py')
+
+    for package in ("build-essential", "cmake"):
+        package_index = dockerfile.index(package)
+        assert package_index < unitree_install_index

@@ -12,6 +12,8 @@ FROM python:3.12-slim
 # System dependencies for MuJoCo headless rendering (OSMesa)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
         libosmesa6-dev \
         libgl1 \
         git \
