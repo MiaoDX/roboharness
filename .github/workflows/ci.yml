@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, ci-rerun/qpos-102a593-20260522]
   pull_request:
     branches: [main]
 
