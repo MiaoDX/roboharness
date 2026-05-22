@@ -91,32 +91,41 @@ jobs:
       - name: Build demo reports
         run: |
           # --- Demo 1: Simple Grasp (with Meshcat 3D) ---
+          # The report's iframe src values are relative to the harness output
+          # root (e.g. mujoco_grasp/trial_001/<cp>/meshcat_scene.html), so the
+          # deployed checkpoint assets must preserve that nesting under
+          # _site/grasp/ or the 3D scenes 404.
           mkdir -p _site/grasp
           cp harness_output/report.html _site/grasp/index.html
           for cp_dir in harness_output/mujoco_grasp/trial_001/*/; do
             cp_name=$(basename "$cp_dir")
-            mkdir -p "_site/grasp/${cp_name}"
-            cp "${cp_dir}"*_rgb.png "_site/grasp/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"*_depth_viz.png "_site/grasp/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"meshcat_scene.html "_site/grasp/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"metadata.json "_site/grasp/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"state.json "_site/grasp/${cp_name}/" 2>/dev/null || true
+            dest="_site/grasp/mujoco_grasp/trial_001/${cp_name}"
+            mkdir -p "$dest"
+            cp "${cp_dir}"*_rgb.png "$dest/" 2>/dev/null || true
+            cp "${cp_dir}"*_depth_viz.png "$dest/" 2>/dev/null || true
+            cp "${cp_dir}"meshcat_scene.html "$dest/" 2>/dev/null || true
+            cp "${cp_dir}"metadata.json "$dest/" 2>/dev/null || true
+            cp "${cp_dir}"state.json "$dest/" 2>/dev/null || true
           done
           cp harness_output/mujoco_grasp/trial_001/autonomous_report.json _site/grasp/ 2>/dev/null || true
           cp harness_output/mujoco_grasp/trial_001/alarms.json _site/grasp/ 2>/dev/null || true
           cp harness_output/mujoco_grasp/trial_001/phase_manifest.json _site/grasp/ 2>/dev/null || true
 
           # --- Demo 2: G1 WBC Reach ---
+          # As with the grasp demo, the report references meshcat scenes by
+          # their output-relative path (g1_wbc_reach/trial_001/<cp>/...), so the
+          # deployed assets keep that nesting under _site/g1-reach/.
           mkdir -p _site/g1-reach
           cp harness_output/g1_wbc_reach_report.html _site/g1-reach/index.html
           for cp_dir in harness_output/g1_wbc_reach/trial_001/*/; do
             cp_name=$(basename "$cp_dir")
-            mkdir -p "_site/g1-reach/${cp_name}"
-            cp "${cp_dir}"*_rgb.png "_site/g1-reach/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"*_depth_viz.png "_site/g1-reach/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"meshcat_scene.html "_site/g1-reach/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"metadata.json "_site/g1-reach/${cp_name}/" 2>/dev/null || true
-            cp "${cp_dir}"state.json "_site/g1-reach/${cp_name}/" 2>/dev/null || true
+            dest="_site/g1-reach/g1_wbc_reach/trial_001/${cp_name}"
+            mkdir -p "$dest"
+            cp "${cp_dir}"*_rgb.png "$dest/" 2>/dev/null || true
+            cp "${cp_dir}"*_depth_viz.png "$dest/" 2>/dev/null || true
+            cp "${cp_dir}"meshcat_scene.html "$dest/" 2>/dev/null || true
+            cp "${cp_dir}"metadata.json "$dest/" 2>/dev/null || true
+            cp "${cp_dir}"state.json "$dest/" 2>/dev/null || true
           done
 
           # --- Demo 3: LeRobot G1 Locomotion ---
