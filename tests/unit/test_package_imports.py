@@ -27,11 +27,14 @@ def test_core_package_import_does_not_require_gym() -> None:
         sys.meta_path.insert(0, BlockGymImports())
 
         import roboharness
-        from roboharness import AssertionEngine, Harness
+        from roboharness import AssertionEngine, Harness, SemanticSnapshotBundle
+        from roboharness.evidence import RendererReport
 
         assert roboharness.__version__
         assert AssertionEngine is not None
         assert Harness is not None
+        assert SemanticSnapshotBundle is not None
+        assert RendererReport is not None
         """
     )
 
