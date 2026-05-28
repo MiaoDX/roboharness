@@ -19,6 +19,11 @@ renderer implementation.
 
 - Roboharness owns public artifact concepts for semantic snapshot bundles,
   renderer reports, and autonomous evidence reports.
+- GR00T visual harness dogfooding treats `roboharness.evidence` as a hard
+  artifact-layer dependency, not an optional fallback. During local development,
+  GR00T installs the sibling Roboharness checkout into its active `.venv`;
+  after the API supports the repo's visual harness, GR00T can switch to a `uv`
+  git-main dependency.
 - `SimulatorBackend.step()` remains one useful ingestion path, not the only
   Roboharness model.
 - Downstream projects own evidence producers: runtime sessions, robot-specific
@@ -72,6 +77,8 @@ renderer implementation.
 
 ## Later Slices
 
+- Add a GR00T dogfood gate that installs Roboharness explicitly and fails when
+  `roboharness.evidence` is missing or stale.
 - Generate visual review manifests from evidence bundles and contract
   dimensions.
 - Add proof-pack assembly helpers that consume autonomous evidence reports.
