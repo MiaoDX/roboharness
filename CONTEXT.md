@@ -12,6 +12,26 @@ _Avoid_: Model Judge, external VLM judge, standalone VLM evaluator
 A compact set of visual evidence, metrics, baseline comparisons, and decision metadata prepared for agent visual review or human escalation.
 _Avoid_: Screenshot folder, dashboard dump, artifact pile
 
+**Evidence Producer**:
+A downstream-project-owned runner that executes robot, simulator, or hardware-specific behavior and emits roboharness evidence artifacts. Roboharness may define artifact schemas and assembly rules, but it does not own the downstream robot runtime, safety startup, controller transport, or task planner.
+_Avoid_: Roboharness runtime, hidden simulator backend, adapter that owns project control
+
+**Semantic Snapshot**:
+A named semantic phase sample containing the project state and metrics needed for deterministic replay, checking, or review. It is not required to come from a `SimulatorBackend.step()` loop.
+_Avoid_: Raw screenshot, simulator checkpoint only, full episode recording
+
+**Semantic Snapshot Bundle**:
+An ordered, replayable set of **Semantic Snapshot** records plus run metadata. It is the evidence-producer handoff into renderers, metric checks, log diagnostics, proof-pack assembly, or visual review preparation.
+_Avoid_: Screenshot folder, ad hoc artifact directory, renderer-specific dump
+
+**Renderer Report**:
+The structured output from rendering a **Semantic Snapshot Bundle** through one renderer. It records capture/motion trustworthiness, per-snapshot image evidence, renderer metadata, and flags; it does not decide final approval by itself.
+_Avoid_: Visual verdict, screenshot list, renderer log only
+
+**Autonomous Evidence Report**:
+The machine-readable report that aggregates run identity, plan/runtime metadata, summary metrics, snapshot metrics, renderer reports, verdict reasons, and failure taxonomy before proof-pack approval or human escalation.
+_Avoid_: HTML report, visual review record, baseline blessing
+
 **Visual Reviewer Invocation**:
 An isolated agent visual review call that reads a proof pack and returns a structured verdict. It may run through a subagent, CLI trigger, CI job, or MCP tool, but its context is bounded to the evidence and review contract.
 _Avoid_: Separate VLM, same-session self-review, screenshot glance

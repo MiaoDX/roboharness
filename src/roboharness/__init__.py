@@ -43,6 +43,14 @@ from roboharness.evaluate.lerobot_plugin import (
     evaluate_policy,
 )
 from roboharness.evaluate.result import EvaluationResult, Operator, Severity, Verdict
+from roboharness.evidence import (
+    AutonomousEvidenceReport,
+    RenderedImage,
+    RendererReport,
+    RendererSnapshot,
+    SemanticSnapshot,
+    SemanticSnapshotBundle,
+)
 from roboharness.runner import BatchResult, ParallelTrialRunner, TrialSpec
 from roboharness.storage.history import EvaluationHistory, EvaluationRecord, TrendResult
 
@@ -55,6 +63,7 @@ __all__ = [
     "REACH_PROTOCOL",
     "ApprovalPolicy",
     "AssertionEngine",
+    "AutonomousEvidenceReport",
     "BatchResult",
     "CaptureResult",
     "Checkpoint",
@@ -79,7 +88,12 @@ __all__ = [
     "MetricGate",
     "Operator",
     "ParallelTrialRunner",
+    "RenderedImage",
+    "RendererReport",
+    "RendererSnapshot",
     "SemanticPhase",
+    "SemanticSnapshot",
+    "SemanticSnapshotBundle",
     "Severity",
     "TaskPhase",
     "TaskProtocol",
