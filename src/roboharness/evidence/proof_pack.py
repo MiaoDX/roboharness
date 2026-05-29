@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from roboharness._utils import save_json
+from roboharness._utils import load_json, save_json
 from roboharness.approval.visual_review import MANIFEST_SCHEMA_VERSION
 from roboharness.evidence.artifacts import (
     AutonomousEvidenceReport,
@@ -19,6 +19,8 @@ from roboharness.evidence.artifacts import (
 )
 
 CASE_PROOF_PACK_SCHEMA_VERSION = "roboharness_case_proof_pack/v1"
+SUITE_PROOF_PACK_SCHEMA_VERSION = "roboharness_suite_proof_pack/v1"
+VISUAL_REVIEW_QUEUE_SCHEMA_VERSION = "roboharness_visual_review_queue/v1"
 STATIC_VISUAL_DIMENSIONS = (
     "robot_posture",
     "hand_pose",
@@ -166,6 +168,116 @@ class CaseProofPack:
         return write_case_proof_pack(self, path)
 
 
+@dataclass(frozen=True)
+class SuiteProofPackCase:
+    """One case entry inside a suite proof pack."""
+
+    case_id: str
+    case_dir: str
+    status: str
+    proof_pack_path: str | None
+    visual_review_manifest_path: str | None
+    selected_phase: str | None = None
+    verdict: str | None = None
+    renderer_evidence_count: int = 0
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "case_id": self.case_id,
+            "case_dir": self.case_dir,
+            "status": self.status,
+            "proof_pack_path": self.proof_pack_path,
+            "visual_review_manifest_path": self.visual_review_manifest_path,
+            "renderer_evidence_count": int(self.renderer_evidence_count),
+        }
+        if self.selected_phase is not None:
+            payload["selected_phase"] = self.selected_phase
+        if self.verdict is not None:
+            payload["verdict"] = self.verdict
+        if self.error is not None:
+            payload["error"] = self.error
+        return payload
+
+
+@dataclass(frozen=True)
+class SuiteProofPack:
+    """Suite-level index over case proof packs prepared for visual review."""
+
+    suite_name: str
+    suite_dir: str
+    suite_report_path: str
+    cases: tuple[SuiteProofPackCase, ...]
+    schema_version: str = SUITE_PROOF_PACK_SCHEMA_VERSION
+
+    @property
+    def reviewable_count(self) -> int:
+        return sum(1 for case in self.cases if case.status == "reviewable")
+
+    @property
+    def skipped_count(self) -> int:
+        return sum(1 for case in self.cases if case.status != "reviewable")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "suite_name": self.suite_name,
+            "suite_dir": self.suite_dir,
+            "suite_report_path": self.suite_report_path,
+            "total_cases": len(self.cases),
+            "reviewable_count": self.reviewable_count,
+            "skipped_count": self.skipped_count,
+            "cases": [case.to_dict() for case in self.cases],
+        }
+
+    def write_json(self, path: str | Path) -> Path:
+        return write_suite_proof_pack(self, path)
+
+
+@dataclass(frozen=True)
+class VisualReviewQueueItem:
+    """One bounded visual review item selected from a suite proof pack."""
+
+    case_id: str
+    case_dir: str
+    visual_review_manifest_path: str
+    proof_pack_path: str
+    selected_phase: str
+    verdict: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_id": self.case_id,
+            "case_dir": self.case_dir,
+            "visual_review_manifest_path": self.visual_review_manifest_path,
+            "proof_pack_path": self.proof_pack_path,
+            "selected_phase": self.selected_phase,
+            "verdict": self.verdict,
+        }
+
+
+@dataclass(frozen=True)
+class VisualReviewQueue:
+    """Review queue derived from a suite proof pack."""
+
+    suite_name: str
+    suite_dir: str
+    items: tuple[VisualReviewQueueItem, ...]
+    schema_version: str = VISUAL_REVIEW_QUEUE_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "suite_name": self.suite_name,
+            "suite_dir": self.suite_dir,
+            "total_items": len(self.items),
+            "items": [item.to_dict() for item in self.items],
+        }
+
+    def write_json(self, path: str | Path) -> Path:
+        return write_visual_review_queue(self, path)
+
+
 def build_case_proof_pack(
     case_dir: str | Path,
     *,
@@ -213,6 +325,196 @@ def build_case_proof_pack(
         renderer_evidence=renderer_evidence,
         artifacts=artifacts,
     )
+
+
+def build_suite_proof_pack(
+    suite_report_path: str | Path,
+    *,
+    write_missing_case_artifacts: bool = True,
+    task_intent: str | None = None,
+) -> SuiteProofPack:
+    """Build a suite-level index over case proof packs and visual manifests."""
+
+    report_path = Path(suite_report_path)
+    suite_dir = report_path.parent
+    suite_report = load_json(report_path)
+    suite_name = str(
+        suite_report.get("suite_name") or report_path.stem.removeprefix("suite_report_")
+    )
+    cases: list[SuiteProofPackCase] = []
+    for result in _suite_results(suite_report):
+        case_id = str(result.get("case_id") or "")
+        case_dir = _suite_case_dir(suite_dir, result)
+        proof_pack_path = case_dir / "proof_pack.json"
+        manifest_path = case_dir / "visual_review_manifest.json"
+        if not case_id:
+            cases.append(
+                SuiteProofPackCase(
+                    case_id="",
+                    case_dir=_suite_relative_path(suite_dir, case_dir) or case_dir.as_posix(),
+                    status="skipped",
+                    proof_pack_path=None,
+                    visual_review_manifest_path=None,
+                    error="suite result is missing case_id",
+                )
+            )
+            continue
+        if not case_dir.exists():
+            cases.append(
+                SuiteProofPackCase(
+                    case_id=case_id,
+                    case_dir=_suite_relative_path(suite_dir, case_dir) or case_dir.as_posix(),
+                    status="skipped",
+                    proof_pack_path=None,
+                    visual_review_manifest_path=None,
+                    error="case directory does not exist",
+                )
+            )
+            continue
+        if write_missing_case_artifacts and not proof_pack_path.exists():
+            try:
+                proof_pack = build_case_proof_pack(case_dir)
+                write_case_proof_pack(proof_pack, proof_pack_path)
+                write_static_visual_review_manifest(
+                    proof_pack,
+                    manifest_path,
+                    task_intent=task_intent or _default_task_intent(proof_pack),
+                )
+            except Exception as exc:  # pragma: no cover - exact failures are data dependent
+                cases.append(
+                    SuiteProofPackCase(
+                        case_id=case_id,
+                        case_dir=_suite_relative_path(suite_dir, case_dir)
+                        or case_dir.as_posix(),
+                        status="skipped",
+                        proof_pack_path=None,
+                        visual_review_manifest_path=None,
+                        error=f"{type(exc).__name__}: {exc}",
+                    )
+                )
+                continue
+        if not proof_pack_path.exists() or not manifest_path.exists():
+            cases.append(
+                SuiteProofPackCase(
+                    case_id=case_id,
+                    case_dir=_suite_relative_path(suite_dir, case_dir) or case_dir.as_posix(),
+                    status="skipped",
+                    proof_pack_path=(
+                        _suite_relative_path(suite_dir, proof_pack_path)
+                        if proof_pack_path.exists()
+                        else None
+                    ),
+                    visual_review_manifest_path=(
+                        _suite_relative_path(suite_dir, manifest_path)
+                        if manifest_path.exists()
+                        else None
+                    ),
+                    error="case proof pack or visual review manifest is missing",
+                )
+            )
+            continue
+
+        proof_pack = load_case_proof_pack(proof_pack_path)
+        cases.append(
+            SuiteProofPackCase(
+                case_id=case_id,
+                case_dir=_suite_relative_path(suite_dir, case_dir) or case_dir.as_posix(),
+                status="reviewable",
+                proof_pack_path=_suite_relative_path(suite_dir, proof_pack_path),
+                visual_review_manifest_path=_suite_relative_path(suite_dir, manifest_path),
+                selected_phase=proof_pack.selected_phase,
+                verdict=proof_pack.verdict,
+                renderer_evidence_count=len(proof_pack.renderer_evidence),
+            )
+        )
+    return SuiteProofPack(
+        suite_name=suite_name,
+        suite_dir=suite_dir.as_posix(),
+        suite_report_path=_suite_relative_path(suite_dir, report_path) or report_path.name,
+        cases=tuple(cases),
+    )
+
+
+def write_suite_proof_pack(suite_proof_pack: SuiteProofPack, path: str | Path) -> Path:
+    """Write a suite proof pack to JSON."""
+
+    output_path = Path(path)
+    save_json(suite_proof_pack.to_dict(), output_path)
+    return output_path
+
+
+def load_suite_proof_pack(path: str | Path) -> SuiteProofPack:
+    """Load a suite proof pack from JSON."""
+
+    data = load_json(Path(path))
+    return SuiteProofPack(
+        suite_name=str(data["suite_name"]),
+        suite_dir=str(data.get("suite_dir") or ""),
+        suite_report_path=str(data.get("suite_report_path") or ""),
+        cases=tuple(
+            SuiteProofPackCase(
+                case_id=str(item.get("case_id") or ""),
+                case_dir=str(item.get("case_dir") or ""),
+                status=str(item.get("status") or ""),
+                proof_pack_path=(
+                    None
+                    if item.get("proof_pack_path") is None
+                    else str(item.get("proof_pack_path"))
+                ),
+                visual_review_manifest_path=(
+                    None
+                    if item.get("visual_review_manifest_path") is None
+                    else str(item.get("visual_review_manifest_path"))
+                ),
+                selected_phase=(
+                    None if item.get("selected_phase") is None else str(item.get("selected_phase"))
+                ),
+                verdict=None if item.get("verdict") is None else str(item.get("verdict")),
+                renderer_evidence_count=int(item.get("renderer_evidence_count") or 0),
+                error=None if item.get("error") is None else str(item.get("error")),
+            )
+            for item in data.get("cases", ())
+        ),
+        schema_version=str(data.get("schema_version") or SUITE_PROOF_PACK_SCHEMA_VERSION),
+    )
+
+
+def build_visual_review_queue(suite_proof_pack: SuiteProofPack) -> VisualReviewQueue:
+    """Build a review queue from reviewable case entries in a suite proof pack."""
+
+    items: list[VisualReviewQueueItem] = []
+    for case in suite_proof_pack.cases:
+        if (
+            case.status != "reviewable"
+            or case.proof_pack_path is None
+            or case.visual_review_manifest_path is None
+            or case.selected_phase is None
+            or case.verdict is None
+        ):
+            continue
+        items.append(
+            VisualReviewQueueItem(
+                case_id=case.case_id,
+                case_dir=case.case_dir,
+                visual_review_manifest_path=case.visual_review_manifest_path,
+                proof_pack_path=case.proof_pack_path,
+                selected_phase=case.selected_phase,
+                verdict=case.verdict,
+            )
+        )
+    return VisualReviewQueue(
+        suite_name=suite_proof_pack.suite_name,
+        suite_dir=suite_proof_pack.suite_dir,
+        items=tuple(items),
+    )
+
+
+def write_visual_review_queue(queue: VisualReviewQueue, path: str | Path) -> Path:
+    """Write a suite visual review queue to JSON."""
+
+    output_path = Path(path)
+    save_json(queue.to_dict(), output_path)
+    return output_path
 
 
 def write_case_proof_pack(proof_pack: CaseProofPack, path: str | Path) -> Path:
@@ -476,6 +778,42 @@ def _artifact_refs(
             )
         )
     return tuple(artifacts)
+
+
+def _suite_results(suite_report: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    results = suite_report.get("results")
+    if not isinstance(results, list):
+        return ()
+    return tuple(item for item in results if isinstance(item, dict))
+
+
+def _suite_case_dir(suite_dir: Path, result: dict[str, Any]) -> Path:
+    output_dir = result.get("output_dir")
+    if isinstance(output_dir, str) and output_dir:
+        path = Path(output_dir)
+        return path if path.is_absolute() else suite_dir / path
+    artifact_dir_name = result.get("artifact_dir_name")
+    if isinstance(artifact_dir_name, str) and artifact_dir_name:
+        return suite_dir / artifact_dir_name
+    return suite_dir / str(result.get("case_id") or "")
+
+
+def _suite_relative_path(root: Path, path: Path) -> str | None:
+    if not path.as_posix():
+        return None
+    root_resolved = root.resolve()
+    candidate = path if path.is_absolute() else Path.cwd() / path
+    try:
+        return candidate.resolve().relative_to(root_resolved).as_posix()
+    except ValueError:
+        return None
+
+
+def _default_task_intent(proof_pack: CaseProofPack) -> str:
+    return (
+        f"Review {proof_pack.case_id} static visual harness keyframes against "
+        "the bounded robot evidence and metric summary."
+    )
 
 
 def _case_relative_path(root: Path, path: Path) -> str | None:

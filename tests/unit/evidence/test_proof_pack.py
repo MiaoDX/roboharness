@@ -13,9 +13,15 @@ from roboharness.approval.visual_review import (
 from roboharness.evidence import (
     CASE_PROOF_PACK_SCHEMA_VERSION,
     STATIC_VISUAL_DIMENSIONS,
+    SUITE_PROOF_PACK_SCHEMA_VERSION,
+    VISUAL_REVIEW_QUEUE_SCHEMA_VERSION,
     build_case_proof_pack,
     build_static_visual_review_manifest,
+    build_suite_proof_pack,
+    build_visual_review_queue,
     load_case_proof_pack,
+    load_suite_proof_pack,
+    write_visual_review_queue,
 )
 
 
@@ -136,6 +142,30 @@ def _write_groot_case(case_dir: Path) -> None:
     )
 
 
+def _write_suite_report(path: Path, case_dirs: list[Path]) -> None:
+    _write_json(
+        path,
+        {
+            "suite_name": "representative",
+            "output_root": path.parent.as_posix(),
+            "suite_verdict": "pass",
+            "total_cases": len(case_dirs),
+            "pass_count": len(case_dirs),
+            "fail_count": 0,
+            "execution_error_count": 0,
+            "results": [
+                {
+                    "case_id": case_dir.name,
+                    "output_dir": case_dir.as_posix(),
+                    "status": "pass",
+                    "report_json": (case_dir / "autonomous_report.json").as_posix(),
+                }
+                for case_dir in case_dirs
+            ],
+        },
+    )
+
+
 def test_build_case_proof_pack_from_groot_style_case(tmp_path: Path) -> None:
     case_dir = tmp_path / "X36_Y28_Z13"
     _write_groot_case(case_dir)
@@ -163,6 +193,74 @@ def test_build_case_proof_pack_from_groot_style_case(tmp_path: Path) -> None:
 
     path = proof_pack.write_json(case_dir / "proof_pack.json")
     assert load_case_proof_pack(path).to_dict() == proof_pack.to_dict()
+
+
+def test_build_suite_proof_pack_and_visual_review_queue_from_case_artifacts(
+    tmp_path: Path,
+) -> None:
+    case_dir = tmp_path / "X36_Y28_Z13"
+    _write_groot_case(case_dir)
+    suite_report_path = tmp_path / "suite_report_representative.json"
+    _write_suite_report(suite_report_path, [case_dir])
+
+    suite_proof_pack = build_suite_proof_pack(suite_report_path)
+
+    assert suite_proof_pack.schema_version == SUITE_PROOF_PACK_SCHEMA_VERSION
+    assert suite_proof_pack.suite_name == "representative"
+    assert suite_proof_pack.reviewable_count == 1
+    assert suite_proof_pack.skipped_count == 0
+    assert suite_proof_pack.cases[0].case_id == "X36_Y28_Z13"
+    assert suite_proof_pack.cases[0].status == "reviewable"
+    assert suite_proof_pack.cases[0].proof_pack_path == "X36_Y28_Z13/proof_pack.json"
+    assert (
+        suite_proof_pack.cases[0].visual_review_manifest_path
+        == "X36_Y28_Z13/visual_review_manifest.json"
+    )
+    assert (case_dir / "proof_pack.json").exists()
+    assert (case_dir / "visual_review_manifest.json").exists()
+
+    suite_path = suite_proof_pack.write_json(tmp_path / "suite_proof_pack.json")
+    assert load_suite_proof_pack(suite_path).to_dict() == suite_proof_pack.to_dict()
+
+    queue = build_visual_review_queue(suite_proof_pack)
+    assert queue.schema_version == VISUAL_REVIEW_QUEUE_SCHEMA_VERSION
+    assert queue.suite_name == "representative"
+    assert len(queue.items) == 1
+    assert queue.items[0].visual_review_manifest_path == (
+        "X36_Y28_Z13/visual_review_manifest.json"
+    )
+    queue_path = write_visual_review_queue(queue, tmp_path / "visual_review_queue.json")
+    queue_payload = json.loads(queue_path.read_text(encoding="utf-8"))
+    assert queue_payload["total_items"] == 1
+
+
+def test_suite_proof_pack_skips_execution_errors(tmp_path: Path) -> None:
+    suite_report_path = tmp_path / "suite_report_representative.json"
+    _write_json(
+        suite_report_path,
+        {
+            "suite_name": "representative",
+            "output_root": tmp_path.as_posix(),
+            "results": [
+                {
+                    "case_id": "BROKEN",
+                    "output_dir": (tmp_path / "BROKEN").as_posix(),
+                    "status": "execution_error",
+                    "error_type": "RuntimeError",
+                    "error": "boom",
+                }
+            ],
+        },
+    )
+
+    suite_proof_pack = build_suite_proof_pack(suite_report_path)
+    queue = build_visual_review_queue(suite_proof_pack)
+
+    assert suite_proof_pack.reviewable_count == 0
+    assert suite_proof_pack.skipped_count == 1
+    assert suite_proof_pack.cases[0].status == "skipped"
+    assert suite_proof_pack.cases[0].error == "case directory does not exist"
+    assert queue.items == ()
 
 
 def test_static_visual_review_manifest_uses_mujoco_keyframes_and_current_only_policy(
