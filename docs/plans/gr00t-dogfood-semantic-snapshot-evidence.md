@@ -1,6 +1,6 @@
 # GR00T Dogfood: Semantic Snapshot Evidence
 
-Status: active
+Status: complete
 
 ## Context
 
@@ -20,10 +20,9 @@ renderer implementation.
 - Roboharness owns public artifact concepts for semantic snapshot bundles,
   renderer reports, and autonomous evidence reports.
 - GR00T visual harness dogfooding treats `roboharness.evidence` as a hard
-  artifact-layer dependency, not an optional fallback. During local development,
-  GR00T installs the sibling Roboharness checkout into its active `.venv`;
-  after the API supports the repo's visual harness, GR00T can switch to a `uv`
-  git-main dependency.
+  artifact-layer dependency, not an optional fallback. GR00T now depends on the
+  RoboHarness Git `main` package through its `visual` extra; local editable
+  installs are only a development override while changing RoboHarness itself.
 - `SimulatorBackend.step()` remains one useful ingestion path, not the only
   Roboharness model.
 - Downstream projects own evidence producers: runtime sessions, robot-specific
@@ -84,7 +83,7 @@ renderer implementation.
 - [x] Add proof-pack assembly helpers that consume autonomous evidence reports.
 - [x] Teach a GR00T project harness skill to use the new Roboharness evidence
   API.
-- Migrate GR00T visual harness code only after fixture compatibility and public
+- [x] Migrate GR00T visual harness code only after fixture compatibility and public
   boundaries are stable.
 
 ## Follow-Up Slice: Proof Pack And Static Review
@@ -104,3 +103,24 @@ Implemented after the first artifact-model slice:
   validated `visual_review_manifest.json`.
 - GR00T owns the project-specific dogfood gate and generated project harness
   contract under its `skills/visual-harness/roboharness/` directory.
+
+## Follow-Up Slice: Suite, Paired Review, And Git Main
+
+Completed during GR00T dogfood closeout:
+
+- Suite-level `suite_proof_pack.json` and `visual_review_queue.json` artifacts
+  index representative visual harness runs without hiding skipped or
+  execution-error cases.
+- Paired current-vs-baseline visual review manifests require explicit current
+  and baseline case roots. Regression-mode paired review can produce an
+  effective visual `PASS`; migration mode still escalates with
+  `baseline_blessing_required` and never blesses a new baseline automatically.
+- Visual review records can be ingested into persisted
+  `visual_review_summary.json` artifacts through the shared approval API and
+  CLI.
+- GR00T's generated RoboHarness contract now names the accepted G1, Realman,
+  suite, paired-regression, SONIC/native static-inventory, and motion-window
+  evidence boundaries. Temporal dimensions remain escalation/inventory evidence
+  and cannot auto-approve v1 visual review.
+- RoboHarness `main` now contains the dogfood APIs, and GR00T's `visual` extra
+  depends on `roboharness @ git+https://github.com/MiaoDX/roboharness.git@main`.
