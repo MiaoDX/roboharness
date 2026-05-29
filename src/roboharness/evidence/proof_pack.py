@@ -585,6 +585,123 @@ def build_static_visual_review_manifest(
     }
 
 
+def build_paired_visual_review_manifest(
+    current_proof_pack: CaseProofPack,
+    baseline_proof_pack: CaseProofPack,
+    *,
+    task_intent: str,
+    dimensions: tuple[str, ...] = STATIC_VISUAL_DIMENSIONS,
+    preferred_renderer: str | None = None,
+    required: bool = True,
+    mode: str = "regression",
+) -> dict[str, Any]:
+    """Build an explicit current-vs-baseline static visual review manifest."""
+
+    if mode not in {"regression", "migration"}:
+        raise ValueError("paired visual review mode must be 'regression' or 'migration'")
+    if current_proof_pack.case_id != baseline_proof_pack.case_id:
+        raise ValueError(
+            "paired visual review requires matching case_id values, got "
+            f"{current_proof_pack.case_id!r} and {baseline_proof_pack.case_id!r}"
+        )
+    current_evidence = _manifest_evidence(
+        current_proof_pack,
+        preferred_renderer=preferred_renderer,
+    )
+    baseline_evidence = _manifest_evidence(
+        baseline_proof_pack,
+        preferred_renderer=preferred_renderer,
+    )
+    if not current_evidence:
+        raise ValueError(
+            f"current proof pack {current_proof_pack.case_id!r} has no renderer evidence"
+        )
+    if not baseline_evidence:
+        raise ValueError(
+            f"baseline proof pack {baseline_proof_pack.case_id!r} has no renderer evidence"
+        )
+    pairs = _paired_manifest_evidence(current_evidence, baseline_evidence)
+    if not pairs:
+        raise ValueError(
+            f"no paired renderer evidence for case {current_proof_pack.case_id!r}"
+        )
+    views = _dedupe(pair[0].view for pair in pairs)
+    current_paths = _dedupe(pair[0].path for pair in pairs)
+    baseline_paths = _dedupe(pair[1].path for pair in pairs)
+    metric_fallback = tuple(current_proof_pack.metric_summary)
+    human_reasons: list[str] = []
+    allow_automatic_visual_pass = mode == "regression"
+    if mode == "migration":
+        human_reasons.append("baseline_blessing_required")
+    return {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "case_id": current_proof_pack.case_id,
+        "mode": mode,
+        "task_intent": task_intent,
+        "dimensions": [
+            {
+                "id": dimension,
+                "required": required,
+                "phase": current_proof_pack.selected_phase,
+                "evidence_type": "paired_keyframe",
+                "views": list(views),
+                "current": list(current_paths),
+                "baseline": list(baseline_paths),
+                "metric_fallback": list(metric_fallback),
+                "why_not_metricized": (
+                    "Paired static keyframes compare posture, contact, and "
+                    "task-agreement evidence against an explicit baseline pack."
+                ),
+            }
+            for dimension in dimensions
+        ],
+        "metric_summary": dict(current_proof_pack.metric_summary),
+        "review_policy": {
+            "requires_paired_evidence": True,
+            "allow_automatic_visual_pass": allow_automatic_visual_pass,
+            "human_escalation_reasons": human_reasons,
+        },
+        "proof_pack": {
+            "schema_version": current_proof_pack.schema_version,
+            "selected_phase": current_proof_pack.selected_phase,
+            "baseline_selected_phase": baseline_proof_pack.selected_phase,
+            "renderer_evidence": [current.to_dict() for current, _ in pairs],
+            "baseline_renderer_evidence": [baseline.to_dict() for _, baseline in pairs],
+            "artifacts": [artifact.to_dict() for artifact in current_proof_pack.artifacts],
+            "baseline_artifacts": [
+                artifact.to_dict() for artifact in baseline_proof_pack.artifacts
+            ],
+        },
+    }
+
+
+def write_paired_visual_review_manifest(
+    current_proof_pack: CaseProofPack,
+    baseline_proof_pack: CaseProofPack,
+    path: str | Path,
+    *,
+    task_intent: str,
+    dimensions: tuple[str, ...] = STATIC_VISUAL_DIMENSIONS,
+    preferred_renderer: str | None = None,
+    required: bool = True,
+    mode: str = "regression",
+) -> Path:
+    """Write an explicit current-vs-baseline visual review manifest to JSON."""
+
+    manifest = build_paired_visual_review_manifest(
+        current_proof_pack,
+        baseline_proof_pack,
+        task_intent=task_intent,
+        dimensions=dimensions,
+        preferred_renderer=preferred_renderer,
+        required=required,
+        mode=mode,
+    )
+    output_path = Path(path)
+    save_json(manifest, output_path)
+    return output_path
+
+
 def write_static_visual_review_manifest(
     proof_pack: CaseProofPack,
     path: str | Path,
@@ -843,6 +960,22 @@ def _manifest_evidence(
         ref for ref in proof_pack.renderer_evidence if ref.renderer == preferred_renderer
     )
     return selected or proof_pack.renderer_evidence
+
+
+def _paired_manifest_evidence(
+    current_evidence: tuple[ProofPackImageRef, ...],
+    baseline_evidence: tuple[ProofPackImageRef, ...],
+) -> tuple[tuple[ProofPackImageRef, ProofPackImageRef], ...]:
+    baseline_by_key = {
+        (ref.renderer, ref.view): ref
+        for ref in baseline_evidence
+    }
+    pairs: list[tuple[ProofPackImageRef, ProofPackImageRef]] = []
+    for current in current_evidence:
+        baseline = baseline_by_key.get((current.renderer, current.view))
+        if baseline is not None:
+            pairs.append((current, baseline))
+    return tuple(pairs)
 
 
 def _dedupe(values: Any) -> tuple[str, ...]:

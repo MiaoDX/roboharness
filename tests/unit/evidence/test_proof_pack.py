@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from roboharness.evidence import (
     SUITE_PROOF_PACK_SCHEMA_VERSION,
     VISUAL_REVIEW_QUEUE_SCHEMA_VERSION,
     build_case_proof_pack,
+    build_paired_visual_review_manifest,
     build_static_visual_review_manifest,
     build_suite_proof_pack,
     build_visual_review_queue,
@@ -314,6 +316,117 @@ def test_static_visual_review_manifest_uses_mujoco_keyframes_and_current_only_po
     result = ingest_visual_review_record(manifest, record)
     assert result.effective_visual_verdict == "NEEDS_HUMAN"
     assert result.summary["needs_human_reasons"] == ["current_only_review_cannot_auto_pass"]
+
+
+def test_paired_visual_review_manifest_requires_explicit_baseline_evidence(
+    tmp_path: Path,
+) -> None:
+    current_dir = tmp_path / "current" / "X36_Y28_Z13"
+    baseline_dir = tmp_path / "baseline" / "X36_Y28_Z13"
+    _write_groot_case(current_dir)
+    _write_groot_case(baseline_dir)
+    current_proof_pack = build_case_proof_pack(current_dir)
+    baseline_proof_pack = build_case_proof_pack(baseline_dir)
+
+    manifest = build_paired_visual_review_manifest(
+        current_proof_pack,
+        baseline_proof_pack,
+        task_intent="Confirm the current run does not regress against the blessed baseline.",
+    )
+
+    assert manifest["mode"] == "regression"
+    assert manifest["review_policy"] == {
+        "requires_paired_evidence": True,
+        "allow_automatic_visual_pass": True,
+        "human_escalation_reasons": [],
+    }
+    first_dimension = manifest["dimensions"][0]
+    assert first_dimension["evidence_type"] == "paired_keyframe"
+    assert first_dimension["current"] == [
+        "mujoco/09_home_final_done_front2back.png",
+        "mujoco/09_home_final_done_left2right.png",
+        "mujoco/09_home_final_done_top2down.png",
+    ]
+    assert first_dimension["baseline"] == first_dimension["current"]
+    validate_visual_review_manifest(
+        manifest,
+        current_root=current_dir,
+        baseline_root=baseline_dir,
+    )
+
+    record = {
+        "schema_version": "roboharness_visual_review/v1",
+        "case_id": "X36_Y28_Z13",
+        "reviewer_context": "unit_test",
+        "overall_visual_verdict": "PASS",
+        "dimensions": [
+            {
+                "id": dimension["id"],
+                "verdict": "PASS",
+                "confidence": "medium",
+                "evidence": list(dimension["current"]) + list(dimension["baseline"]),
+                "rationale": "Current and baseline keyframes match within visual tolerance.",
+            }
+            for dimension in manifest["dimensions"]
+        ],
+        "needs_human_reasons": [],
+    }
+    result = ingest_visual_review_record(manifest, record)
+    assert result.effective_visual_verdict == "PASS"
+
+
+def test_paired_visual_review_manifest_migration_requires_baseline_blessing(
+    tmp_path: Path,
+) -> None:
+    current_dir = tmp_path / "current" / "X36_Y28_Z13"
+    baseline_dir = tmp_path / "baseline" / "X36_Y28_Z13"
+    _write_groot_case(current_dir)
+    _write_groot_case(baseline_dir)
+    manifest = build_paired_visual_review_manifest(
+        build_case_proof_pack(current_dir),
+        build_case_proof_pack(baseline_dir),
+        task_intent="Confirm migration evidence before human baseline blessing.",
+        mode="migration",
+    )
+    record = {
+        "schema_version": "roboharness_visual_review/v1",
+        "case_id": "X36_Y28_Z13",
+        "reviewer_context": "unit_test",
+        "overall_visual_verdict": "PASS",
+        "dimensions": [
+            {
+                "id": dimension["id"],
+                "verdict": "PASS",
+                "confidence": "medium",
+                "evidence": list(dimension["current"]) + list(dimension["baseline"]),
+                "rationale": "Current and baseline keyframes match within visual tolerance.",
+            }
+            for dimension in manifest["dimensions"]
+        ],
+        "needs_human_reasons": [],
+    }
+
+    result = ingest_visual_review_record(manifest, record)
+
+    assert manifest["review_policy"]["allow_automatic_visual_pass"] is False
+    assert result.effective_visual_verdict == "NEEDS_HUMAN"
+    assert result.summary["needs_human_reasons"] == ["baseline_blessing_required"]
+
+
+def test_paired_visual_review_manifest_rejects_case_mismatch(tmp_path: Path) -> None:
+    current_dir = tmp_path / "current" / "X36_Y28_Z13"
+    baseline_dir = tmp_path / "baseline" / "X36_Y28_Z13"
+    _write_groot_case(current_dir)
+    _write_groot_case(baseline_dir)
+    baseline_proof_pack = build_case_proof_pack(baseline_dir)
+    baseline_proof_pack = replace(baseline_proof_pack, case_id="OTHER_CASE")
+
+    with pytest.raises(ValueError, match="matching case_id"):
+        build_paired_visual_review_manifest(
+            build_case_proof_pack(current_dir),
+            baseline_proof_pack,
+            task_intent="Confirm explicit paired evidence.",
+        )
 
 
 def test_static_visual_review_manifest_path_boundary_rejects_escape(tmp_path: Path) -> None:
