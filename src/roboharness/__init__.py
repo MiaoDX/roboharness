@@ -45,11 +45,16 @@ from roboharness.evaluate.lerobot_plugin import (
 from roboharness.evaluate.result import EvaluationResult, Operator, Severity, Verdict
 from roboharness.evidence import (
     AutonomousEvidenceReport,
+    CaseProofPack,
+    ProofPackArtifact,
+    ProofPackImageRef,
     RenderedImage,
     RendererReport,
     RendererSnapshot,
     SemanticSnapshot,
     SemanticSnapshotBundle,
+    build_case_proof_pack,
+    build_static_visual_review_manifest,
 )
 from roboharness.runner import BatchResult, ParallelTrialRunner, TrialSpec
 from roboharness.storage.history import EvaluationHistory, EvaluationRecord, TrendResult
@@ -66,6 +71,7 @@ __all__ = [
     "AutonomousEvidenceReport",
     "BatchResult",
     "CaptureResult",
+    "CaseProofPack",
     "Checkpoint",
     "CheckpointStore",
     "ComponentAssumption",
@@ -88,6 +94,8 @@ __all__ = [
     "MetricGate",
     "Operator",
     "ParallelTrialRunner",
+    "ProofPackArtifact",
+    "ProofPackImageRef",
     "RenderedImage",
     "RendererReport",
     "RendererSnapshot",
@@ -102,6 +110,8 @@ __all__ = [
     "ValidationCommand",
     "Verdict",
     "VisualReviewDimension",
+    "build_case_proof_pack",
+    "build_static_visual_review_manifest",
     "check_eval_threshold",
     "default_registry",
     "evaluate_policy",

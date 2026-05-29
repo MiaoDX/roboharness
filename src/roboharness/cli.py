@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from roboharness._utils import load_json as _load_json
+from roboharness.approval.visual_review import validate_visual_review_manifest
 from roboharness.contract import (
     check_project_harness_skill,
     generate_project_harness_skill,
@@ -24,6 +25,11 @@ from roboharness.evaluate.batch import (
 )
 from roboharness.evaluate.constraints import load_constraints
 from roboharness.evaluate.defaults import GRASP_DEFAULTS
+from roboharness.evidence import (
+    build_case_proof_pack,
+    build_static_visual_review_manifest,
+    write_case_proof_pack,
+)
 from roboharness.storage.history import EvaluationHistory
 
 
@@ -374,6 +380,42 @@ def main(argv: list[str] | None = None) -> int:
         help="Minimum success rate (0.0-1.0) for CI pass/fail. Exit 1 if below.",
     )
 
+    # proof-pack
+    proof_pack_parser = subparsers.add_parser(
+        "proof-pack",
+        help="Assemble a case proof pack from downstream visual harness artifacts.",
+    )
+    proof_pack_parser.add_argument(
+        "case_dir",
+        type=Path,
+        help="Case directory containing autonomous_report.json.",
+    )
+    proof_pack_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Where to write proof_pack.json. Defaults to <case_dir>/proof_pack.json.",
+    )
+    proof_pack_parser.add_argument(
+        "--visual-review-manifest",
+        type=Path,
+        default=None,
+        help="Optionally write a current-only static visual review manifest.",
+    )
+    proof_pack_parser.add_argument(
+        "--task-intent",
+        type=str,
+        default="Review the visual harness case for obvious static pose and task success issues.",
+        help="Task intent used when writing a visual review manifest.",
+    )
+    proof_pack_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["human", "json"],
+        default="human",
+        help="Output format (default: human).",
+    )
+
     # contract
     contract_parser = subparsers.add_parser(
         "contract",
@@ -522,6 +564,45 @@ def main(argv: list[str] | None = None) -> int:
             elif batch.total_trials > 0 and batch.success_rate == 0.0:
                 exit_code = 1
         return exit_code
+
+    if args.command == "proof-pack":
+        try:
+            proof_pack = build_case_proof_pack(args.case_dir)
+            output_path = args.output or (args.case_dir / "proof_pack.json")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            write_case_proof_pack(proof_pack, output_path)
+            manifest: dict[str, Any] | None = None
+            if args.visual_review_manifest is not None:
+                manifest = build_static_visual_review_manifest(
+                    proof_pack,
+                    task_intent=args.task_intent,
+                )
+                validate_visual_review_manifest(manifest, current_root=args.case_dir)
+                args.visual_review_manifest.parent.mkdir(parents=True, exist_ok=True)
+                with args.visual_review_manifest.open("w") as f:
+                    json.dump(manifest, f, indent=2)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+        if args.output_format == "json":
+            payload: dict[str, Any] = {
+                "proof_pack_path": str(output_path),
+                "proof_pack": proof_pack.to_dict(),
+            }
+            if args.visual_review_manifest is not None:
+                payload["visual_review_manifest_path"] = str(args.visual_review_manifest)
+                payload["visual_review_manifest"] = manifest
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"Proof pack written to {output_path}")
+            print(f"  case_id={proof_pack.case_id}")
+            print(f"  verdict={proof_pack.verdict}")
+            print(f"  selected_phase={proof_pack.selected_phase}")
+            print(f"  renderer_evidence={len(proof_pack.renderer_evidence)}")
+            if args.visual_review_manifest is not None:
+                print(f"Visual review manifest written to {args.visual_review_manifest}")
+        return 0
 
     if args.command == "contract":
         if args.contract_command is None:

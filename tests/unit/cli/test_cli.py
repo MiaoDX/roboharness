@@ -264,6 +264,81 @@ CONTRACT = HarnessContract(
         captured = capsys.readouterr()
         assert "is current" in captured.out
 
+    def test_proof_pack_writes_case_artifacts(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        case_dir = tmp_path / "case-1"
+        meshcat_dir = case_dir / "meshcat"
+        meshcat_dir.mkdir(parents=True)
+        (meshcat_dir / "final_front2back.png").write_bytes(b"png")
+        renderer_report = {
+            "output_dir": meshcat_dir.as_posix(),
+            "renderer": "meshcat",
+            "capture_ok": True,
+            "motion_ok": True,
+            "flags": [],
+            "trustworthiness_flags": [],
+            "snapshots": [
+                {
+                    "name": "final",
+                    "capture_ok": True,
+                    "motion_ok": True,
+                    "metrics": {},
+                    "images": [
+                        {
+                            "camera": "front2back",
+                            "path": (meshcat_dir / "final_front2back.png").as_posix(),
+                        }
+                    ],
+                }
+            ],
+        }
+        (meshcat_dir / "report.json").write_text(json.dumps(renderer_report))
+        (case_dir / "snapshot_bundle.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 2,
+                    "snapshot_order": ["final"],
+                    "snapshots": [{"name": "final", "metrics": {}}],
+                }
+            )
+        )
+        (case_dir / "autonomous_report.json").write_text(
+            json.dumps(
+                {
+                    "case_id": "case-1",
+                    "output_dir": case_dir.as_posix(),
+                    "verdict": "pass",
+                    "verdict_reasons": [],
+                    "failure_taxonomy": [],
+                    "summary_metrics": {"final_snapshot_name": "final"},
+                    "snapshot_metrics": {},
+                    "renderer_reports": {"meshcat": renderer_report},
+                }
+            )
+        )
+
+        manifest_path = case_dir / "visual_review_manifest.json"
+        ret = main(
+            [
+                "proof-pack",
+                str(case_dir),
+                "--visual-review-manifest",
+                str(manifest_path),
+            ]
+        )
+
+        assert ret == 0
+        captured = capsys.readouterr()
+        assert "Proof pack written" in captured.out
+        proof_pack = json.loads((case_dir / "proof_pack.json").read_text())
+        assert proof_pack["case_id"] == "case-1"
+        assert proof_pack["renderer_evidence"][0]["path"] == "meshcat/final_front2back.png"
+        manifest = json.loads(manifest_path.read_text())
+        assert manifest["mode"] == "current_only"
+
 
 class TestVariantLayout:
     """Test with TaskStore-style layout: task/variant/trial/checkpoint."""

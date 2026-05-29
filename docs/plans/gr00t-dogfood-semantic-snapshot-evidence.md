@@ -77,11 +77,30 @@ renderer implementation.
 
 ## Later Slices
 
-- Add a GR00T dogfood gate that installs Roboharness explicitly and fails when
-  `roboharness.evidence` is missing or stale.
-- Generate visual review manifests from evidence bundles and contract
+- [x] Add a GR00T dogfood gate that installs Roboharness explicitly and fails
+  when `roboharness.evidence` is missing or stale.
+- [x] Generate visual review manifests from evidence bundles and contract
   dimensions.
-- Add proof-pack assembly helpers that consume autonomous evidence reports.
-- Teach a GR00T project harness skill to use the new Roboharness evidence API.
+- [x] Add proof-pack assembly helpers that consume autonomous evidence reports.
+- [x] Teach a GR00T project harness skill to use the new Roboharness evidence
+  API.
 - Migrate GR00T visual harness code only after fixture compatibility and public
   boundaries are stable.
+
+## Follow-Up Slice: Proof Pack And Static Review
+
+Implemented after the first artifact-model slice:
+
+- `roboharness.evidence` now exposes case-level proof-pack assembly for
+  downstream visual harness case directories.
+- The first proof-pack assembler consumes `autonomous_report.json`,
+  `snapshot_bundle.json`, and renderer `report.json` files without importing
+  GR00T or owning downstream runtime execution.
+- Static visual-review manifest generation is current-only and selects
+  case-local keyframes from the proof pack. It sets
+  `allow_automatic_visual_pass=false`, so current-only review can veto or
+  escalate but cannot bless an automatic visual pass.
+- The `roboharness proof-pack` CLI writes `proof_pack.json` and optionally a
+  validated `visual_review_manifest.json`.
+- GR00T owns the project-specific dogfood gate and generated project harness
+  contract under its `skills/visual-harness/roboharness/` directory.
