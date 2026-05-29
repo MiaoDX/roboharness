@@ -145,9 +145,7 @@ def test_build_visual_review_summary_persists_effective_verdict(tmp_path: Path) 
     written = json.loads(path.read_text(encoding="utf-8"))
     assert written["schema_version"] == VISUAL_REVIEW_SUMMARY_SCHEMA_VERSION
     assert written["effective_visual_verdict"] == "NEEDS_HUMAN"
-    assert written["summary"]["needs_human_reasons"] == [
-        "current_only_review_cannot_auto_pass"
-    ]
+    assert written["summary"]["needs_human_reasons"] == ["current_only_review_cannot_auto_pass"]
 
 
 def test_ingest_visual_review_record_fails_on_declared_dimension_failure() -> None:

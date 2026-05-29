@@ -384,8 +384,7 @@ def build_suite_proof_pack(
                 cases.append(
                     SuiteProofPackCase(
                         case_id=case_id,
-                        case_dir=_suite_relative_path(suite_dir, case_dir)
-                        or case_dir.as_posix(),
+                        case_dir=_suite_relative_path(suite_dir, case_dir) or case_dir.as_posix(),
                         status="skipped",
                         proof_pack_path=None,
                         visual_review_manifest_path=None,
@@ -622,9 +621,7 @@ def build_paired_visual_review_manifest(
         )
     pairs = _paired_manifest_evidence(current_evidence, baseline_evidence)
     if not pairs:
-        raise ValueError(
-            f"no paired renderer evidence for case {current_proof_pack.case_id!r}"
-        )
+        raise ValueError(f"no paired renderer evidence for case {current_proof_pack.case_id!r}")
     views = _dedupe(pair[0].view for pair in pairs)
     current_paths = _dedupe(pair[0].path for pair in pairs)
     baseline_paths = _dedupe(pair[1].path for pair in pairs)
@@ -966,10 +963,7 @@ def _paired_manifest_evidence(
     current_evidence: tuple[ProofPackImageRef, ...],
     baseline_evidence: tuple[ProofPackImageRef, ...],
 ) -> tuple[tuple[ProofPackImageRef, ProofPackImageRef], ...]:
-    baseline_by_key = {
-        (ref.renderer, ref.view): ref
-        for ref in baseline_evidence
-    }
+    baseline_by_key = {(ref.renderer, ref.view): ref for ref in baseline_evidence}
     pairs: list[tuple[ProofPackImageRef, ProofPackImageRef]] = []
     for current in current_evidence:
         baseline = baseline_by_key.get((current.renderer, current.view))

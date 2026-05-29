@@ -228,9 +228,7 @@ def test_build_suite_proof_pack_and_visual_review_queue_from_case_artifacts(
     assert queue.schema_version == VISUAL_REVIEW_QUEUE_SCHEMA_VERSION
     assert queue.suite_name == "representative"
     assert len(queue.items) == 1
-    assert queue.items[0].visual_review_manifest_path == (
-        "X36_Y28_Z13/visual_review_manifest.json"
-    )
+    assert queue.items[0].visual_review_manifest_path == ("X36_Y28_Z13/visual_review_manifest.json")
     queue_path = write_visual_review_queue(queue, tmp_path / "visual_review_queue.json")
     queue_payload = json.loads(queue_path.read_text(encoding="utf-8"))
     assert queue_payload["total_items"] == 1
