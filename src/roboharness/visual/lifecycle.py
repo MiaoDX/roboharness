@@ -65,6 +65,14 @@ class VisualCaseSpec:
 
 
 @dataclass(frozen=True)
+class VisualCaseResult:
+    """One downstream case result collected by the embedded suite executor."""
+
+    result: dict[str, Any]
+    case_run: VisualCaseRun | None = None
+
+
+@dataclass(frozen=True)
 class VisualSuiteSpec:
     """A suite name and ordered case list for embedded suite execution."""
 
@@ -500,11 +508,45 @@ def write_suite_visual_artifacts(
 def run_visual_suite(
     suite_spec: VisualSuiteSpec,
     *,
-    case_runner: Callable[[VisualCaseSpec, Path], VisualCaseRun],
+    case_runner: Callable[
+        [VisualCaseSpec, Path], VisualCaseRun | VisualCaseResult | dict[str, Any]
+    ],
     output_root: str | Path,
     options: VisualSuiteOptions | None = None,
 ) -> VisualSuiteArtifacts:
     """Run a downstream-owned case runner through RoboHarness suite orchestration."""
+
+    suite = collect_visual_suite(
+        suite_spec,
+        case_runner=case_runner,
+        output_root=output_root,
+        options=options,
+    )
+    resolved_options = options or VisualSuiteOptions()
+    return suite.write_artifacts(
+        task_intent=resolved_options.task_intent,
+        filename=resolved_options.suite_report_filename,
+    )
+
+
+def collect_visual_suite(
+    suite_spec: VisualSuiteSpec,
+    *,
+    case_runner: Callable[
+        [VisualCaseSpec, Path], VisualCaseRun | VisualCaseResult | dict[str, Any]
+    ],
+    output_root: str | Path,
+    options: VisualSuiteOptions | None = None,
+    error_result_builder: Callable[[VisualCaseSpec, Path, Exception], dict[str, Any]] | None = None,
+) -> VisualSuiteRun:
+    """Collect downstream case results with common suite-loop semantics.
+
+    This is the library-first executor path for projects that must keep their
+    own suite report schema.  The downstream runner owns robot/runtime work and
+    result-row semantics; RoboHarness owns ordered case iteration, output
+    directory selection, error capture, and status accounting through
+    :class:`VisualSuiteRun`.
+    """
 
     resolved_options = options or VisualSuiteOptions()
     suite = VisualSuiteRun(
@@ -516,26 +558,48 @@ def run_visual_suite(
     for case_spec in suite_spec.cases:
         case_dir = output_dir / case_spec.case_id
         try:
-            case_run = case_runner(case_spec, case_dir)
-            if resolved_options.write_case_artifacts:
-                case_run.write_artifacts(task_intent=resolved_options.task_intent)
-            suite.add_case(case_run)
+            result = case_runner(case_spec, case_dir)
+            _add_visual_case_result(
+                suite,
+                result,
+                task_intent=resolved_options.task_intent,
+                write_case_artifacts=resolved_options.write_case_artifacts,
+            )
         except Exception as exc:
             if not resolved_options.continue_on_error:
                 raise
-            suite.add_result(
-                {
+            if error_result_builder is None:
+                error_result = {
                     "case_id": case_spec.case_id,
                     "output_dir": case_dir.as_posix(),
                     "status": "execution_error",
                     "error_type": type(exc).__name__,
                     "error": str(exc),
                 }
-            )
-    return suite.write_artifacts(
-        task_intent=resolved_options.task_intent,
-        filename=resolved_options.suite_report_filename,
-    )
+            else:
+                error_result = error_result_builder(case_spec, case_dir, exc)
+            suite.add_result(error_result)
+    return suite
+
+
+def _add_visual_case_result(
+    suite: VisualSuiteRun,
+    result: VisualCaseRun | VisualCaseResult | dict[str, Any],
+    *,
+    task_intent: str | None,
+    write_case_artifacts: bool,
+) -> None:
+    if isinstance(result, VisualCaseRun):
+        if write_case_artifacts:
+            result.write_artifacts(task_intent=task_intent)
+        suite.add_case(result)
+        return
+    if isinstance(result, VisualCaseResult):
+        if result.case_run is not None and write_case_artifacts:
+            result.case_run.write_artifacts(task_intent=task_intent)
+        suite.add_result(result.result)
+        return
+    suite.add_result(result)
 
 
 def _coerce_snapshot_bundle(

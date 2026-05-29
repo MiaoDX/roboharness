@@ -5,11 +5,13 @@ from pathlib import Path
 
 from roboharness.evidence import RendererReport, SemanticSnapshotBundle
 from roboharness.visual import (
+    VisualCaseResult,
     VisualCaseRun,
     VisualCaseSpec,
     VisualSuiteOptions,
     VisualSuiteRun,
     VisualSuiteSpec,
+    collect_visual_suite,
     run_visual_suite,
 )
 
@@ -193,3 +195,84 @@ def test_run_visual_suite_records_execution_errors_without_hiding_them(tmp_path:
     assert suite_proof_pack["skipped_count"] == 1
     assert suite_proof_pack["cases"][1]["error"] == "case directory does not exist"
     assert queue["total_items"] == 1
+
+
+def test_collect_visual_suite_preserves_downstream_result_rows(tmp_path: Path) -> None:
+    suite_spec = VisualSuiteSpec(
+        suite_name="representative",
+        cases=[VisualCaseSpec("X36_Y28_Z13", payload={"artifact_dir_name": "custom_leaf"})],
+    )
+
+    def _run_case(case_spec: VisualCaseSpec, case_dir: Path) -> VisualCaseResult:
+        custom_case_dir = case_dir.parent / str(case_spec.payload["artifact_dir_name"])
+        case_run = _visual_case(custom_case_dir, case_spec.case_id)
+        return VisualCaseResult(
+            case_run=case_run,
+            result={
+                "case_id": case_spec.case_id,
+                "output_dir": custom_case_dir.as_posix(),
+                "status": "pass",
+                "report_json": (custom_case_dir / "autonomous_report.json").as_posix(),
+                "intent_level": "task_intent",
+                "control_level": "planned_control",
+            },
+        )
+
+    suite = collect_visual_suite(
+        suite_spec,
+        case_runner=_run_case,
+        output_root=tmp_path,
+    )
+    assert suite.results == [
+        {
+            "case_id": "X36_Y28_Z13",
+            "output_dir": (tmp_path / "custom_leaf").as_posix(),
+            "status": "pass",
+            "report_json": (tmp_path / "custom_leaf" / "autonomous_report.json").as_posix(),
+            "intent_level": "task_intent",
+            "control_level": "planned_control",
+        }
+    ]
+    assert (tmp_path / "custom_leaf" / "proof_pack.json").exists()
+
+
+def test_collect_visual_suite_uses_downstream_error_rows(tmp_path: Path) -> None:
+    suite_spec = VisualSuiteSpec(
+        suite_name="representative",
+        cases=[VisualCaseSpec("BROKEN", payload={"object_profile_id": "can_slim"})],
+    )
+
+    def _run_case(case_spec: VisualCaseSpec, case_dir: Path) -> VisualCaseRun:
+        raise RuntimeError(f"boom at {case_spec.case_id} in {case_dir.name}")
+
+    def _error_row(
+        case_spec: VisualCaseSpec,
+        case_dir: Path,
+        exc: Exception,
+    ) -> dict[str, object]:
+        return {
+            "case_id": case_spec.case_id,
+            "output_dir": case_dir.as_posix(),
+            "status": "execution_error",
+            "object_profile_id": case_spec.payload["object_profile_id"],
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        }
+
+    suite = collect_visual_suite(
+        suite_spec,
+        case_runner=_run_case,
+        output_root=tmp_path,
+        error_result_builder=_error_row,
+    )
+
+    assert suite.results == [
+        {
+            "case_id": "BROKEN",
+            "output_dir": (tmp_path / "BROKEN").as_posix(),
+            "status": "execution_error",
+            "object_profile_id": "can_slim",
+            "error_type": "RuntimeError",
+            "error": "boom at BROKEN in BROKEN",
+        }
+    ]
