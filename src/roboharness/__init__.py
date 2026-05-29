@@ -65,6 +65,18 @@ from roboharness.evidence import (
 )
 from roboharness.runner import BatchResult, ParallelTrialRunner, TrialSpec
 from roboharness.storage.history import EvaluationHistory, EvaluationRecord, TrendResult
+from roboharness.visual import (
+    VisualCaseArtifacts,
+    VisualCaseRun,
+    VisualCaseSpec,
+    VisualSuiteArtifacts,
+    VisualSuiteOptions,
+    VisualSuiteRun,
+    VisualSuiteSpec,
+    run_visual_suite,
+    write_case_visual_artifacts,
+    write_suite_visual_artifacts,
+)
 
 __all__ = [
     "BUILTIN_PROTOCOLS",
@@ -118,9 +130,16 @@ __all__ = [
     "TrialSpec",
     "ValidationCommand",
     "Verdict",
+    "VisualCaseArtifacts",
+    "VisualCaseRun",
+    "VisualCaseSpec",
     "VisualReviewDimension",
     "VisualReviewQueue",
     "VisualReviewQueueItem",
+    "VisualSuiteArtifacts",
+    "VisualSuiteOptions",
+    "VisualSuiteRun",
+    "VisualSuiteSpec",
     "build_case_proof_pack",
     "build_paired_visual_review_manifest",
     "build_static_visual_review_manifest",
@@ -129,4 +148,7 @@ __all__ = [
     "check_eval_threshold",
     "default_registry",
     "evaluate_policy",
+    "run_visual_suite",
+    "write_case_visual_artifacts",
+    "write_suite_visual_artifacts",
 ]
