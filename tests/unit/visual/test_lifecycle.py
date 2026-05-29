@@ -13,6 +13,8 @@ from roboharness.visual import (
     VisualSuiteSpec,
     collect_visual_suite,
     run_visual_suite,
+    summarize_visual_suite_results,
+    write_visual_suite_report,
 )
 
 
@@ -162,6 +164,62 @@ def test_visual_suite_run_writes_suite_artifacts(tmp_path: Path) -> None:
     assert suite_report["visual_review_queue_path"] == artifacts.visual_review_queue_path.as_posix()
     assert suite_proof_pack["reviewable_count"] == 1
     assert suite_proof_pack["skipped_count"] == 0
+    assert queue["total_items"] == 1
+
+
+def test_visual_suite_summary_prefers_execution_error_verdict() -> None:
+    summary = summarize_visual_suite_results(
+        [
+            {"case_id": "PASS", "status": "pass"},
+            {"case_id": "FAIL", "status": "fail"},
+            {"case_id": "BROKEN", "status": "execution_error"},
+        ]
+    )
+
+    assert summary.to_dict() == {
+        "total_cases": 3,
+        "pass_count": 1,
+        "fail_count": 1,
+        "execution_error_count": 1,
+        "suite_verdict": "execution_error",
+    }
+
+
+def test_write_visual_suite_report_preserves_downstream_schema(tmp_path: Path) -> None:
+    case_dir = tmp_path / "X36_Y28_Z13"
+    _visual_case(case_dir).write_artifacts()
+    payload = {
+        "suite_name": "representative",
+        "output_root": tmp_path.as_posix(),
+        "robot_type": "g1",
+        "suite_verdict": "pass",
+        "total_cases": 1,
+        "pass_count": 1,
+        "fail_count": 0,
+        "execution_error_count": 0,
+        "results": [
+            {
+                "case_id": "X36_Y28_Z13",
+                "output_dir": case_dir.as_posix(),
+                "status": "pass",
+                "report_json": (case_dir / "autonomous_report.json").as_posix(),
+            }
+        ],
+    }
+
+    artifacts = write_visual_suite_report(
+        payload,
+        tmp_path / "custom_suite_report.json",
+        task_intent="Review downstream suite.",
+    )
+
+    suite_report = json.loads(artifacts.suite_report_path.read_text(encoding="utf-8"))
+    suite_proof_pack = json.loads(artifacts.suite_proof_pack_path.read_text(encoding="utf-8"))
+    queue = json.loads(artifacts.visual_review_queue_path.read_text(encoding="utf-8"))
+    assert suite_report["robot_type"] == "g1"
+    assert suite_report["suite_proof_pack_path"] == artifacts.suite_proof_pack_path.as_posix()
+    assert suite_report["visual_review_queue_path"] == artifacts.visual_review_queue_path.as_posix()
+    assert suite_proof_pack["reviewable_count"] == 1
     assert queue["total_items"] == 1
 
 

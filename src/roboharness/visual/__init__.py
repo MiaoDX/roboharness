@@ -7,12 +7,16 @@ from roboharness.visual.lifecycle import (
     VisualCaseSpec,
     VisualSuiteArtifacts,
     VisualSuiteOptions,
+    VisualSuiteReportArtifacts,
     VisualSuiteRun,
     VisualSuiteSpec,
+    VisualSuiteSummary,
     collect_visual_suite,
     run_visual_suite,
+    summarize_visual_suite_results,
     write_case_visual_artifacts,
     write_suite_visual_artifacts,
+    write_visual_suite_report,
 )
 
 __all__ = [
@@ -22,10 +26,14 @@ __all__ = [
     "VisualCaseSpec",
     "VisualSuiteArtifacts",
     "VisualSuiteOptions",
+    "VisualSuiteReportArtifacts",
     "VisualSuiteRun",
     "VisualSuiteSpec",
+    "VisualSuiteSummary",
     "collect_visual_suite",
     "run_visual_suite",
+    "summarize_visual_suite_results",
     "write_case_visual_artifacts",
     "write_suite_visual_artifacts",
+    "write_visual_suite_report",
 ]

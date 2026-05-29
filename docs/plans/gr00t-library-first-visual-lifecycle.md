@@ -1,6 +1,6 @@
 # GR00T Library-First Visual Lifecycle
 
-Status: proposed
+Status: implemented-with-followups
 
 ## Context
 
@@ -155,3 +155,25 @@ L4 acceptance gates:
   later plan explicitly scopes a command surface.
 - Prefer additive API introduction, then downstream migration, then cleanup of
   deprecated bridge code.
+
+## Implementation Notes
+
+- `roboharness.visual` now exposes embedded case/suite lifecycle objects:
+  `VisualCaseRun`, `VisualSuiteRun`, `VisualCaseSpec`, `VisualSuiteSpec`,
+  `VisualSuiteOptions`, `run_visual_suite`, and `collect_visual_suite`.
+- Downstream-owned suite reports can call `write_visual_suite_report` to write
+  their existing JSON schema while RoboHarness appends suite proof-pack and
+  visual-review queue paths.
+- Downstream suite runners can call `summarize_visual_suite_results` or
+  `VisualSuiteRun.summary()` for status counts and raw suite verdicts with
+  explicit `execution_error` precedence.
+- GR00T now uses these APIs for G1 and Realman visual suite lifecycle glue while
+  keeping robot runtime, renderers, command surfaces, and robot-specific report
+  fields in GR00T.
+
+## Followups
+
+- Resume/missing-case indexing remains future work.
+- Moving robot-specific result-row construction out of GR00T remains future
+  design work; it should not happen until a second downstream repo proves the
+  result schema abstraction is real rather than GR00T-specific.
