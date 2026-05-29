@@ -9,7 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from roboharness._utils import load_json as _load_json
-from roboharness.approval.visual_review import validate_visual_review_manifest
+from roboharness.approval.visual_review import (
+    validate_visual_review_manifest,
+    write_visual_review_summary,
+)
 from roboharness.contract import (
     check_project_harness_skill,
     generate_project_harness_skill,
@@ -416,6 +419,35 @@ def main(argv: list[str] | None = None) -> int:
         help="Output format (default: human).",
     )
 
+    # visual-review-summary
+    visual_review_summary_parser = subparsers.add_parser(
+        "visual-review-summary",
+        help="Validate a visual review record and write its approval summary.",
+    )
+    visual_review_summary_parser.add_argument(
+        "manifest",
+        type=Path,
+        help="Path to visual_review_manifest.json.",
+    )
+    visual_review_summary_parser.add_argument(
+        "record",
+        type=Path,
+        help="Path to visual_review.json.",
+    )
+    visual_review_summary_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Where to write visual_review_summary.json. Defaults next to the record.",
+    )
+    visual_review_summary_parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["human", "json"],
+        default="human",
+        help="Output format (default: human).",
+    )
+
     # contract
     contract_parser = subparsers.add_parser(
         "contract",
@@ -602,6 +634,33 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  renderer_evidence={len(proof_pack.renderer_evidence)}")
             if args.visual_review_manifest is not None:
                 print(f"Visual review manifest written to {args.visual_review_manifest}")
+        return 0
+
+    if args.command == "visual-review-summary":
+        try:
+            manifest = _load_json(args.manifest)
+            record = _load_json(args.record)
+            output_path = args.output or (args.record.parent / "visual_review_summary.json")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            summary_path = write_visual_review_summary(
+                manifest,
+                record,
+                output_path,
+                manifest_path=str(args.manifest),
+                record_path=str(args.record),
+            )
+            summary = _load_json(summary_path)
+        except FileNotFoundError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+        if args.output_format == "json":
+            print(json.dumps(summary, indent=2))
+        else:
+            print(f"Visual review summary written to {summary_path}")
+            print(f"  case_id={summary['case_id']}")
+            print(f"  effective_visual_verdict={summary['effective_visual_verdict']}")
+            print(f"  is_valid={summary['is_valid']}")
         return 0
 
     if args.command == "contract":

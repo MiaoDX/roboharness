@@ -13,20 +13,24 @@ from roboharness.approval.evidence import (
 from roboharness.approval.visual_review import (
     MANIFEST_SCHEMA_VERSION,
     RECORD_SCHEMA_VERSION,
+    VISUAL_REVIEW_SUMMARY_SCHEMA_VERSION,
     VisualReviewPackage,
     VisualReviewResult,
     VisualReviewValidationError,
     build_visual_review_prompt,
     build_visual_review_schema,
+    build_visual_review_summary,
     ingest_visual_review_record,
     validate_visual_review_manifest,
     validate_visual_review_record,
     write_visual_review_package,
+    write_visual_review_summary,
 )
 
 __all__ = [
     "MANIFEST_SCHEMA_VERSION",
     "RECORD_SCHEMA_VERSION",
+    "VISUAL_REVIEW_SUMMARY_SCHEMA_VERSION",
     "EvidencePair",
     "EvidenceStatus",
     "EvidenceTarget",
@@ -36,6 +40,7 @@ __all__ = [
     "VisualReviewValidationError",
     "build_visual_review_prompt",
     "build_visual_review_schema",
+    "build_visual_review_summary",
     "ingest_visual_review_record",
     "render_lightbox_shell",
     "render_zoomable_image",
@@ -44,4 +49,5 @@ __all__ = [
     "validate_visual_review_manifest",
     "validate_visual_review_record",
     "write_visual_review_package",
+    "write_visual_review_summary",
 ]

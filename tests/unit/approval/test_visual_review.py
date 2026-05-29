@@ -9,10 +9,13 @@ import pytest
 from roboharness.approval.visual_review import (
     MANIFEST_SCHEMA_VERSION,
     RECORD_SCHEMA_VERSION,
+    VISUAL_REVIEW_SUMMARY_SCHEMA_VERSION,
     VisualReviewValidationError,
+    build_visual_review_summary,
     ingest_visual_review_record,
     validate_visual_review_manifest,
     write_visual_review_package,
+    write_visual_review_summary,
 )
 
 
@@ -117,6 +120,34 @@ def test_ingest_visual_review_record_accepts_paired_pass() -> None:
     assert result.effective_visual_verdict == "PASS"
     assert result.summary["blocking_dimensions"] == []
     assert result.summary["metric_findings"][0]["id"] == "visual.hand_pose"
+
+
+def test_build_visual_review_summary_persists_effective_verdict(tmp_path: Path) -> None:
+    summary = build_visual_review_summary(
+        _manifest(),
+        _record(),
+        manifest_path="case/visual_review_manifest.json",
+        record_path="case/visual_review.json",
+    )
+
+    assert summary["schema_version"] == VISUAL_REVIEW_SUMMARY_SCHEMA_VERSION
+    assert summary["case_id"] == "case-1"
+    assert summary["is_valid"] is True
+    assert summary["effective_visual_verdict"] == "PASS"
+    assert summary["summary"]["manifest_path"] == "case/visual_review_manifest.json"
+    assert summary["summary"]["record_path"] == "case/visual_review.json"
+
+    path = write_visual_review_summary(
+        _manifest(mode="current_only"),
+        _record(evidence=["current/lift/front_rgb.png"]),
+        tmp_path / "visual_review_summary.json",
+    )
+    written = json.loads(path.read_text(encoding="utf-8"))
+    assert written["schema_version"] == VISUAL_REVIEW_SUMMARY_SCHEMA_VERSION
+    assert written["effective_visual_verdict"] == "NEEDS_HUMAN"
+    assert written["summary"]["needs_human_reasons"] == [
+        "current_only_review_cannot_auto_pass"
+    ]
 
 
 def test_ingest_visual_review_record_fails_on_declared_dimension_failure() -> None:

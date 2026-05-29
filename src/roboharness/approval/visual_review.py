@@ -12,6 +12,7 @@ from roboharness.approval.evidence import resolve_evidence_path
 
 MANIFEST_SCHEMA_VERSION = "roboharness_visual_review_manifest/v1"
 RECORD_SCHEMA_VERSION = "roboharness_visual_review/v1"
+VISUAL_REVIEW_SUMMARY_SCHEMA_VERSION = "roboharness_visual_review_summary/v1"
 
 SUPPORTED_DIMENSIONS = frozenset(
     {
@@ -96,6 +97,56 @@ class VisualReviewValidationError(ValueError):
     def __init__(self, errors: Sequence[str]):
         self.errors = tuple(errors)
         super().__init__("; ".join(self.errors))
+
+
+def build_visual_review_summary(
+    manifest: Mapping[str, Any],
+    record: Mapping[str, Any],
+    *,
+    manifest_path: str = "visual_review_manifest.json",
+    record_path: str = "visual_review.json",
+) -> dict[str, Any]:
+    """Build a persisted summary from a bounded visual review record."""
+
+    result = ingest_visual_review_record(
+        manifest,
+        record,
+        manifest_path=manifest_path,
+        record_path=record_path,
+    )
+    case_id = manifest.get("case_id") if isinstance(manifest.get("case_id"), str) else ""
+    if not case_id and isinstance(record.get("case_id"), str):
+        case_id = str(record["case_id"])
+    return {
+        "schema_version": VISUAL_REVIEW_SUMMARY_SCHEMA_VERSION,
+        "case_id": case_id,
+        "is_valid": result.is_valid,
+        "effective_visual_verdict": result.effective_visual_verdict,
+        "summary": dict(result.summary),
+    }
+
+
+def write_visual_review_summary(
+    manifest: Mapping[str, Any],
+    record: Mapping[str, Any],
+    path: str | Path,
+    *,
+    manifest_path: str = "visual_review_manifest.json",
+    record_path: str = "visual_review.json",
+) -> Path:
+    """Write a persisted summary from a bounded visual review record."""
+
+    output_path = Path(path)
+    save_json(
+        build_visual_review_summary(
+            manifest,
+            record,
+            manifest_path=manifest_path,
+            record_path=record_path,
+        ),
+        output_path,
+    )
+    return output_path
 
 
 def build_visual_review_schema() -> dict[str, Any]:

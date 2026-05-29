@@ -339,6 +339,65 @@ CONTRACT = HarnessContract(
         manifest = json.loads(manifest_path.read_text())
         assert manifest["mode"] == "current_only"
 
+    def test_visual_review_summary_cli_writes_ingested_record_summary(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        manifest = {
+            "schema_version": "roboharness_visual_review_manifest/v1",
+            "case_id": "case-1",
+            "mode": "regression",
+            "task_intent": "Compare case evidence against the explicit baseline.",
+            "dimensions": [
+                {
+                    "id": "hand_pose",
+                    "required": True,
+                    "phase": "final",
+                    "evidence_type": "paired_keyframe",
+                    "views": ["front"],
+                    "current": ["current.png"],
+                    "baseline": ["baseline.png"],
+                    "metric_fallback": ["grip_center_error_mm"],
+                }
+            ],
+            "metric_summary": {"grip_center_error_mm": 3.0},
+            "review_policy": {
+                "requires_paired_evidence": True,
+                "allow_automatic_visual_pass": True,
+            },
+        }
+        record = {
+            "schema_version": "roboharness_visual_review/v1",
+            "case_id": "case-1",
+            "reviewer_context": "unit_test",
+            "overall_visual_verdict": "PASS",
+            "dimensions": [
+                {
+                    "id": "hand_pose",
+                    "verdict": "PASS",
+                    "confidence": "medium",
+                    "evidence": ["current.png", "baseline.png"],
+                    "rationale": "Current and baseline evidence match.",
+                }
+            ],
+            "needs_human_reasons": [],
+        }
+        manifest_path = tmp_path / "visual_review_manifest.json"
+        record_path = tmp_path / "visual_review.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+
+        ret = main(["visual-review-summary", str(manifest_path), str(record_path)])
+
+        assert ret == 0
+        captured = capsys.readouterr()
+        assert "Visual review summary written" in captured.out
+        summary = json.loads((tmp_path / "visual_review_summary.json").read_text())
+        assert summary["schema_version"] == "roboharness_visual_review_summary/v1"
+        assert summary["effective_visual_verdict"] == "PASS"
+        assert summary["summary"]["blocking_dimensions"] == []
+
 
 class TestVariantLayout:
     """Test with TaskStore-style layout: task/variant/trial/checkpoint."""
