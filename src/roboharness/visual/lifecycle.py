@@ -8,7 +8,7 @@ generation to :mod:`roboharness.evidence`.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -53,6 +53,38 @@ class VisualSuiteArtifacts:
     suite_report_path: Path
     suite_proof_pack_path: Path
     visual_review_queue_path: Path
+
+
+@dataclass(frozen=True)
+class VisualSuiteReportArtifacts:
+    """Paths written for a downstream-owned suite report."""
+
+    suite_dir: Path
+    suite_report_path: Path
+    suite_proof_pack_path: Path | None = None
+    visual_review_queue_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class VisualSuiteSummary:
+    """Status accounting for a downstream-owned visual suite."""
+
+    total_cases: int
+    pass_count: int
+    fail_count: int
+    execution_error_count: int
+    suite_verdict: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the suite summary."""
+
+        return {
+            "total_cases": int(self.total_cases),
+            "pass_count": int(self.pass_count),
+            "fail_count": int(self.fail_count),
+            "execution_error_count": int(self.execution_error_count),
+            "suite_verdict": self.suite_verdict,
+        }
 
 
 @dataclass(frozen=True)
@@ -384,32 +416,26 @@ class VisualSuiteRun:
         self.results.append(dict(result))
         return self
 
+    def summary(self) -> VisualSuiteSummary:
+        """Return status counts and the raw suite verdict for collected results."""
+
+        return summarize_visual_suite_results(self.results)
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize the suite report payload."""
 
         payload = dict(self.extra)
+        summary = self.summary()
         payload["suite_name"] = self.suite_name
         payload["output_root"] = self.suite_dir.as_posix()
         if self.metadata:
             payload["metadata"] = dict(self.metadata)
         payload["results"] = [dict(result) for result in self.results]
-        payload.setdefault("total_cases", len(self.results))
-        payload.setdefault(
-            "pass_count",
-            sum(1 for result in self.results if result.get("status") == "pass"),
-        )
-        payload.setdefault(
-            "fail_count",
-            sum(1 for result in self.results if result.get("status") == "fail"),
-        )
-        payload.setdefault(
-            "execution_error_count",
-            sum(1 for result in self.results if result.get("status") == "execution_error"),
-        )
-        payload.setdefault(
-            "suite_verdict",
-            "fail" if payload["fail_count"] or payload["execution_error_count"] else "pass",
-        )
+        payload.setdefault("total_cases", summary.total_cases)
+        payload.setdefault("pass_count", summary.pass_count)
+        payload.setdefault("fail_count", summary.fail_count)
+        payload.setdefault("execution_error_count", summary.execution_error_count)
+        payload.setdefault("suite_verdict", summary.suite_verdict)
         payload["suite_proof_pack_path"] = self.suite_proof_pack_path
         payload["visual_review_queue_path"] = self.visual_review_queue_path
         return payload
@@ -503,6 +529,65 @@ def write_suite_visual_artifacts(
     queue = build_visual_review_queue(suite_proof_pack)
     queue_path = write_visual_review_queue(queue, report_path.parent / "visual_review_queue.json")
     return suite_proof_pack_path, queue_path
+
+
+def summarize_visual_suite_results(
+    results: Sequence[Mapping[str, Any]],
+) -> VisualSuiteSummary:
+    """Summarize downstream-owned result rows with explicit execution errors."""
+
+    pass_count = sum(1 for result in results if result.get("status") == "pass")
+    fail_count = sum(1 for result in results if result.get("status") == "fail")
+    execution_error_count = sum(
+        1 for result in results if result.get("status") == "execution_error"
+    )
+    if execution_error_count > 0:
+        suite_verdict = "execution_error"
+    elif fail_count > 0:
+        suite_verdict = "fail"
+    else:
+        suite_verdict = "pass"
+    return VisualSuiteSummary(
+        total_cases=len(results),
+        pass_count=pass_count,
+        fail_count=fail_count,
+        execution_error_count=execution_error_count,
+        suite_verdict=suite_verdict,
+    )
+
+
+def write_visual_suite_report(
+    payload: Mapping[str, Any],
+    suite_report_path: str | Path,
+    *,
+    task_intent: str | None = None,
+    write_review_artifacts: bool = True,
+) -> VisualSuiteReportArtifacts:
+    """Write a downstream suite report and optional RoboHarness review artifacts."""
+
+    report_path = Path(suite_report_path)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_payload = dict(payload)
+    save_json(report_payload, report_path)
+    if not write_review_artifacts:
+        return VisualSuiteReportArtifacts(
+            suite_dir=report_path.parent,
+            suite_report_path=report_path,
+        )
+
+    suite_proof_pack_path, queue_path = write_suite_visual_artifacts(
+        report_path,
+        task_intent=task_intent,
+    )
+    report_payload["suite_proof_pack_path"] = suite_proof_pack_path.as_posix()
+    report_payload["visual_review_queue_path"] = queue_path.as_posix()
+    save_json(report_payload, report_path)
+    return VisualSuiteReportArtifacts(
+        suite_dir=report_path.parent,
+        suite_report_path=report_path,
+        suite_proof_pack_path=suite_proof_pack_path,
+        visual_review_queue_path=queue_path,
+    )
 
 
 def run_visual_suite(
