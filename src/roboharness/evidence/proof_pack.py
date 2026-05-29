@@ -905,7 +905,14 @@ def _suite_case_dir(suite_dir: Path, result: dict[str, Any]) -> Path:
     output_dir = result.get("output_dir")
     if isinstance(output_dir, str) and output_dir:
         path = Path(output_dir)
-        return path if path.is_absolute() else suite_dir / path
+        if path.is_absolute():
+            return path
+        if path.exists():
+            return path
+        suite_relative = suite_dir / path
+        if suite_relative.exists():
+            return suite_relative
+        return path
     artifact_dir_name = result.get("artifact_dir_name")
     if isinstance(artifact_dir_name, str) and artifact_dir_name:
         return suite_dir / artifact_dir_name

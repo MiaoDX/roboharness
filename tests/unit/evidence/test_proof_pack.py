@@ -234,6 +234,41 @@ def test_build_suite_proof_pack_and_visual_review_queue_from_case_artifacts(
     assert queue_payload["total_items"] == 1
 
 
+def test_suite_proof_pack_accepts_repo_relative_case_output_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = tmp_path / "repo"
+    suite_root = repo_root / "tmp" / "visual_harness" / "suite"
+    case_dir = suite_root / "X36_Y28_Z13"
+    _write_groot_case(case_dir)
+    suite_report_path = suite_root / "suite_report_representative.json"
+    _write_json(
+        suite_report_path,
+        {
+            "suite_name": "representative",
+            "output_root": suite_root.as_posix(),
+            "results": [
+                {
+                    "case_id": "X36_Y28_Z13",
+                    "output_dir": "tmp/visual_harness/suite/X36_Y28_Z13",
+                    "status": "pass",
+                }
+            ],
+        },
+    )
+    monkeypatch.chdir(repo_root)
+
+    suite_proof_pack = build_suite_proof_pack(suite_report_path)
+    queue = build_visual_review_queue(suite_proof_pack)
+
+    assert suite_proof_pack.reviewable_count == 1
+    assert suite_proof_pack.skipped_count == 0
+    assert suite_proof_pack.cases[0].case_dir == "X36_Y28_Z13"
+    assert suite_proof_pack.cases[0].proof_pack_path == "X36_Y28_Z13/proof_pack.json"
+    assert len(queue.items) == 1
+
+
 def test_suite_proof_pack_skips_execution_errors(tmp_path: Path) -> None:
     suite_report_path = tmp_path / "suite_report_representative.json"
     _write_json(
